@@ -1,13 +1,13 @@
 import { Routes } from '@angular/router';
-import { AppShellComponent } from './core/layout/app-shell/app-shell.component';
-import { FlightListComponent } from './features/flights/pages/flight-list/flight-list.component';
-import { FlightDetailsComponent } from './features/flights/pages/flight-details/flight-details.component';
-import { FlightImportComponent } from './features/flights/pages/flight-import/flight-import.component';
+import { AppShell } from './core/layout/app-shell/app-shell';
+import { FlightList } from './features/flights/pages/flight-list/flight-list';
+import { FlightDetails } from './features/flights/pages/flight-details/flight-details';
+import { FlightImport } from './features/flights/pages/flight-import/flight-import';
 
 export const routes: Routes = [
   {
     path: '',
-    component: AppShellComponent,
+    component: AppShell,
     children: [
       {
         path: '',
@@ -16,15 +16,15 @@ export const routes: Routes = [
       },
       {
         path: 'flights',
-        component: FlightListComponent,
+        component: FlightList,
       },
       {
         path: 'flights/:id',
-        component: FlightDetailsComponent,
+        component: FlightDetails,
       },
       {
         path: 'import',
-        component: FlightImportComponent,
+        component: FlightImport,
       },
     ],
   },
