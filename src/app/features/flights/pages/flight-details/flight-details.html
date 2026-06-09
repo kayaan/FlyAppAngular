@@ -3,100 +3,102 @@
     <a routerLink="/flights" class="back-link">← Back to flights</a>
 
     @if (store.flight(); as flight) {
-      <div class="title-block">
-        <h1>{{ formatDate(flight.date) }}</h1>
-        <p>
-          {{ flight.pilotName || 'Unknown pilot' }}
-          ·
-          {{ flight.gliderType || 'Unknown glider' }}
-        </p>
-      </div>
+    <div class="title-block">
+      <h1>{{ formatDate(flight.date) }}</h1>
+      <p>
+        {{ flight.pilotName || 'Unknown pilot' }}
+        ·
+        {{ flight.gliderType || 'Unknown glider' }}
+      </p>
+    </div>
     }
   </header>
 
   @if (store.loading()) {
-    <div class="loading-box">Loading flight...</div>
+  <div class="loading-box">Loading flight...</div>
   }
 
   @if (store.error()) {
-    <div class="error-box">
-      {{ store.error() }}
-    </div>
+  <div class="error-box">
+    {{ store.error() }}
+  </div>
   }
 
   @if (!store.loading() && store.flight(); as flight) {
-    @let stats = flightStats();
+  @let stats = flightStats();
 
-    <div class="details-layout">
-      <section class="left-panel">
-        <div class="stats-grid">
-          <article class="stat-card">
-            <span class="stat-label">Duration</span>
-            <strong>{{ formatDuration(stats?.durationSec) }}</strong>
-          </article>
+  <div class="details-layout">
+    <section class="left-panel">
+      <div class="stats-grid">
+        <article class="stat-card">
+          <span class="stat-label">Duration</span>
+          <strong>{{ formatDuration(stats?.durationSec) }}</strong>
+        </article>
 
-          <article class="stat-card">
-            <span class="stat-label">Distance</span>
-            <strong>{{ formatDistance(stats?.distanceM) }}</strong>
-          </article>
+        <article class="stat-card">
+          <span class="stat-label">Distance</span>
+          <strong>{{ formatDistance(stats?.distanceM) }}</strong>
+        </article>
 
-          <article class="stat-card">
-            <span class="stat-label">Altitude</span>
-            <strong>
-              {{ formatHeight(stats?.minAltGpsM) }}
-              –
-              {{ formatHeight(stats?.maxAltGpsM) }}
-            </strong>
-          </article>
+        <article class="stat-card">
+          <span class="stat-label">Altitude</span>
+          <strong>
+            {{ formatHeight(stats?.minAltGpsM) }}
+            –
+            {{ formatHeight(stats?.maxAltGpsM) }}
+          </strong>
+        </article>
 
-          <article class="stat-card">
-            <span class="stat-label">Max speed</span>
-            <strong>{{ formatSpeed(stats?.maxSpeedKmh) }}</strong>
-          </article>
-        </div>
+        <article class="stat-card">
+          <span class="stat-label">Max speed</span>
+          <strong>{{ formatSpeed(stats?.maxSpeedKmh) }}</strong>
+        </article>
+      </div>
 
-        <section class="chart-card">
-          <header>
-            <h2>Altitude</h2>
-          </header>
+      <section class="chart-card">
+        <header>
+          <h2>Altitude</h2>
+        </header>
 
-          <div class="chart-placeholder">
-            Altitude chart
-          </div>
-        </section>
-
-        <section class="chart-card">
-          <header>
-            <h2>Climb</h2>
-          </header>
-
-          <div class="chart-placeholder">
-            Climb / vario chart
-          </div>
-        </section>
-
-        <section class="chart-card">
-          <header>
-            <h2>Speed</h2>
-          </header>
-
-          <div class="chart-placeholder">
-            Speed chart
-          </div>
-        </section>
-      </section>
-
-      <section class="right-panel">
-        <div class="map-card">
-          <header>
-            <h2>Track</h2>
-          </header>
-
-          <div class="map-placeholder">
-            Map with track
-          </div>
+        <div class="chart-body">
+          <app-flight-line-chart title="Altitude" unit="m" [data]="altitudeData()" />
         </div>
       </section>
-    </div>
+
+      <section class="chart-card">
+        <header>
+          <h2>Climb</h2>
+        </header>
+
+        <div class="chart-body">
+          <app-flight-line-chart title="Climb" unit="m/s" [data]="varioData()" />
+        </div>
+      </section>
+
+      <section class="chart-card">
+        <header>
+          <h2>Speed</h2>
+        </header>
+
+        <div class="chart-body">
+          <app-flight-line-chart title="Speed" unit="km/h" [data]="speedData()" />
+        </div>
+      </section>
+
+
+    </section>
+
+    <section class="right-panel">
+      <div class="map-card">
+        <header>
+          <h2>Track</h2>
+        </header>
+
+        <div class="map-placeholder">
+          Map with track
+        </div>
+      </div>
+    </section>
+  </div>
   }
 </section>

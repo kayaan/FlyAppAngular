@@ -3,11 +3,12 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 
 import { FlightDetailsStore } from '../../store/flight-details.store';
+import { FlightChartPoint, FlightLineChart } from '../../components/flight-line-chart/flight-line-chart';
 
 @Component({
   selector: 'app-flight-details',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, FlightLineChart],
   templateUrl: './flight-details.html',
   styleUrl: './flight-details.scss',
 })
@@ -31,6 +32,142 @@ export class FlightDetails implements OnInit, OnDestroy {
     }
 
     void this.store.loadFlight(flightId);
+  }
+
+  altitudeData(): FlightChartPoint[] {
+    const track = this.store.track();
+
+    if (!track) {
+      return [];
+    }
+
+    const result: FlightChartPoint[] = [];
+
+    for (let i = 0; i < track.timeSec.length; i++) {
+      result.push({
+        index: i,
+        timeSec: track.timeSec[i],
+        value: track.altGpsCm[i] / 100,
+      });
+    }
+
+    return result;
+  }
+
+  varioData(): FlightChartPoint[] {
+    const track = this.store.track();
+
+    if (!track) {
+      return [];
+    }
+
+    const result: FlightChartPoint[] = [];
+
+    result.push({
+      index: 0,
+      timeSec: track.timeSec[0],
+      value: 0,
+    });
+
+    for (let i = 1; i < track.timeSec.length; i++) {
+      const dt = track.timeSec[i] - track.timeSec[i - 1];
+
+      if (dt <= 0) {
+        result.push({
+          index: i,
+          timeSec: track.timeSec[i],
+          value: 0,
+        });
+        continue;
+      }
+
+      const altNowM = track.altGpsCm[i] / 100;
+      const altPrevM = track.altGpsCm[i - 1] / 100;
+
+      result.push({
+        index: i,
+        timeSec: track.timeSec[i],
+        value: (altNowM - altPrevM) / dt,
+      });
+    }
+
+    return result;
+  }
+
+  speedData(): FlightChartPoint[] {
+    const track = this.store.track();
+
+    if (!track) {
+      return [];
+    }
+
+    const result: FlightChartPoint[] = [];
+
+    result.push({
+      index: 0,
+      timeSec: track.timeSec[0],
+      value: 0,
+    });
+
+    for (let i = 1; i < track.timeSec.length; i++) {
+      const dt = track.timeSec[i] - track.timeSec[i - 1];
+
+      if (dt <= 0) {
+        result.push({
+          index: i,
+          timeSec: track.timeSec[i],
+          value: 0,
+        });
+        continue;
+      }
+
+      const distanceM = this.distanceMeters(
+        track.latE7[i - 1] / 10_000_000,
+        track.lonE7[i - 1] / 10_000_000,
+        track.latE7[i] / 10_000_000,
+        track.lonE7[i] / 10_000_000
+      );
+
+      const speedMs = distanceM / dt;
+      const speedKmh = speedMs * 3.6;
+
+      result.push({
+        index: i,
+        timeSec: track.timeSec[i],
+        value: speedKmh,
+      });
+    }
+
+    return result;
+  }
+
+  private distanceMeters(
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number
+  ): number {
+    const earthRadiusM = 6_371_000;
+
+    const phi1 = this.toRad(lat1);
+    const phi2 = this.toRad(lat2);
+    const deltaPhi = this.toRad(lat2 - lat1);
+    const deltaLambda = this.toRad(lon2 - lon1);
+
+    const a =
+      Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+      Math.cos(phi1) *
+      Math.cos(phi2) *
+      Math.sin(deltaLambda / 2) *
+      Math.sin(deltaLambda / 2);
+
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return earthRadiusM * c;
+  }
+
+  private toRad(value: number): number {
+    return (value * Math.PI) / 180;
   }
 
   formatDate(value: string | undefined | null): string {
