@@ -62,6 +62,19 @@ export const FlightsStore = signalStore(
        * Imports one IGC file and reloads the flight list afterwards.
        */
       async importFile(file: File): Promise<void> {
+        await this.importFiles([file]);
+      },
+
+      /**
+       * Imports multiple IGC files and reloads the flight list afterwards.
+       */
+      async importFiles(files: FileList | File[]): Promise<void> {
+        const fileArray = Array.from(files);
+
+        if (fileArray.length === 0) {
+          return;
+        }
+
         patchState(store, {
           loading: true,
           error: null,
@@ -69,14 +82,20 @@ export const FlightsStore = signalStore(
         });
 
         try {
-          const result = await flightSaveService.saveFile(file);
+          let lastImportedFlightId: number | null = null;
+          let duplicateCount = 0;
+          let importedCount = 0;
 
-          if (result.duplicate) {
-            patchState(store, {
-              loading: false,
-              error: 'This flight was already imported.',
-            });
-            return;
+          for (const file of fileArray) {
+            const result = await flightSaveService.saveFile(file);
+
+            if (result.duplicate) {
+              duplicateCount++;
+              continue;
+            }
+
+            importedCount++;
+            lastImportedFlightId = result.flightId;
           }
 
           const flights = await storage.getFlights();
@@ -84,12 +103,16 @@ export const FlightsStore = signalStore(
           patchState(store, {
             flights,
             loading: false,
-            lastImportedFlightId: result.flightId,
+            lastImportedFlightId,
+            error:
+              duplicateCount > 0
+                ? `${duplicateCount} file(s) were already imported.`
+                : null,
           });
         } catch {
           patchState(store, {
             loading: false,
-            error: 'Could not import flight.',
+            error: 'Could not import flights.',
           });
         }
       },

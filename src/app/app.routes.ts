@@ -1,7 +1,5 @@
 import { Routes } from '@angular/router';
 import { AppShell } from './core/layout/app-shell/app-shell';
-import { FlightList } from './features/flights/pages/flight-list/flight-list';
-import { FlightDetails } from './features/flights/pages/flight-details/flight-details';
 
 export const routes: Routes = [
   {
@@ -15,11 +13,17 @@ export const routes: Routes = [
       },
       {
         path: 'flights',
-        component: FlightList,
+        loadComponent: () =>
+          import('./features/flights/pages/flight-list/flight-list').then(
+            (m) => m.FlightList
+          ),
       },
       {
         path: 'flights/:id',
-        component: FlightDetails,
+        loadComponent: () =>
+          import('./features/flights/pages/flight-details/flight-details').then(
+            (m) => m.FlightDetails
+          ),
       },
     ],
   },
