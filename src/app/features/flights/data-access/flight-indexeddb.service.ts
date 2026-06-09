@@ -14,6 +14,7 @@ import {
     NewFlightImport,
     NewFlightStats,
 } from './flight-storage.interface';
+import { FlightListItem } from '../models/flight-list-item.model';
 
 interface FlightDbSchema extends DBSchema {
     flights: {
@@ -100,6 +101,32 @@ export class FlightIndexedDbService implements FlightStorage {
         }
 
         return this.dbPromise;
+    }
+
+    async getFlightListItems(): Promise<FlightListItem[]> {
+        const db = await this.getDb();
+
+        const flights = await db.getAll('flights');
+        const stats = await db.getAll('stats');
+
+        const flightStatsByFlightId = new Map<number, FlightStats>();
+
+        for (const stat of stats) {
+            if (stat.scopeType === 'flight') {
+                flightStatsByFlightId.set(stat.flightId, stat);
+            }
+        }
+
+        return flights
+            .map((flight) => ({
+                flight,
+                stats: flightStatsByFlightId.get(flight.id) ?? null,
+            }))
+            .sort((a, b) => {
+                const dateA = a.flight.date ?? a.flight.importedAtUtc;
+                const dateB = b.flight.date ?? b.flight.importedAtUtc;
+                return dateB.localeCompare(dateA);
+            });
     }
 
     /**

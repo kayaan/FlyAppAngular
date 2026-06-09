@@ -9,13 +9,14 @@ import {
 import { Flight } from '../models/flight.model';
 import { FlightSaveService } from '../services/flight-save.service';
 import { FlightIndexedDbService } from '../data-access/flight-indexeddb.service';
+import { FlightListItem } from '../models/flight-list-item.model';
 
-interface FlightsState {
-  flights: Flight[];
+type FlightsState = {
+  flights: FlightListItem[];
   loading: boolean;
   error: string | null;
   lastImportedFlightId: number | null;
-}
+};
 
 const initialState: FlightsState = {
   flights: [],
@@ -44,7 +45,7 @@ export const FlightsStore = signalStore(
         });
 
         try {
-          const flights = await storage.getFlights();
+          const flights = await storage.getFlightListItems();
 
           patchState(store, {
             flights,
@@ -98,7 +99,7 @@ export const FlightsStore = signalStore(
             lastImportedFlightId = result.flightId;
           }
 
-          const flights = await storage.getFlights();
+          const flights = await storage.getFlightListItems();
 
           patchState(store, {
             flights,
@@ -129,7 +130,7 @@ export const FlightsStore = signalStore(
         try {
           await storage.deleteFlight(flightId);
 
-          const flights = await storage.getFlights();
+          const flights = await storage.getFlightListItems();
 
           patchState(store, {
             flights,

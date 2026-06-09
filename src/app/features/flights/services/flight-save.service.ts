@@ -46,6 +46,11 @@ export class FlightSaveService {
     const newFlight: NewFlight = {
       fileName: analysis.fileName,
       fileHash: analysis.fileHash,
+
+      pilotName: analysis.meta.pilot,
+      gliderType: analysis.meta.glider,
+      date: analysis.meta.date,
+
       importedAtUtc: nowUtc,
     };
 

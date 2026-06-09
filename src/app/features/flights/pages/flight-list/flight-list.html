@@ -2,65 +2,116 @@
   <header class="page-header">
     <div>
       <h1>Flights</h1>
-      <p>Import and manage your IGC flights.</p>
+      <p>Imported IGC flights</p>
     </div>
 
-    <button type="button" class="primary-button" (click)="openFileDialog()">
-      Import IGC
-    </button>
+    <div class="header-actions">
+      <button type="button" class="primary-button" (click)="fileInput.click()">
+        + Import IGC
+      </button>
 
-    <input
-      #fileInput
-      type="file"
-      accept=".igc"
-      multiple
-      hidden
-      (change)="onFilesSelected($event)"
-    />
+      <input
+        #fileInput
+        type="file"
+        accept=".igc"
+        multiple
+        hidden
+        (change)="onFilesSelected($event)"
+      />
+    </div>
   </header>
 
-  @if (store.loading()) {
-    <p class="info">Loading...</p>
-  }
-
   @if (store.error()) {
-    <div class="error">
-      <span>{{ store.error() }}</span>
-
-      <button type="button" (click)="store.clearError()">
-        Close
-      </button>
+    <div class="error-box">
+      {{ store.error() }}
+      <button type="button" (click)="store.clearError()">Dismiss</button>
     </div>
   }
 
-  @if (store.flights().length === 0 && !store.loading()) {
-    <div class="empty-state">
-      <h2>No flights yet</h2>
-      <p>Import one or more IGC files to start.</p>
+  @if (store.loading()) {
+    <div class="loading-box">Loading flights...</div>
+  }
+
+  @if (!store.loading() && store.flights().length === 0) {
+    <div class="empty-box">
+      <h2>No flights imported yet</h2>
+      <p>Import one or more IGC files to start analysing your flights.</p>
     </div>
-  } @else {
-    <div class="flight-table">
-      <div class="flight-table-header">
-        <span>File</span>
-        <span>Imported</span>
-        <span></span>
-      </div>
+  }
 
-      @for (flight of store.flights(); track flight.id) {
-        <div class="flight-row">
-          <a [routerLink]="['/flights', flight.id]">
-            {{ flight.fileName }}
-          </a>
+  @if (store.flights().length > 0) {
+    <div class="table-card">
+      <table class="flight-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Pilot</th>
+            <th>Glider</th>
+            <th>Time</th>
+            <th class="numeric">Duration</th>
+            <th class="numeric">Distance</th>
+            <th class="numeric">Min height</th>
+            <th class="numeric">Max height</th>
+            <th class="actions-col">Actions</th>
+          </tr>
+        </thead>
 
-          <span>
-            {{ flight.importedAtUtc | date: 'short' }}
-          </span>
+        <tbody>
+          @for (item of store.flights(); track item.flight.id) {
+            <tr>
+              <td>
+                <div class="date-cell">
+                  <strong>{{ formatDate(item.flight.date) }}</strong>
+                  <span>{{ item.flight.fileName }}</span>
+                </div>
+              </td>
 
-          <button type="button" (click)="deleteFlight(flight.id)">
-            Delete
-          </button>
-        </div>
-      }
+              <td>{{ item.flight.pilotName || '—' }}</td>
+              <td>{{ item.flight.gliderType  || '—' }}</td>
+              <td>{{ formatTime(item.stats?.startTimeSec) }}</td>
+
+              <td class="numeric">
+                {{ formatDuration(item.stats?.durationSec) }}
+              </td>
+
+              <td class="numeric">
+                {{ formatDistance(item.stats?.distanceM) }}
+              </td>
+
+              <td class="numeric">
+                {{ formatHeight(item.stats?.minAltGpsM) }}
+              </td>
+
+              <td class="numeric">
+                {{ formatHeight(item.stats?.maxAltGpsM) }}
+              </td>
+
+              <td class="actions-col">
+                <div class="row-actions">
+                  <a
+                    class="icon-button"
+                    [routerLink]="['/flights', item.flight.id]"
+                    title="Open details"
+                    aria-label="Open details"
+                  >
+                    <span class="icon">↗</span>
+                  </a>
+
+                  <button
+                    type="button"
+                    class="icon-button danger"
+                    title="Delete flight"
+                    aria-label="Delete flight"
+                    (click)="store.deleteFlight(item.flight.id)"
+                  >
+                    <span class="icon">🗑</span>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
     </div>
   }
 </section>

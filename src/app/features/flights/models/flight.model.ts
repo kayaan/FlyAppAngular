@@ -6,8 +6,6 @@ export interface Flight {
 
   pilotName?: string;
   gliderType?: string;
-  gliderId?: string;
-
   date?: string;
 
   importedAtUtc: string;

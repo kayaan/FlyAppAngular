@@ -2,6 +2,7 @@ import { Flight } from '../models/flight.model';
 import { TrackArrays } from '../models/track-arrays.model';
 import { Climb } from '../models/climb.model';
 import { FlightStats } from '../models/flight-stats.model';
+import { FlightListItem } from '../models/flight-list-item.model';
 
 export type NewFlight = Omit<Flight, 'id'>;
 export type NewClimb = Omit<Climb, 'id' | 'flightId'>;
@@ -23,6 +24,8 @@ export interface FlightDetails {
 
 export interface FlightStorage {
   getFlights(): Promise<Flight[]>;
+
+  getFlightListItems(): Promise<FlightListItem[]>;
 
   getFlight(flightId: number): Promise<Flight | undefined>;
 

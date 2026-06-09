@@ -9,9 +9,17 @@ import { TrackArrays } from '../models/track-arrays.model';
 import { CalculatedFlightStats } from '../models/calculated-flight-stats.model';
 import { DetectedClimb } from '../models/detected-climb.model';
 
+export interface FlightImportMeta {
+  pilot?: string;
+  glider?: string;
+  date?: string;
+}
+
 export interface FlightImportAnalysisResult {
   fileName: string;
   fileHash: string;
+
+  meta: FlightImportMeta;
 
   track: TrackArrays;
   stats: CalculatedFlightStats;
@@ -28,13 +36,13 @@ export class FlightImportService {
   private readonly fileHashService = inject(FileHashService);
 
   /**
-   * Imports and analyzes an IGC file.
+   * Imports and analyzes one IGC file.
    *
-   * This service does not save anything yet.
+   * This service does not save anything.
    * It only:
    * - calculates the file hash
    * - reads the IGC text
-   * - parses the track
+   * - parses track + metadata
    * - calculates flight stats
    * - detects climbs
    */
@@ -42,14 +50,18 @@ export class FlightImportService {
     const fileHash = await this.fileHashService.calculateFileHash(file);
     const igcText = await file.text();
 
-    const track = this.igcParser.parse(igcText);
-    const stats = this.statsCalculator.calculate(track);
-    const climbs = this.climbDetector.detectClimbs(track);
+    const parsed = this.igcParser.parse(igcText);
+
+    const stats = this.statsCalculator.calculate(parsed.track);
+    const climbs = this.climbDetector.detectClimbs(parsed.track);
 
     return {
       fileName: file.name,
       fileHash,
-      track,
+
+      meta: parsed.meta,
+
+      track: parsed.track,
       stats,
       climbs,
     };
