@@ -50,7 +50,7 @@ export const FlightsStore = signalStore(
             flights,
             loading: false,
           });
-        } catch (error) {
+        } catch {
           patchState(store, {
             loading: false,
             error: 'Could not load flights.',
@@ -86,7 +86,7 @@ export const FlightsStore = signalStore(
             loading: false,
             lastImportedFlightId: result.flightId,
           });
-        } catch (error) {
+        } catch {
           patchState(store, {
             loading: false,
             error: 'Could not import flight.',
@@ -95,7 +95,7 @@ export const FlightsStore = signalStore(
       },
 
       /**
-       * Deletes one flight and reloads the flight list afterwards.
+       * Deletes one flight and reloads the list afterwards.
        */
       async deleteFlight(flightId: number): Promise<void> {
         patchState(store, {
@@ -112,7 +112,7 @@ export const FlightsStore = signalStore(
             flights,
             loading: false,
           });
-        } catch (error) {
+        } catch {
           patchState(store, {
             loading: false,
             error: 'Could not delete flight.',
