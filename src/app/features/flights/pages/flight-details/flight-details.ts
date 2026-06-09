@@ -33,6 +33,53 @@ export class FlightDetails implements OnInit, OnDestroy {
     void this.store.loadFlight(flightId);
   }
 
+  formatDate(value: string | undefined | null): string {
+    if (!value) return '—';
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+      return value;
+    }
+
+    return new Intl.DateTimeFormat('de-DE', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    }).format(date);
+  }
+
+  formatDuration(durationSec: number | undefined | null): string {
+    if (durationSec == null) return '—';
+
+    const hours = Math.floor(durationSec / 3600);
+    const minutes = Math.floor((durationSec % 3600) / 60);
+
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    }
+
+    return `${minutes}m`;
+  }
+
+  formatDistance(distanceM: number | undefined | null): string {
+    if (distanceM == null) return '—';
+
+    return `${(distanceM / 1000).toFixed(1)} km`;
+  }
+
+  formatHeight(heightM: number | undefined | null): string {
+    if (heightM == null) return '—';
+
+    return `${Math.round(heightM)} m`;
+  }
+
+  formatSpeed(speedKmh: number | undefined | null): string {
+    if (speedKmh == null) return '—';
+
+    return `${Math.round(speedKmh)} km/h`;
+  }
+
   ngOnDestroy(): void {
     this.store.clear();
   }

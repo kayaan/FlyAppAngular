@@ -217,3 +217,143 @@
     width: 100%;
   }
 }
+
+.table-card {
+  overflow-x: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow:
+    0 1px 2px rgba(16, 24, 40, 0.04),
+    0 16px 40px rgba(16, 24, 40, 0.08);
+}
+
+.flight-table {
+  width: 100%;
+  min-width: 1080px;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-family: inherit;
+
+  th,
+  td {
+    padding: 14px 18px;
+    border-bottom: 1px solid #eef2f7;
+    text-align: left;
+    vertical-align: middle;
+    white-space: nowrap;
+  }
+
+  th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: #f8fafc;
+    color: #667085;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  tbody tr {
+    transition:
+      background-color 0.15s ease,
+      box-shadow 0.15s ease;
+
+    &:hover {
+      background: #f9fafb;
+    }
+  }
+
+  tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  .numeric {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.main-cell {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.primary-text {
+  color: #101828;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.secondary-text {
+  max-width: 260px;
+  overflow: hidden;
+  color: #667085;
+  font-size: 12px;
+  text-overflow: ellipsis;
+}
+
+.mono-text {
+  color: #101828;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.actions-col {
+  width: 100px;
+  text-align: right;
+}
+
+.row-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.icon-button {
+  display: inline-flex;
+  width: 34px;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #d0d5dd;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #344054;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    transform 0.1s ease;
+
+  svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  &:hover {
+    background: #f2f4f7;
+    border-color: #98a2b3;
+    color: #101828;
+  }
+
+  &:active {
+    transform: scale(0.96);
+  }
+
+  &.danger {
+    color: #b42318;
+
+    &:hover {
+      background: #fef3f2;
+      border-color: #fda29b;
+      color: #912018;
+    }
+  }
+}

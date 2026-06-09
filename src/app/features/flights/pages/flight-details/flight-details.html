@@ -1,119 +1,101 @@
 <section class="flight-details-page">
-  <header class="page-header">
-    <div>
-      <a routerLink="/flights" class="back-link">← Back to flights</a>
+  <header class="details-header">
+    <a routerLink="/flights" class="back-link">← Back to flights</a>
 
-      @if (store.flight()) {
-        <h1>{{ store.flight()?.fileName }}</h1>
-      } @else {
-        <h1>Flight details</h1>
-      }
-    </div>
+    @if (store.flight(); as flight) {
+      <div class="title-block">
+        <h1>{{ formatDate(flight.date) }}</h1>
+        <p>
+          {{ flight.pilotName || 'Unknown pilot' }}
+          ·
+          {{ flight.gliderType || 'Unknown glider' }}
+        </p>
+      </div>
+    }
   </header>
 
   @if (store.loading()) {
-    <p class="info">Loading flight details...</p>
+    <div class="loading-box">Loading flight...</div>
   }
 
   @if (store.error()) {
-    <div class="error">
-      <span>{{ store.error() }}</span>
-
-      <button type="button" (click)="store.clearError()">Close</button>
+    <div class="error-box">
+      {{ store.error() }}
     </div>
   }
 
-  @if (store.flight() && !store.loading()) {
-    <div class="details-grid">
-      <section class="card">
-        <h2>Flight</h2>
+  @if (!store.loading() && store.flight(); as flight) {
+    @let stats = flightStats();
 
-        <dl>
-          <dt>File name</dt>
-          <dd>{{ store.flight()?.fileName }}</dd>
+    <div class="details-layout">
+      <section class="left-panel">
+        <div class="stats-grid">
+          <article class="stat-card">
+            <span class="stat-label">Duration</span>
+            <strong>{{ formatDuration(stats?.durationSec) }}</strong>
+          </article>
 
-          <dt>Imported</dt>
-          <dd>{{ store.flight()?.importedAtUtc | date: 'short' }}</dd>
+          <article class="stat-card">
+            <span class="stat-label">Distance</span>
+            <strong>{{ formatDistance(stats?.distanceM) }}</strong>
+          </article>
 
-          <dt>File hash</dt>
-          <dd class="hash">{{ store.flight()?.fileHash }}</dd>
+          <article class="stat-card">
+            <span class="stat-label">Altitude</span>
+            <strong>
+              {{ formatHeight(stats?.minAltGpsM) }}
+              –
+              {{ formatHeight(stats?.maxAltGpsM) }}
+            </strong>
+          </article>
 
-          <dt>Track points</dt>
-          <dd>{{ trackPointCount() }}</dd>
+          <article class="stat-card">
+            <span class="stat-label">Max speed</span>
+            <strong>{{ formatSpeed(stats?.maxSpeedKmh) }}</strong>
+          </article>
+        </div>
 
-          <dt>Detected climbs</dt>
-          <dd>{{ store.climbs().length }}</dd>
-        </dl>
-      </section>
+        <section class="chart-card">
+          <header>
+            <h2>Altitude</h2>
+          </header>
 
-      <section class="card">
-        <h2>Stats</h2>
-
-        @if (flightStats()) {
-          <dl>
-            <dt>Duration</dt>
-            <dd>{{ flightStats()?.durationSec | number: '1.0-0' }} s</dd>
-
-            <dt>Distance</dt>
-            <dd>{{ (flightStats()?.distanceM ?? 0) / 1000 | number: '1.1-1' }} km</dd>
-
-            <dt>Avg speed</dt>
-            <dd>{{ flightStats()?.avgSpeedKmh | number: '1.1-1' }} km/h</dd>
-
-            <dt>Max speed</dt>
-            <dd>{{ flightStats()?.maxSpeedKmh | number: '1.1-1' }} km/h</dd>
-
-            <dt>GPS altitude</dt>
-            <dd>
-              {{ flightStats()?.minAltGpsM | number: '1.0-0' }} m –
-              {{ flightStats()?.maxAltGpsM | number: '1.0-0' }} m
-            </dd>
-
-            <dt>GPS gain</dt>
-            <dd>{{ flightStats()?.gainGpsM | number: '1.0-0' }} m</dd>
-
-            <dt>Baro altitude</dt>
-            <dd>
-              {{ flightStats()?.minAltBaroM | number: '1.0-0' }} m –
-              {{ flightStats()?.maxAltBaroM | number: '1.0-0' }} m
-            </dd>
-
-            <dt>Baro gain</dt>
-            <dd>{{ flightStats()?.gainBaroM | number: '1.0-0' }} m</dd>
-          </dl>
-        } @else {
-          <p>No stats available.</p>
-        }
-      </section>
-
-      <section class="card wide">
-        <h2>Climbs</h2>
-
-        @if (store.climbs().length === 0) {
-          <p>No climbs detected.</p>
-        } @else {
-          <div class="climb-table">
-            <div class="climb-table-header">
-              <span>#</span>
-              <span>Gain</span>
-              <span>Avg climb</span>
-              <span>Duration</span>
-              <span>Start index</span>
-              <span>End index</span>
-            </div>
-
-            @for (climb of store.climbs(); track climb.id; let i = $index) {
-              <div class="climb-row">
-                <span>{{ i + 1 }}</span>
-                <span>{{ climb.gainM | number: '1.0-0' }} m</span>
-                <span>{{ climb.avgClimbMs | number: '1.1-1' }} m/s</span>
-                <span>{{ climb.durationSec | number: '1.0-0' }} s</span>
-                <span>{{ climb.startIndex }}</span>
-                <span>{{ climb.endIndex }}</span>
-              </div>
-            }
+          <div class="chart-placeholder">
+            Altitude chart
           </div>
-        }
+        </section>
+
+        <section class="chart-card">
+          <header>
+            <h2>Climb</h2>
+          </header>
+
+          <div class="chart-placeholder">
+            Climb / vario chart
+          </div>
+        </section>
+
+        <section class="chart-card">
+          <header>
+            <h2>Speed</h2>
+          </header>
+
+          <div class="chart-placeholder">
+            Speed chart
+          </div>
+        </section>
+      </section>
+
+      <section class="right-panel">
+        <div class="map-card">
+          <header>
+            <h2>Track</h2>
+          </header>
+
+          <div class="map-placeholder">
+            Map with track
+          </div>
+        </div>
       </section>
     </div>
   }

@@ -10,108 +10,114 @@
         + Import IGC
       </button>
 
-      <input
-        #fileInput
-        type="file"
-        accept=".igc"
-        multiple
-        hidden
-        (change)="onFilesSelected($event)"
-      />
+      <input #fileInput type="file" accept=".igc" multiple hidden (change)="onFilesSelected($event)" />
     </div>
   </header>
 
   @if (store.error()) {
-    <div class="error-box">
-      {{ store.error() }}
-      <button type="button" (click)="store.clearError()">Dismiss</button>
-    </div>
+  <div class="error-box">
+    {{ store.error() }}
+    <button type="button" (click)="store.clearError()">Dismiss</button>
+  </div>
   }
 
   @if (store.loading()) {
-    <div class="loading-box">Loading flights...</div>
+  <div class="loading-box">Loading flights...</div>
   }
 
   @if (!store.loading() && store.flights().length === 0) {
-    <div class="empty-box">
-      <h2>No flights imported yet</h2>
-      <p>Import one or more IGC files to start analysing your flights.</p>
-    </div>
+  <div class="empty-box">
+    <h2>No flights imported yet</h2>
+    <p>Import one or more IGC files to start analysing your flights.</p>
+  </div>
   }
 
   @if (store.flights().length > 0) {
-    <div class="table-card">
-      <table class="flight-table">
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>Pilot</th>
-            <th>Glider</th>
-            <th>Time</th>
-            <th class="numeric">Duration</th>
-            <th class="numeric">Distance</th>
-            <th class="numeric">Min height</th>
-            <th class="numeric">Max height</th>
-            <th class="actions-col">Actions</th>
-          </tr>
-        </thead>
+  <div class="table-card">
+    <table class="flight-table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Pilot</th>
+          <th>Glider</th>
+          <th>Time</th>
+          <th class="numeric">Duration</th>
+          <th class="numeric">Distance</th>
+          <th class="numeric">Min Alt</th>
+          <th class="numeric">Max Alt</th>
+          <th class="actions-col">Actions</th>
+        </tr>
+      </thead>
 
-        <tbody>
-          @for (item of store.flights(); track item.flight.id) {
-            <tr>
-              <td>
-                <div class="date-cell">
-                  <strong>{{ formatDate(item.flight.date) }}</strong>
-                  <span>{{ item.flight.fileName }}</span>
-                </div>
-              </td>
+      <tbody>
+        @for (item of store.flights(); track item.flight.id) {
+        <tr>
+          <td>
+            <div class="main-cell">
+              <span class="primary-text">{{ formatDate(item.flight.date) }}</span>
+              <span class="secondary-text">{{ item.flight.fileName }}</span>
+            </div>
+          </td>
 
-              <td>{{ item.flight.pilotName || '—' }}</td>
-              <td>{{ item.flight.gliderType  || '—' }}</td>
-              <td>{{ formatTime(item.stats?.startTimeSec) }}</td>
+          <td>
+            <span class="primary-text">
+              {{ item.flight.pilotName || '—' }}
+            </span>
+          </td>
 
-              <td class="numeric">
-                {{ formatDuration(item.stats?.durationSec) }}
-              </td>
+          <td>
+            <div class="main-cell">
+              <span class="primary-text">
+                {{ item.flight.gliderType || '—' }}
+              </span>
 
-              <td class="numeric">
-                {{ formatDistance(item.stats?.distanceM) }}
-              </td>
+            </div>
+          </td>
 
-              <td class="numeric">
-                {{ formatHeight(item.stats?.minAltGpsM) }}
-              </td>
+          <td>
+            <span class="mono-text">
+              {{ formatTime(item.stats?.startTimeSec) }}
+            </span>
+          </td>
 
-              <td class="numeric">
-                {{ formatHeight(item.stats?.maxAltGpsM) }}
-              </td>
+          <td class="numeric">
+            {{ formatDuration(item.stats?.durationSec) }}
+          </td>
 
-              <td class="actions-col">
-                <div class="row-actions">
-                  <a
-                    class="icon-button"
-                    [routerLink]="['/flights', item.flight.id]"
-                    title="Open details"
-                    aria-label="Open details"
-                  >
-                    <span class="icon">↗</span>
-                  </a>
+          <td class="numeric">
+            {{ formatDistance(item.stats?.distanceM) }}
+          </td>
 
-                  <button
-                    type="button"
-                    class="icon-button danger"
-                    title="Delete flight"
-                    aria-label="Delete flight"
-                    (click)="store.deleteFlight(item.flight.id)"
-                  >
-                    <span class="icon">🗑</span>
-                  </button>
-                </div>
-              </td>
-            </tr>
-          }
-        </tbody>
-      </table>
-    </div>
+          <td class="numeric">
+            {{ formatHeight(item.stats?.minAltGpsM) }}
+          </td>
+
+          <td class="numeric">
+            {{ formatHeight(item.stats?.maxAltGpsM) }}
+          </td>
+
+          <td class="actions-col">
+            <div class="row-actions">
+              <a class="icon-button" [routerLink]="['/flights', item.flight.id]" title="Details" aria-label="Details">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M9 18l6-6-6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                    stroke-linejoin="round" />
+                </svg>
+              </a>
+
+              <button type="button" class="icon-button danger" title="Delete" aria-label="Delete"
+                (click)="store.deleteFlight(item.flight.id)">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M4 7h16M10 11v6M14 11v6M6 7l1 14h10l1-14M9 7V4h6v3" fill="none" stroke="currentColor"
+                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+              </button>
+            </div>
+          </td>
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
   }
 </section>
