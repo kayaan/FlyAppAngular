@@ -1,5 +1,66 @@
-<h1>Flights</h1>
+<section class="flight-list-page">
+  <header class="page-header">
+    <div>
+      <h1>Flights</h1>
+      <p>Import and manage your IGC flights.</p>
+    </div>
 
-<p>Hier kommt später die Flugliste.</p>
+    <button type="button" class="primary-button" (click)="openFileDialog()">
+      Import IGC
+    </button>
 
-<a routerLink="/flights/1">Test Flight Details öffnen</a>
+    <input
+      #fileInput
+      type="file"
+      accept=".igc"
+      multiple
+      hidden
+      (change)="onFilesSelected($event)"
+    />
+  </header>
+
+  @if (store.loading()) {
+    <p class="info">Loading...</p>
+  }
+
+  @if (store.error()) {
+    <div class="error">
+      <span>{{ store.error() }}</span>
+
+      <button type="button" (click)="store.clearError()">
+        Close
+      </button>
+    </div>
+  }
+
+  @if (store.flights().length === 0 && !store.loading()) {
+    <div class="empty-state">
+      <h2>No flights yet</h2>
+      <p>Import one or more IGC files to start.</p>
+    </div>
+  } @else {
+    <div class="flight-table">
+      <div class="flight-table-header">
+        <span>File</span>
+        <span>Imported</span>
+        <span></span>
+      </div>
+
+      @for (flight of store.flights(); track flight.id) {
+        <div class="flight-row">
+          <a [routerLink]="['/flights', flight.id]">
+            {{ flight.fileName }}
+          </a>
+
+          <span>
+            {{ flight.importedAtUtc | date: 'short' }}
+          </span>
+
+          <button type="button" (click)="deleteFlight(flight.id)">
+            Delete
+          </button>
+        </div>
+      }
+    </div>
+  }
+</section>

@@ -1,0 +1,83 @@
+.flight-list-page {
+  padding: 24px;
+}
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.page-header h1 {
+  margin: 0;
+}
+
+.page-header p {
+  margin: 4px 0 0;
+  color: #666;
+}
+
+.primary-button {
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.info {
+  margin: 16px 0;
+}
+
+.error {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px;
+  margin-bottom: 16px;
+  border: 1px solid #d33;
+  border-radius: 6px;
+}
+
+.empty-state {
+  padding: 32px;
+  border: 1px dashed #aaa;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.flight-table {
+  display: grid;
+  gap: 8px;
+}
+
+.flight-table-header,
+.flight-row {
+  display: grid;
+  grid-template-columns: 1fr 180px 100px;
+  align-items: center;
+  gap: 16px;
+  padding: 12px;
+}
+
+.flight-table-header {
+  font-weight: 700;
+  border-bottom: 1px solid #ddd;
+}
+
+.flight-row {
+  border: 1px solid #ddd;
+  border-radius: 6px;
+}
+
+.flight-row a {
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.flight-row button {
+  padding: 6px 10px;
+  cursor: pointer;
+}
