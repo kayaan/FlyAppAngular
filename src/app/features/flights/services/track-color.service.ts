@@ -6,8 +6,13 @@ import { ColoredTrackSegment } from '../models/colored-track-segment.model';
 const MIN_VARIO_MS = -4;
 const MAX_VARIO_MS = 4;
 
-const LIGHT_SINK_COLOR = '#fa6f6f'; 
-const DARK_CLIMB_COLOR = '#3d0000'; 
+// Sink: weak sink -> strong sink
+const WEAK_SINK_COLOR = '#fd0000';
+const STRONG_SINK_COLOR = '#840000';
+
+// Climb: weak climb -> strong climb
+const WEAK_CLIMB_COLOR = '#00f95b';
+const STRONG_CLIMB_COLOR = '#004e1f';
 
 @Injectable({
   providedIn: 'root',
@@ -84,12 +89,21 @@ export class TrackColorService {
   private getVarioColor(varioMs: number): string {
     const clamped = this.clamp(varioMs, MIN_VARIO_MS, MAX_VARIO_MS);
 
-    const t =
-      (clamped - MIN_VARIO_MS) / (MAX_VARIO_MS - MIN_VARIO_MS);
+    if (clamped < 0) {
+      const t = Math.abs(clamped) / Math.abs(MIN_VARIO_MS);
+
+      return this.interpolateColor(
+        WEAK_SINK_COLOR,
+        STRONG_SINK_COLOR,
+        t,
+      );
+    }
+
+    const t = clamped / MAX_VARIO_MS;
 
     return this.interpolateColor(
-      LIGHT_SINK_COLOR,
-      DARK_CLIMB_COLOR,
+      WEAK_CLIMB_COLOR,
+      STRONG_CLIMB_COLOR,
       t,
     );
   }
