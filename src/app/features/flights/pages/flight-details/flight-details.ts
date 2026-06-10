@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 
@@ -11,6 +11,10 @@ import {
 import { FlightSummaryTags } from '../../components/flight-summary-tags/flight-summary-tags';
 import { FlightSettingsStore } from '../../store/flight-settings.store';
 import { TrackArrays } from '../../models/track-arrays.model';
+import { debounceTime, Subject, takeUntil } from 'rxjs';
+
+
+const RESOLUTION_INPUT_DEBOUNCE_MS = 350;
 
 @Component({
   selector: 'app-flight-details',
@@ -27,6 +31,43 @@ export class FlightDetails implements OnInit, OnDestroy {
   readonly settingsStore = inject(FlightSettingsStore);
 
   readonly settingsDrawerOpen = signal(false);
+
+  private readonly destroy$ = new Subject<void>();
+
+  private readonly altitudeResolutionInput$: Subject<number> = new Subject<number>();
+  private readonly varioResolutionInput$: Subject<number> = new Subject<number>();
+  private readonly speedResolutionInput$: Subject<number> = new Subject<number>();
+
+  private readonly resolutionDebounceMs = 350;
+
+  constructor() {
+    this.altitudeResolutionInput$
+      .pipe(
+        debounceTime(RESOLUTION_INPUT_DEBOUNCE_MS),
+        takeUntil(this.destroy$)
+      )
+      .subscribe((value) => {
+        this.settingsStore.setAltitudeChartResolutionInSec(value);
+      });
+
+    this.varioResolutionInput$
+      .pipe(
+        debounceTime(RESOLUTION_INPUT_DEBOUNCE_MS),
+        takeUntil(this.destroy$)
+      )
+      .subscribe((value) => {
+        this.settingsStore.setVarioChartResolutionInSec(value);
+      });
+
+    this.speedResolutionInput$
+      .pipe(
+        debounceTime(RESOLUTION_INPUT_DEBOUNCE_MS),
+        takeUntil(this.destroy$)
+      )
+      .subscribe((value) => {
+        this.settingsStore.setSpeedChartResolutionInSec(value);
+      });
+  }
 
   readonly flightStats = computed(() =>
     this.store.stats().find((item) => item.scopeType === 'flight') ?? null
@@ -70,17 +111,17 @@ export class FlightDetails implements OnInit, OnDestroy {
 
   setAltitudeResolution(event: Event): void {
     const value = Number((event.target as HTMLInputElement).value);
-    this.settingsStore.setAltitudeChartResolutionInSec(value);
+    this.altitudeResolutionInput$.next(value);
   }
 
   setVarioResolution(event: Event): void {
     const value = Number((event.target as HTMLInputElement).value);
-    this.settingsStore.setVarioChartResolutionInSec(value);
+    this.varioResolutionInput$.next(value);
   }
 
   setSpeedResolution(event: Event): void {
     const value = Number((event.target as HTMLInputElement).value);
-    this.settingsStore.setSpeedChartResolutionInSec(value);
+    this.speedResolutionInput$.next(value);
   }
 
   readonly altitudeData = computed<FlightChartPoint[]>(() => {
@@ -146,7 +187,7 @@ export class FlightDetails implements OnInit, OnDestroy {
     return result;
   });
 
-  
+
   private averageAltitudeM(
     track: TrackArrays,
     currentIndex: number,
@@ -330,6 +371,13 @@ export class FlightDetails implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+
     this.store.clear();
   }
+}
+
+function takeUntilDestroyed(destroyRef: DestroyRef): import("rxjs").OperatorFunction<number, unknown> {
+  throw new Error('Function not implemented.');
 }
