@@ -1,0 +1,95 @@
+/* Top KPI cards */
+.primary-tags {
+  display: grid;
+
+  /*
+    Auto-wrap cards depending on available width.
+    Cards keep a sane minimum, but move to next row if needed.
+  */
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+
+  gap: 12px;
+}
+
+.summary-card {
+  min-width: 0;
+
+  border: 1px solid #d9e0ea;
+  border-radius: 10px;
+  padding: 12px 14px;
+  background: #ffffff;
+
+  container-type: inline-size;
+}
+
+.card-label {
+  color: #758397;
+  font-size: clamp(11px, 8cqw, 14px);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.card-value {
+  margin-top: 4px;
+  color: #000000;
+  font-size: clamp(15px, 12cqw, 22px);
+  font-weight: 800;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.card-sub-value {
+  margin-top: 7px;
+  color: #758397;
+  font-size: clamp(10px, 7cqw, 13px);
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+
+/* Bottom compact metrics */
+.secondary-metrics {
+  display: grid;
+
+  /*
+    Important fix:
+    auto-fit makes the row wrap instead of overflowing.
+  */
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+
+  gap: 12px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid #e4e9f0;
+}
+
+.metric {
+  min-width: 0;
+
+  border: 1px solid #d9e0ea;
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #ffffff;
+
+  container-type: inline-size;
+}
+
+.metric-label {
+  color: #758397;
+  font-size: clamp(11px, 8cqw, 14px);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.metric-value {
+  margin-top: 6px;
+  color: #000000;
+  font-size: clamp(14px, 10cqw, 19px);
+  font-weight: 750;
+  line-height: 1.15;
+
+  /*
+    Default: keep value in one line.
+  */
+  white-space: nowrap;
+}

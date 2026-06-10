@@ -1,7 +1,8 @@
-import { inject } from '@angular/core';
+import { computed, inject } from '@angular/core';
 import {
   patchState,
   signalStore,
+  withComputed,
   withMethods,
   withState,
 } from '@ngrx/signals';
@@ -11,12 +12,20 @@ import { TrackArrays } from '../models/track-arrays.model';
 import { Climb } from '../models/climb.model';
 import { FlightStats } from '../models/flight-stats.model';
 import { FlightIndexedDbService } from '../data-access/flight-indexeddb.service';
+import { DerivedFlightStatsService } from '../services/derived-flight-stats.service';
+import { StatsSelection } from '../models/derived-flight-stats.model';
 
 type FlightDetailsState = {
   flight: Flight | null;
   track: TrackArrays | null;
   climbs: Climb[];
   stats: FlightStats[];
+
+  selectedClimbId: number | null;
+  selectedRange: {
+    startIndex: number;
+    endIndex: number;
+  } | null;
 
   cursorIndex: number | null;
 
@@ -30,6 +39,9 @@ const initialState: FlightDetailsState = {
   climbs: [],
   stats: [],
 
+  selectedClimbId: null,
+  selectedRange: null,
+
   cursorIndex: null,
 
   loading: false,
@@ -37,18 +49,75 @@ const initialState: FlightDetailsState = {
 };
 
 export const FlightDetailsStore = signalStore(
-  { providedIn: 'root' },
-
   withState(initialState),
+
+  withComputed((store) => {
+    const derivedStatsService = inject(DerivedFlightStatsService);
+
+    return {
+      derivedStats: computed(() => {
+        const selectedRange = store.selectedRange();
+        const selectedClimbId = store.selectedClimbId();
+
+        const selection: StatsSelection =
+          selectedRange !== null
+            ? {
+              type: 'range',
+              startIndex: selectedRange.startIndex,
+              endIndex: selectedRange.endIndex,
+            }
+            : selectedClimbId !== null
+              ? {
+                type: 'climb',
+                climbId: selectedClimbId,
+              }
+              : {
+                type: 'flight',
+              };
+
+        return derivedStatsService.derive(
+          store.track(),
+          store.climbs(),
+          selection
+        );
+      }),
+    };
+  }),
 
   withMethods((store) => {
     const storage = inject(FlightIndexedDbService);
 
     return {
-
       setCursorIndex(index: number | null): void {
         patchState(store, {
           cursorIndex: index,
+        });
+      },
+
+      selectClimb(climbId: number): void {
+        patchState(store, {
+          selectedClimbId: climbId,
+          selectedRange: null,
+          cursorIndex: null,
+        });
+      },
+
+      selectRange(startIndex: number, endIndex: number): void {
+        patchState(store, {
+          selectedClimbId: null,
+          selectedRange: {
+            startIndex: Math.min(startIndex, endIndex),
+            endIndex: Math.max(startIndex, endIndex),
+          },
+          cursorIndex: null,
+        });
+      },
+
+      clearSelection(): void {
+        patchState(store, {
+          selectedClimbId: null,
+          selectedRange: null,
+          cursorIndex: null,
         });
       },
 
@@ -59,6 +128,9 @@ export const FlightDetailsStore = signalStore(
         patchState(store, {
           loading: true,
           error: null,
+          selectedClimbId: null,
+          selectedRange: null,
+          cursorIndex: null,
         });
 
         try {
@@ -70,9 +142,13 @@ export const FlightDetailsStore = signalStore(
               track: null,
               climbs: [],
               stats: [],
+              selectedClimbId: null,
+              selectedRange: null,
+              cursorIndex: null,
               loading: false,
               error: 'Flight not found.',
             });
+
             return;
           }
 
@@ -81,6 +157,9 @@ export const FlightDetailsStore = signalStore(
             track: details.track ?? null,
             climbs: details.climbs,
             stats: details.stats,
+            selectedClimbId: null,
+            selectedRange: null,
+            cursorIndex: null,
             loading: false,
             error: null,
           });
@@ -90,6 +169,9 @@ export const FlightDetailsStore = signalStore(
             track: null,
             climbs: [],
             stats: [],
+            selectedClimbId: null,
+            selectedRange: null,
+            cursorIndex: null,
             loading: false,
             error: 'Could not load flight details.',
           });
