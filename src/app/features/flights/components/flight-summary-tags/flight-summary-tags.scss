@@ -93,3 +93,35 @@
   */
   white-space: nowrap;
 }
+
+.summary-header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+
+  min-width: 0;
+  flex-wrap: nowrap;
+}
+
+.summary-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 0 0 auto;
+}
+
+.title,
+.scope-pill,
+.summary-time {
+  white-space: nowrap;
+}
+
+.summary-time {
+  color: #6b7890;
+  font-size: 14px;
+  flex: 0 1 auto;
+  min-width: 0;
+}
