@@ -12,20 +12,26 @@ import { Climb } from '../models/climb.model';
 import { FlightStats } from '../models/flight-stats.model';
 import { FlightIndexedDbService } from '../data-access/flight-indexeddb.service';
 
-interface FlightDetailsState {
+type FlightDetailsState = {
   flight: Flight | null;
   track: TrackArrays | null;
   climbs: Climb[];
   stats: FlightStats[];
+
+  cursorIndex: number | null;
+
   loading: boolean;
   error: string | null;
-}
+};
 
 const initialState: FlightDetailsState = {
   flight: null,
   track: null,
   climbs: [],
   stats: [],
+
+  cursorIndex: null,
+
   loading: false,
   error: null,
 };
@@ -39,6 +45,13 @@ export const FlightDetailsStore = signalStore(
     const storage = inject(FlightIndexedDbService);
 
     return {
+
+      setCursorIndex(index: number | null): void {
+        patchState(store, {
+          cursorIndex: index,
+        });
+      },
+
       /**
        * Loads one flight with track, climbs and stats.
        */
