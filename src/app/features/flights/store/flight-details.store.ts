@@ -14,6 +14,8 @@ import { FlightStats } from '../models/flight-stats.model';
 import { FlightIndexedDbService } from '../data-access/flight-indexeddb.service';
 import { DerivedFlightStatsService } from '../services/derived-flight-stats.service';
 import { StatsSelection } from '../models/derived-flight-stats.model';
+import { FlightSettingsStore } from './flight-settings.store';
+import { TrackColorService } from '../services/track-color.service';
 
 type FlightDetailsState = {
   flight: Flight | null;
@@ -81,6 +83,20 @@ export const FlightDetailsStore = signalStore(
           selection
         );
       }),
+    };
+  }),
+  
+  withComputed((store) => {
+    const settings = inject(FlightSettingsStore);
+    const trackColorService = inject(TrackColorService);
+
+    return {
+      coloredTrackSegments: computed(() =>
+        trackColorService.buildVarioColoredSegments(
+          store.track(),
+          settings.varioChartResolutionInSec(),
+        ),
+      ),
     };
   }),
 
@@ -194,5 +210,7 @@ export const FlightDetailsStore = signalStore(
         });
       },
     };
-  })
+  }),
+
+
 );

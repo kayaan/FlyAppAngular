@@ -38,7 +38,7 @@ export class FlightDetails implements OnInit, OnDestroy {
   private readonly varioResolutionInput$: Subject<number> = new Subject<number>();
   private readonly speedResolutionInput$: Subject<number> = new Subject<number>();
 
-  private readonly resolutionDebounceMs = 350;
+  private readonly resolutionDebounceMs = 500;
 
   constructor() {
     this.altitudeResolutionInput$
