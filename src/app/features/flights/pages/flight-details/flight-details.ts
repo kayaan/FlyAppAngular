@@ -4,10 +4,13 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 
 import { FlightDetailsStore } from '../../store/flight-details.store';
 import { FlightMap } from '../../components/flight-map/flight-map';
-import { FlightChartPoint, FlightLineChart } from '../../components/flight-line-chart/flight-line-chart';
+import {
+  FlightChartPoint,
+  FlightLineChart,
+} from '../../components/flight-line-chart/flight-line-chart';
 import { FlightSummaryTags } from '../../components/flight-summary-tags/flight-summary-tags';
 import { FlightSettingsStore } from '../../store/flight-settings.store';
-import { single } from 'rxjs';
+import { TrackArrays } from '../../models/track-arrays.model';
 
 @Component({
   selector: 'app-flight-details',
@@ -19,12 +22,11 @@ import { single } from 'rxjs';
 })
 export class FlightDetails implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
+
+  readonly store = inject(FlightDetailsStore);
   readonly settingsStore = inject(FlightSettingsStore);
 
   readonly settingsDrawerOpen = signal(false);
-
-  readonly store = inject(FlightDetailsStore);
-
 
   readonly flightStats = computed(() =>
     this.store.stats().find((item) => item.scopeType === 'flight') ?? null
@@ -81,111 +83,174 @@ export class FlightDetails implements OnInit, OnDestroy {
     this.settingsStore.setSpeedChartResolutionInSec(value);
   }
 
-  altitudeData(): FlightChartPoint[] {
+  readonly altitudeData = computed<FlightChartPoint[]>(() => {
     const track = this.store.track();
 
     if (!track) {
       return [];
     }
 
+    const resolutionSec = this.settingsStore.altitudeChartResolutionInSec();
     const result: FlightChartPoint[] = [];
 
     for (let i = 0; i < track.timeSec.length; i++) {
       result.push({
         index: i,
         timeSec: track.timeSec[i],
-        value: track.altGpsCm[i] / 100,
+        value: this.averageAltitudeM(track, i, resolutionSec),
       });
     }
 
     return result;
-  }
+  });
 
-  varioData(): FlightChartPoint[] {
+  readonly varioData = computed<FlightChartPoint[]>(() => {
     const track = this.store.track();
 
     if (!track) {
       return [];
     }
 
+    const resolutionSec = this.settingsStore.varioChartResolutionInSec();
     const result: FlightChartPoint[] = [];
 
-    result.push({
-      index: 0,
-      timeSec: track.timeSec[0],
-      value: 0,
-    });
-
-    for (let i = 1; i < track.timeSec.length; i++) {
-      const dt = track.timeSec[i] - track.timeSec[i - 1];
-
-      if (dt <= 0) {
-        result.push({
-          index: i,
-          timeSec: track.timeSec[i],
-          value: 0,
-        });
-        continue;
-      }
-
-      const altNowM = track.altGpsCm[i] / 100;
-      const altPrevM = track.altGpsCm[i - 1] / 100;
-
+    for (let i = 0; i < track.timeSec.length; i++) {
       result.push({
         index: i,
         timeSec: track.timeSec[i],
-        value: (altNowM - altPrevM) / dt,
+        value: this.averageVarioMs(track, i, resolutionSec),
       });
     }
 
     return result;
-  }
+  });
 
-  speedData(): FlightChartPoint[] {
+  readonly speedData = computed<FlightChartPoint[]>(() => {
     const track = this.store.track();
 
     if (!track) {
       return [];
     }
 
+    const resolutionSec = this.settingsStore.speedChartResolutionInSec();
     const result: FlightChartPoint[] = [];
 
-    result.push({
-      index: 0,
-      timeSec: track.timeSec[0],
-      value: 0,
-    });
+    for (let i = 0; i < track.timeSec.length; i++) {
+      result.push({
+        index: i,
+        timeSec: track.timeSec[i],
+        value: this.averageSpeedKmh(track, i, resolutionSec),
+      });
+    }
 
-    for (let i = 1; i < track.timeSec.length; i++) {
-      const dt = track.timeSec[i] - track.timeSec[i - 1];
+    return result;
+  });
 
-      if (dt <= 0) {
-        result.push({
-          index: i,
-          timeSec: track.timeSec[i],
-          value: 0,
-        });
-        continue;
+  
+  private averageAltitudeM(
+    track: TrackArrays,
+    currentIndex: number,
+    resolutionSec: number
+  ): number {
+    const currentTimeSec = track.timeSec[currentIndex];
+    const fromTimeSec = currentTimeSec - resolutionSec;
+
+    let sum = 0;
+    let count = 0;
+
+    for (let i = currentIndex; i >= 0; i--) {
+      if (track.timeSec[i] < fromTimeSec) {
+        break;
       }
 
-      const distanceM = this.distanceMeters(
+      sum += track.altGpsCm[i] / 100;
+      count++;
+    }
+
+    if (count === 0) {
+      return track.altGpsCm[currentIndex] / 100;
+    }
+
+    return sum / count;
+  }
+
+  private averageVarioMs(
+    track: TrackArrays,
+    currentIndex: number,
+    resolutionSec: number
+  ): number {
+    if (currentIndex === 0) {
+      return 0;
+    }
+
+    const previousIndex = this.findPreviousIndexByResolution(
+      track.timeSec,
+      currentIndex,
+      resolutionSec
+    );
+
+    const dtSec = track.timeSec[currentIndex] - track.timeSec[previousIndex];
+
+    if (dtSec <= 0) {
+      return 0;
+    }
+
+    const altitudeDiffM =
+      (track.altGpsCm[currentIndex] - track.altGpsCm[previousIndex]) / 100;
+
+    return altitudeDiffM / dtSec;
+  }
+
+  private averageSpeedKmh(
+    track: TrackArrays,
+    currentIndex: number,
+    resolutionSec: number
+  ): number {
+    if (currentIndex === 0) {
+      return 0;
+    }
+
+    const previousIndex = this.findPreviousIndexByResolution(
+      track.timeSec,
+      currentIndex,
+      resolutionSec
+    );
+
+    const dtSec = track.timeSec[currentIndex] - track.timeSec[previousIndex];
+
+    if (dtSec <= 0) {
+      return 0;
+    }
+
+    let distanceM = 0;
+
+    for (let i = previousIndex + 1; i <= currentIndex; i++) {
+      distanceM += this.distanceMeters(
         track.latE7[i - 1] / 10_000_000,
         track.lonE7[i - 1] / 10_000_000,
         track.latE7[i] / 10_000_000,
         track.lonE7[i] / 10_000_000
       );
-
-      const speedMs = distanceM / dt;
-      const speedKmh = speedMs * 3.6;
-
-      result.push({
-        index: i,
-        timeSec: track.timeSec[i],
-        value: speedKmh,
-      });
     }
 
-    return result;
+    return (distanceM / dtSec) * 3.6;
+  }
+
+  private findPreviousIndexByResolution(
+    timeSec: Int32Array,
+    currentIndex: number,
+    resolutionSec: number
+  ): number {
+    const safeResolutionSec = Math.max(1, Math.round(resolutionSec));
+    const targetTimeSec = timeSec[currentIndex] - safeResolutionSec;
+
+    for (let i = currentIndex - 1; i >= 0; i--) {
+      if (timeSec[i] <= targetTimeSec) {
+        return i;
+      }
+    }
+
+    return 0;
   }
 
   private distanceMeters(
