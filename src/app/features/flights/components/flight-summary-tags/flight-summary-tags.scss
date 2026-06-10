@@ -1,106 +1,23 @@
-/* Top KPI cards */
-.primary-tags {
-  display: grid;
-
-  /*
-    Auto-wrap cards depending on available width.
-    Cards keep a sane minimum, but move to next row if needed.
-  */
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-
-  gap: 12px;
+:host {
+  display: block;
+  width: 100%;
 }
 
-.summary-card {
-  min-width: 0;
-
+.summary-panel {
   border: 1px solid #d9e0ea;
-  border-radius: 10px;
-  padding: 12px 14px;
+  border-radius: 12px;
   background: #ffffff;
-
-  container-type: inline-size;
-}
-
-.card-label {
-  color: #758397;
-  font-size: clamp(11px, 8cqw, 14px);
-  line-height: 1.2;
-  white-space: nowrap;
-}
-
-.card-value {
-  margin-top: 4px;
-  color: #000000;
-  font-size: clamp(15px, 12cqw, 22px);
-  font-weight: 800;
-  line-height: 1.1;
-  white-space: nowrap;
-}
-
-.card-sub-value {
-  margin-top: 7px;
-  color: #758397;
-  font-size: clamp(10px, 7cqw, 13px);
-  line-height: 1.25;
-  white-space: nowrap;
-}
-
-
-/* Bottom compact metrics */
-.secondary-metrics {
-  display: grid;
-
-  /*
-    Important fix:
-    auto-fit makes the row wrap instead of overflowing.
-  */
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-
-  gap: 12px;
-  margin-top: 14px;
-  padding-top: 12px;
-  border-top: 1px solid #e4e9f0;
-}
-
-.metric {
-  min-width: 0;
-
-  border: 1px solid #d9e0ea;
-  border-radius: 10px;
   padding: 10px 12px;
-  background: #ffffff;
-
-  container-type: inline-size;
 }
 
-.metric-label {
-  color: #758397;
-  font-size: clamp(11px, 8cqw, 14px);
-  line-height: 1.2;
-  white-space: nowrap;
-}
-
-.metric-value {
-  margin-top: 6px;
-  color: #000000;
-  font-size: clamp(14px, 10cqw, 19px);
-  font-weight: 750;
-  line-height: 1.15;
-
-  /*
-    Default: keep value in one line.
-  */
-  white-space: nowrap;
-}
-
+/* Header */
 .summary-header {
   display: flex;
   align-items: center;
   justify-content: flex-start;
   gap: 12px;
-  margin-bottom: 12px;
 
+  margin-bottom: 10px;
   min-width: 0;
   flex-wrap: nowrap;
 }
@@ -109,19 +26,181 @@
   display: flex;
   align-items: center;
   gap: 8px;
+
   min-width: 0;
   flex: 0 0 auto;
 }
 
-.title,
-.scope-pill,
-.summary-time {
+.title {
+  color: #0f172a;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.scope-pill {
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
   white-space: nowrap;
 }
 
 .summary-time {
   color: #6b7890;
-  font-size: 14px;
+  font-size: 15px;
+  line-height: 1.1;
+  white-space: nowrap;
+
   flex: 0 1 auto;
   min-width: 0;
+}
+
+/* Compact KPI strip */
+.primary-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.summary-card {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+
+  width: auto;
+  min-width: 0;
+  min-height: 0;
+
+  border: 1px solid #d9e0ea;
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: #ffffff;
+}
+
+.card-label {
+  color: #758397;
+  font-size: 12px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.card-value {
+  color: #000000;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.card-sub-value {
+  display: none;
+}
+
+/* Compact secondary metrics */
+.secondary-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #e4e9f0;
+}
+
+.metric {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+
+  width: auto;
+  min-width: 0;
+  min-height: 0;
+
+  border: 1px solid #d9e0ea;
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: #ffffff;
+}
+
+.metric-label {
+  color: #758397;
+  font-size: 12px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.metric-value {
+  color: #000000;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.empty {
+  padding: 12px;
+}
+
+.empty-text {
+  color: #758397;
+  font-size: 14px;
+}
+
+/* Medium screens */
+@media (max-width: 900px) {
+  .summary-header {
+    gap: 8px;
+  }
+
+  .title {
+    font-size: 16px;
+  }
+
+  .scope-pill {
+    font-size: 13px;
+  }
+
+  .summary-time {
+    font-size: 13px;
+  }
+
+  .summary-card,
+  .metric {
+    padding: 5px 9px;
+  }
+
+  .card-label,
+  .metric-label {
+    font-size: 11px;
+  }
+
+  .card-value,
+  .metric-value {
+    font-size: 13px;
+  }
+}
+
+/* Small screens */
+@media (max-width: 600px) {
+  .summary-header {
+    flex-wrap: wrap;
+  }
+
+  .summary-time {
+    width: 100%;
+  }
+
+  .summary-card,
+  .metric {
+    max-width: 100%;
+  }
+
+  .card-label,
+  .card-value,
+  .metric-label,
+  .metric-value {
+    white-space: normal;
+  }
 }
