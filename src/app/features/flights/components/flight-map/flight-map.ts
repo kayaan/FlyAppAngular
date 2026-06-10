@@ -45,6 +45,49 @@ export class FlightMap implements AfterViewInit, OnDestroy {
 
       this.renderTrack();
     });
+
+    effect(() => {
+      const cursorIndex = this.store.cursorIndex();
+
+      if (!this.map) {
+        return;
+      }
+
+      if (cursorIndex === null) {
+        this.hideHoverPoint();
+        return;
+      }
+
+      this.showHoverPointAtIndex(cursorIndex);
+    });
+  }
+
+  private showHoverPointAtIndex(index: number): void {
+    const track = this.store.track();
+
+    if (!this.map || !track) {
+      return;
+    }
+
+    if (index < 0 || index >= track.latE7.length) {
+      this.hideHoverPoint();
+      return;
+    }
+
+    const lat = track.latE7[index] / 10_000_000;
+    const lon = track.lonE7[index] / 10_000_000;
+
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+      this.hideHoverPoint();
+      return;
+    }
+
+    if (lat === 0 && lon === 0) {
+      this.hideHoverPoint();
+      return;
+    }
+
+    this.showHoverPoint(L.latLng(lat, lon));
   }
 
   ngAfterViewInit(): void {
@@ -53,13 +96,14 @@ export class FlightMap implements AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.store.setCursorIndex(null);
+
+    this.hideHoverTooltip();
+    this.hideHoverPoint();
     this.clearTrackLayers();
 
     this.map?.remove();
     this.map = null;
-
-    this.hideHoverTooltip();
-    this.hideHoverPoint();
   }
 
   private initMap(): void {
@@ -88,6 +132,7 @@ export class FlightMap implements AfterViewInit, OnDestroy {
     this.map.on('mouseout', () => {
       this.hideHoverTooltip();
       this.hideHoverPoint();
+      this.store.setCursorIndex(null);
     });
 
     setTimeout(() => {
@@ -105,6 +150,7 @@ export class FlightMap implements AfterViewInit, OnDestroy {
     if (!track || track.latE7.length < 2) {
       this.hideHoverTooltip();
       this.hideHoverPoint();
+      this.store.setCursorIndex(null);
       return;
     }
 
@@ -113,10 +159,13 @@ export class FlightMap implements AfterViewInit, OnDestroy {
     if (!nearest || nearest.distancePx > this.hoverTolerancePx) {
       this.hideHoverTooltip();
       this.hideHoverPoint();
+      this.store.setCursorIndex(null);
       return;
     }
 
     const index = nearest.index;
+
+    this.store.setCursorIndex(index);
 
     this.showHoverTooltip(
       nearest.latLng,
@@ -410,7 +459,7 @@ export class FlightMap implements AfterViewInit, OnDestroy {
 
       const layer = L.polyline(validPoints, {
         color: segment.color,
-        weight: 3,
+        weight: 5,
         opacity: 0.95,
         interactive: false,
       }).addTo(this.map);

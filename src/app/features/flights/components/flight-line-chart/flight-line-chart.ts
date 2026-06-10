@@ -1,7 +1,9 @@
 import {
   AfterViewInit,
   Component,
+  effect,
   ElementRef,
+  inject,
   Input,
   OnChanges,
   OnDestroy,
@@ -16,9 +18,12 @@ import {
   TooltipComponent,
   DataZoomComponent,
   AxisPointerComponent,
+  MarkLineComponent,
 } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
 import type { ECharts, EChartsCoreOption } from 'echarts/core';
+
+import { FlightDetailsStore } from '../../store/flight-details.store';
 
 echarts.use([
   LineChart,
@@ -26,6 +31,7 @@ echarts.use([
   TooltipComponent,
   DataZoomComponent,
   AxisPointerComponent,
+  MarkLineComponent,
   CanvasRenderer,
 ]);
 
@@ -54,12 +60,32 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
   private chart: ECharts | null = null;
   private resizeObserver: ResizeObserver | null = null;
 
+  private readonly store = inject(FlightDetailsStore);
+
+  constructor() {
+    effect(() => {
+      const cursorIndex = this.store.cursorIndex();
+
+      if (!this.chart) {
+        return;
+      }
+
+      if (cursorIndex === null) {
+        this.hideCursorLine();
+        this.chart.dispatchAction({ type: 'hideTip' });
+        return;
+      }
+
+      this.showCursorAtIndex(cursorIndex);
+    });
+  }
+
   ngAfterViewInit(): void {
     this.chart = echarts.init(this.chartContainer.nativeElement);
-
     this.chart.group = this.groupId;
 
     this.updateChart();
+    this.registerChartHoverEvents();
 
     echarts.connect(this.groupId);
 
@@ -70,6 +96,65 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
     this.resizeObserver.observe(this.chartContainer.nativeElement);
   }
 
+  private registerChartHoverEvents(): void {
+    if (!this.chart) {
+      return;
+    }
+
+    this.chart.on('updateAxisPointer', (event: any) => {
+      const axisInfo = event.axesInfo?.[0];
+
+      if (!axisInfo) {
+        return;
+      }
+
+      const elapsedSec = Number(axisInfo.value);
+
+      if (!Number.isFinite(elapsedSec)) {
+        return;
+      }
+
+      const nearestDataIndex = this.findNearestDataIndexByElapsedTime(elapsedSec);
+
+      if (nearestDataIndex === null) {
+        return;
+      }
+
+      const trackIndex = this.data[nearestDataIndex].index;
+
+      if (this.store.cursorIndex() !== trackIndex) {
+        this.store.setCursorIndex(trackIndex);
+      }
+    });
+
+    this.chartContainer.nativeElement.addEventListener('mouseleave', () => {
+      this.store.setCursorIndex(null);
+    });
+  }
+
+  private findNearestDataIndexByElapsedTime(elapsedSec: number): number | null {
+    if (this.data.length === 0) {
+      return null;
+    }
+
+    const firstTimeSec = this.getFirstTimeSec();
+
+    let bestIndex = 0;
+    let bestDistance = Number.POSITIVE_INFINITY;
+
+    for (let i = 0; i < this.data.length; i++) {
+      const pointElapsedSec = this.data[i].timeSec - firstTimeSec;
+      const distance = Math.abs(pointElapsedSec - elapsedSec);
+
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestIndex = i;
+      }
+    }
+
+    return bestIndex;
+  }
+
   ngOnChanges(changes: SimpleChanges): void {
     if (!this.chart) {
       return;
@@ -77,6 +162,12 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
 
     if (changes['data'] || changes['title'] || changes['unit']) {
       this.updateChart();
+
+      const cursorIndex = this.store.cursorIndex();
+
+      if (cursorIndex !== null) {
+        this.showCursorAtIndex(cursorIndex);
+      }
     }
   }
 
@@ -91,7 +182,7 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
       return;
     }
 
-    const firstTimeSec = this.data.length > 0 ? this.data[0].timeSec : 0;
+    const firstTimeSec = this.getFirstTimeSec();
     const lastTimeSec =
       this.data.length > 0 ? this.data[this.data.length - 1].timeSec : firstTimeSec;
 
@@ -105,17 +196,8 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
       p.timeSec,
     ]);
 
-
     const option: EChartsCoreOption = {
       animation: false,
-
-      axisPointer: {
-        link: [
-          {
-            xAxisIndex: 'all',
-          },
-        ],
-      },
 
       grid: {
         left: 48,
@@ -129,12 +211,11 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
         confine: true,
         axisPointer: {
           type: 'line',
-          snap: true,
+          snap: false,
         },
         formatter: (params: unknown) => {
           const items = Array.isArray(params) ? params : [params];
           const first = items[0] as any;
-
 
           if (!first?.data) {
             return '';
@@ -144,15 +225,15 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
             number,
             number,
             number,
-            number
+            number,
           ];
 
           return `
-          <strong>${this.title}</strong><br/>
-          Flight time: ${this.formatTime(elapsedSec)}<br/>
-          Time: ${this.formatTime(originalTimeSec)}<br/>
-          Value: ${value.toFixed(1)} ${this.unit}
-        `;
+            <strong>${this.title}</strong><br/>
+            Flight time: ${this.formatTime(elapsedSec)}<br/>
+            Time: ${this.formatTime(originalTimeSec)}<br/>
+            Value: ${value.toFixed(1)} ${this.unit}
+          `;
         },
       },
 
@@ -161,10 +242,6 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
         min: minX,
         max: maxX,
         boundaryGap: false,
-        axisPointer: {
-          show: true,
-          snap: true,
-        },
         axisLabel: {
           formatter: (value: number) => this.formatTime(Number(value)),
         },
@@ -187,13 +264,14 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
 
       series: [
         {
+          id: 'main',
           name: this.title,
           type: 'line',
           showSymbol: false,
 
           // Important:
           // No sampling here. We need stable point/index mapping
-          // for tooltip, chart sync and later map sync.
+          // for tooltip, chart sync and map sync.
           data: seriesData,
 
           lineStyle: {
@@ -203,11 +281,95 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
           emphasis: {
             disabled: true,
           },
+
+          markLine: {
+            silent: true,
+            symbol: 'none',
+            label: {
+              show: false,
+            },
+            lineStyle: {
+              type: 'solid',
+              width: 1,
+              color: '#101828',
+              opacity: 0.9,
+            },
+            data: [],
+          },
         },
       ],
     };
 
     this.chart.setOption(option, true);
+  }
+
+  private showCursorAtIndex(trackIndex: number): void {
+    if (!this.chart) {
+      return;
+    }
+
+    const dataIndex = this.data.findIndex((point) => point.index === trackIndex);
+
+    if (dataIndex < 0) {
+      return;
+    }
+
+    const firstTimeSec = this.getFirstTimeSec();
+    const point = this.data[dataIndex];
+    const elapsedSec = point.timeSec - firstTimeSec;
+
+    this.chart.setOption({
+      series: [
+        {
+          id: 'main',
+          markLine: {
+            silent: true,
+            symbol: 'none',
+            label: {
+              show: false,
+            },
+            lineStyle: {
+              type: 'solid',
+              width: 1,
+              color: '#101828',
+              opacity: 0.9,
+            },
+            data: [
+              {
+                xAxis: elapsedSec,
+              },
+            ],
+          },
+        },
+      ],
+    });
+
+    this.chart.dispatchAction({
+      type: 'showTip',
+      seriesIndex: 0,
+      dataIndex,
+    });
+  }
+
+  private hideCursorLine(): void {
+    if (!this.chart) {
+      return;
+    }
+
+    this.chart.setOption({
+      series: [
+        {
+          id: 'main',
+          markLine: {
+            data: [],
+          },
+        },
+      ],
+    });
+  }
+
+  private getFirstTimeSec(): number {
+    return this.data.length > 0 ? this.data[0].timeSec : 0;
   }
 
   private formatTime(timeSec: number): string {
