@@ -29,31 +29,8 @@
 
   <div class="details-layout">
     <section class="left-panel">
-      <div class="stats-grid">
-        <article class="stat-card">
-          <span class="stat-label">Duration</span>
-          <strong>{{ formatDuration(stats?.durationSec) }}</strong>
-        </article>
 
-        <article class="stat-card">
-          <span class="stat-label">Distance</span>
-          <strong>{{ formatDistance(stats?.distanceM) }}</strong>
-        </article>
-
-        <article class="stat-card">
-          <span class="stat-label">Altitude</span>
-          <strong>
-            {{ formatHeight(stats?.minAltGpsM) }}
-            –
-            {{ formatHeight(stats?.maxAltGpsM) }}
-          </strong>
-        </article>
-
-        <article class="stat-card">
-          <span class="stat-label">Max speed</span>
-          <strong>{{ formatSpeed(stats?.maxSpeedKmh) }}</strong>
-        </article>
-      </div>
+      <app-flight-summary-tags />
 
       <section class="chart-card">
         <header>

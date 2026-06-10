@@ -5,11 +5,12 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { FlightDetailsStore } from '../../store/flight-details.store';
 import { FlightMap } from '../../components/flight-map/flight-map';
 import { FlightChartPoint, FlightLineChart } from '../../components/flight-line-chart/flight-line-chart';
+import { FlightSummaryTags } from '../../components/flight-summary-tags/flight-summary-tags';
 
 @Component({
   selector: 'app-flight-details',
   standalone: true,
-  imports: [CommonModule, RouterLink, FlightLineChart, FlightMap],
+  imports: [CommonModule, RouterLink, FlightLineChart, FlightMap, FlightSummaryTags],
   templateUrl: './flight-details.html',
   styleUrl: './flight-details.scss',
   providers: [FlightDetailsStore],
