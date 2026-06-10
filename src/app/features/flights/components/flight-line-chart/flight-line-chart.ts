@@ -92,6 +92,11 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
     }
 
     const firstTimeSec = this.data.length > 0 ? this.data[0].timeSec : 0;
+    const lastTimeSec =
+      this.data.length > 0 ? this.data[this.data.length - 1].timeSec : firstTimeSec;
+
+    const minX = 0;
+    const maxX = Math.max(0, lastTimeSec - firstTimeSec);
 
     const seriesData = this.data.map((p) => [
       p.timeSec - firstTimeSec,
@@ -99,7 +104,6 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
       p.index,
       p.timeSec,
     ]);
-
 
 
     const option: EChartsCoreOption = {
@@ -144,16 +148,18 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
           ];
 
           return `
-            <strong>${this.title}</strong><br/>
-            Flight time: ${this.formatTime(elapsedSec)}<br/>
-            Time: ${this.formatTime(originalTimeSec)}<br/>
-            Value: ${value.toFixed(1)} ${this.unit}
-          `;
+          <strong>${this.title}</strong><br/>
+          Flight time: ${this.formatTime(elapsedSec)}<br/>
+          Time: ${this.formatTime(originalTimeSec)}<br/>
+          Value: ${value.toFixed(1)} ${this.unit}
+        `;
         },
       },
 
       xAxis: {
         type: 'value',
+        min: minX,
+        max: maxX,
         boundaryGap: false,
         axisPointer: {
           show: true,
