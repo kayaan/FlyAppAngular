@@ -1,2 +1,12 @@
 /* You can add global styles to this file, and also import other style files */
 @import "leaflet/dist/leaflet.css";
+
+html,
+body {
+    margin: 0;
+    height: 100%;
+}
+
+body {
+    overflow: hidden;
+}

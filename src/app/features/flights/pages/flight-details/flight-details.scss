@@ -2,6 +2,11 @@
   height: 100vh;
   padding: 20px;
   box-sizing: border-box;
+  overflow: hidden;
+
+  display: flex;
+  flex-direction: column;
+
   background: #f8fafc;
   color: #101828;
   font-family:
@@ -16,6 +21,8 @@
 /* Header */
 
 .details-header {
+  flex: 0 0 auto;
+
   display: flex;
   align-items: center;
   gap: 14px;
@@ -51,16 +58,16 @@
   white-space: nowrap;
   overflow: hidden;
 
-  strong {
-    color: #101828;
-    font-size: 15px;
-    font-weight: 750;
-  }
-
   span,
   strong {
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  strong {
+    color: #101828;
+    font-size: 15px;
+    font-weight: 750;
   }
 }
 
@@ -90,17 +97,18 @@
 /* Main layout */
 
 .details-layout {
+  flex: 1 1 auto;
+  min-height: 0;
+
   display: grid;
   grid-template-columns: minmax(420px, 46%) minmax(480px, 54%);
   gap: 18px;
-
-  height: calc(100vh - 72px);
-  min-height: 0;
 }
 
 .left-panel,
 .right-panel {
   min-height: 0;
+  overflow: hidden;
 }
 
 .left-panel {
@@ -108,8 +116,6 @@
   flex-direction: column;
   gap: 14px;
 
-  min-height: 0;
-  overflow: hidden;
   padding-right: 4px;
 }
 
@@ -125,6 +131,8 @@ app-flight-summary-tags {
 
 .chart-card,
 .map-card {
+  min-height: 0;
+
   border: 1px solid #e5e7eb;
   border-radius: 18px;
   background: #ffffff;
@@ -149,7 +157,6 @@ app-flight-summary-tags {
 
 .chart-card {
   flex: 1 1 0;
-  min-height: 0;
 
   display: flex;
   flex-direction: column;
@@ -158,7 +165,6 @@ app-flight-summary-tags {
 .chart-body {
   flex: 1 1 auto;
   min-height: 0;
-  height: auto;
 }
 
 app-flight-line-chart {
@@ -170,14 +176,14 @@ app-flight-line-chart {
 /* Map */
 
 .map-card {
-  flex: 1;
+  flex: 1 1 auto;
+
   display: flex;
   flex-direction: column;
-  min-height: 0;
 }
 
 .map-placeholder {
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
 
   display: flex;
@@ -203,6 +209,8 @@ app-flight-map {
 
 .loading-box,
 .error-box {
+  flex: 0 0 auto;
+
   padding: 16px 18px;
   border-radius: 14px;
   border: 1px solid #e5e7eb;
@@ -221,6 +229,7 @@ app-flight-map {
   position: fixed;
   inset: 0;
   z-index: 1000;
+
   background: rgba(15, 23, 42, 0.25);
 }
 
@@ -244,6 +253,8 @@ app-flight-map {
 }
 
 .drawer-header {
+  flex: 0 0 auto;
+
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -254,13 +265,15 @@ app-flight-map {
 
   h2 {
     margin: 0;
+
+    color: #0f172a;
     font-size: 20px;
     font-weight: 800;
-    color: #0f172a;
   }
 
   p {
     margin: 4px 0 0;
+
     color: #667085;
     font-size: 13px;
   }
@@ -285,11 +298,14 @@ app-flight-map {
 }
 
 .drawer-section {
+  flex: 0 0 auto;
+
   padding: 20px 22px;
   border-bottom: 1px solid #eef2f7;
 
   h3 {
     margin: 0 0 14px;
+
     color: #0f172a;
     font-size: 14px;
     font-weight: 800;
@@ -355,11 +371,14 @@ app-flight-map {
 @media (max-width: 1100px) {
   .flight-details-page {
     height: auto;
+    min-height: 100vh;
+    overflow: visible;
   }
 
   .details-layout {
+    flex: 0 0 auto;
+
     grid-template-columns: 1fr;
-    height: auto;
   }
 
   .left-panel {
