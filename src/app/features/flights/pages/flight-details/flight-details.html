@@ -3,13 +3,12 @@
     <a routerLink="/flights" class="back-link">← Back to flights</a>
 
     @if (store.flight(); as flight) {
-    <div class="title-block">
-      <h1>{{ formatDate(flight.date) }}</h1>
-      <p>
-        {{ flight.pilotName || 'Unknown pilot' }}
-        ·
-        {{ flight.gliderType || 'Unknown glider' }}
-      </p>
+    <div class="title-line">
+      <strong>{{ formatDate(flight.date) }}</strong>
+      <span>·</span>
+      <span>{{ flight.pilotName || 'Unknown pilot' }}</span>
+      <span>·</span>
+      <span>{{ flight.gliderType || 'Unknown glider' }}</span>
     </div>
     }
 
