@@ -3,19 +3,22 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 
 import { FlightDetailsStore } from '../../store/flight-details.store';
+import { FlightMap } from '../../components/flight-map/flight-map';
 import { FlightChartPoint, FlightLineChart } from '../../components/flight-line-chart/flight-line-chart';
 
 @Component({
   selector: 'app-flight-details',
   standalone: true,
-  imports: [CommonModule, RouterLink, FlightLineChart],
+  imports: [CommonModule, RouterLink, FlightLineChart, FlightMap],
   templateUrl: './flight-details.html',
   styleUrl: './flight-details.scss',
+  providers: [FlightDetailsStore],
 })
 export class FlightDetails implements OnInit, OnDestroy {
+  private readonly route = inject(ActivatedRoute);
+
   readonly store = inject(FlightDetailsStore);
 
-  private readonly route = inject(ActivatedRoute);
 
   readonly flightStats = computed(() =>
     this.store.stats().find((item) => item.scopeType === 'flight') ?? null

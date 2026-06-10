@@ -1,95 +1,117 @@
-// import {
-//   AfterViewInit,
-//   Component,
-//   ElementRef,
-//   Input,
-//   OnChanges,
-//   OnDestroy,
-//   SimpleChanges,
-//   ViewChild,
-// } from '@angular/core';
+import {
+  AfterViewInit,
+  Component,
+  ElementRef,
+  OnDestroy,
+  effect,
+  inject,
+  ViewChild,
+} from '@angular/core';
 
-// import * as L from 'leaflet';
+import * as L from 'leaflet';
+import { FlightDetailsStore } from '../../store/flight-details.store';
 
-// import { TrackArrays } from '../../models/track-arrays.model';
 
-// @Component({
-//   selector: 'app-flight-map',
-//   standalone: true,
-//   templateUrl: './flight-map.html',
-//   styleUrl: './flight-map.scss',
-// })
-// export class FlightMap implements AfterViewInit, OnChanges, OnDestroy {
-//   @Input() track: TrackArrays | null = null;
+@Component({
+  selector: 'app-flight-map',
+  standalone: true,
+  templateUrl: './flight-map.html',
+  styleUrl: './flight-map.scss',
+})
+export class FlightMap implements AfterViewInit, OnDestroy {
+  private readonly store = inject(FlightDetailsStore);
 
-//   @ViewChild('mapContainer', { static: true })
-//   private mapContainer!: ElementRef<HTMLDivElement>;
+  @ViewChild('mapContainer', { static: true })
+  private mapContainer!: ElementRef<HTMLDivElement>;
 
-//   private map: L.Map | null = null;
-//   private trackLayer: L.Polyline | null = null;
+  private map: L.Map | null = null;
+  private trackLayer: L.Polyline | null = null;
 
-//   ngAfterViewInit(): void {
-//     this.map = L.map(this.mapContainer.nativeElement, {
-//       zoomControl: true,
-//       attributionControl: true,
-//     });
+  constructor() {
+    effect(() => {
+      const track = this.store.track();
 
-//     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-//       maxZoom: 18,
-//       attribution: '© OpenStreetMap contributors',
-//     }).addTo(this.map);
+      if (!this.map || !track) {
+        return;
+      }
 
-//     this.updateTrack();
+      this.renderTrack();
+    });
+  }
 
-//     setTimeout(() => {
-//       this.map?.invalidateSize();
-//     });
-//   }
+  ngAfterViewInit(): void {
+    this.initMap();
+    this.renderTrack();
+  }
 
-//   ngOnChanges(changes: SimpleChanges): void {
-//     if (!this.map) {
-//       return;
-//     }
+  ngOnDestroy(): void {
+    this.map?.remove();
+    this.map = null;
+    this.trackLayer = null;
+  }
 
-//     if (changes['track']) {
-//       this.updateTrack();
-//     }
-//   }
+  private initMap(): void {
+    if (this.map) {
+      return;
+    }
 
-//   ngOnDestroy(): void {
-//     this.map?.remove();
-//     this.map = null;
-//   }
+    this.map = L.map(this.mapContainer.nativeElement, {
+      zoomControl: true,
+      attributionControl: true,
+    });
 
-//   private updateTrack(): void {
-//     if (!this.map || !this.track || this.track.latE7.length === 0) {
-//       return;
-//     }
+    L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+      maxZoom: 17,
+      attribution:
+        'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, ' +
+        'SRTM | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA)',
+    }).addTo(this.map);
 
-//     const points: L.LatLngExpression[] = [];
+    this.map.setView([48.7758, 9.1829], 10);
+  }
 
-//     for (let i = 0; i < this.track.latE7.length; i++) {
-//       points.push([
-//         this.track.latE7[i] / 10_000_000,
-//         this.track.lonE7[i] / 10_000_000,
-//       ]);
-//     }
+  private renderTrack(): void {
+    const track = this.store.track();
 
-//     if (this.trackLayer) {
-//       this.trackLayer.removeFrom(this.map);
-//     }
+    if (!this.map || !track || track.latE7.length === 0) {
+      return;
+    }
 
-//     this.trackLayer = L.polyline(points, {
-//       weight: 3,
-//       opacity: 0.9,
-//     }).addTo(this.map);
+    this.trackLayer?.remove();
+    this.trackLayer = null;
 
-//     this.map.fitBounds(this.trackLayer.getBounds(), {
-//       padding: [24, 24],
-//     });
+    const latLngs: L.LatLngExpression[] = [];
 
-//     setTimeout(() => {
-//       this.map?.invalidateSize();
-//     });
-//   }
-// }
+    for (let i = 0; i < track.latE7.length; i++) {
+      const lat = track.latE7[i] / 10_000_000;
+      const lon = track.lonE7[i] / 10_000_000;
+
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+        continue;
+      }
+
+      if (lat === 0 && lon === 0) {
+        continue;
+      }
+
+      latLngs.push([lat, lon]);
+    }
+
+    if (latLngs.length === 0) {
+      return;
+    }
+
+    this.trackLayer = L.polyline(latLngs, {
+      weight: 3,
+      opacity: 0.9,
+    }).addTo(this.map);
+
+    this.map.fitBounds(L.latLngBounds(latLngs), {
+      padding: [24, 24],
+    });
+
+    setTimeout(() => {
+      this.map?.invalidateSize();
+    }, 0);
+  }
+}
