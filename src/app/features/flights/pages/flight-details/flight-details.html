@@ -12,6 +12,10 @@
       </p>
     </div>
     }
+
+    <button type="button" class="settings-button" title="Settings" (click)="openSettingsDrawer()">
+      ⚙
+    </button>
   </header>
 
   @if (store.loading()) {
@@ -31,6 +35,7 @@
 
       <app-flight-summary-tags />
 
+      @if(settingsStore.showAltitudeChart()){
       <section class="chart-card">
         <header>
           <h2>Altitude</h2>
@@ -40,7 +45,9 @@
           <app-flight-line-chart title="Altitude" unit="m" [data]="altitudeData()" />
         </div>
       </section>
+      }
 
+      @if(settingsStore.showVarioChart()){
       <section class="chart-card">
         <header>
           <h2>Climb</h2>
@@ -50,7 +57,9 @@
           <app-flight-line-chart title="Climb" unit="m/s" [data]="varioData()" />
         </div>
       </section>
+      }
 
+      @if(settingsStore.showSpeedChart()){
       <section class="chart-card">
         <header>
           <h2>Speed</h2>
@@ -60,7 +69,7 @@
           <app-flight-line-chart title="Speed" unit="km/h" [data]="speedData()" />
         </div>
       </section>
-
+      }
 
     </section>
 
@@ -76,5 +85,65 @@
       </div>
     </section>
   </div>
+  }
+
+
+  @if (settingsDrawerOpen()) {
+  <div class="drawer-backdrop" (click)="closeSettingsDrawer()"></div>
+
+  <aside class="settings-drawer">
+    <header class="drawer-header">
+      <div>
+        <h2>Settings</h2>
+        <p>Chart visibility and resolution</p>
+      </div>
+
+      <button type="button" class="drawer-close" (click)="closeSettingsDrawer()">
+        ×
+      </button>
+    </header>
+
+    <section class="drawer-section">
+      <h3>Visible charts</h3>
+
+      <label class="checkbox-row">
+        <input type="checkbox" [checked]="settingsStore.showAltitudeChart()"
+          (change)="setAltitudeChartVisible($event)" />
+        <span>Altitude chart</span>
+      </label>
+
+      <label class="checkbox-row">
+        <input type="checkbox" [checked]="settingsStore.showVarioChart()" (change)="setVarioChartVisible($event)" />
+        <span>Climb chart</span>
+      </label>
+
+      <label class="checkbox-row">
+        <input type="checkbox" [checked]="settingsStore.showSpeedChart()" (change)="setSpeedChartVisible($event)" />
+        <span>Speed chart</span>
+      </label>
+    </section>
+
+    <section class="drawer-section">
+      <h3>Resolution</h3>
+
+      <label class="number-row">
+        <span>Altitude resolution</span>
+        <input type="number" min="1" max="120" step="1" [value]="settingsStore.altitudeChartResolutionInSec()"
+          (change)="setAltitudeResolution($event)" />
+      </label>
+
+      <label class="number-row">
+        <span>Climb resolution</span>
+        <input type="number" min="1" max="120" step="1" [value]="settingsStore.varioChartResolutionInSec()"
+          (change)="setVarioResolution($event)" />
+      </label>
+
+      <label class="number-row">
+        <span>Speed resolution</span>
+        <input type="number" min="1" max="120" step="1" [value]="settingsStore.speedChartResolutionInSec()"
+          (change)="setSpeedResolution($event)" />
+      </label>
+    </section>
+  </aside>
   }
 </section>

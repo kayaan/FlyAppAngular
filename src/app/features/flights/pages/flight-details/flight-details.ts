@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, computed, inject } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 
@@ -6,6 +6,8 @@ import { FlightDetailsStore } from '../../store/flight-details.store';
 import { FlightMap } from '../../components/flight-map/flight-map';
 import { FlightChartPoint, FlightLineChart } from '../../components/flight-line-chart/flight-line-chart';
 import { FlightSummaryTags } from '../../components/flight-summary-tags/flight-summary-tags';
+import { FlightSettingsStore } from '../../store/flight-settings.store';
+import { single } from 'rxjs';
 
 @Component({
   selector: 'app-flight-details',
@@ -17,6 +19,9 @@ import { FlightSummaryTags } from '../../components/flight-summary-tags/flight-s
 })
 export class FlightDetails implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
+  readonly settingsStore = inject(FlightSettingsStore);
+
+  readonly settingsDrawerOpen = signal(false);
 
   readonly store = inject(FlightDetailsStore);
 
@@ -36,6 +41,44 @@ export class FlightDetails implements OnInit, OnDestroy {
     }
 
     void this.store.loadFlight(flightId);
+  }
+
+  openSettingsDrawer(): void {
+    this.settingsDrawerOpen.set(true);
+  }
+
+  closeSettingsDrawer(): void {
+    this.settingsDrawerOpen.set(false);
+  }
+
+  setAltitudeChartVisible(event: Event): void {
+    const checked = (event.target as HTMLInputElement).checked;
+    this.settingsStore.setShowAltitudeChart(checked);
+  }
+
+  setVarioChartVisible(event: Event): void {
+    const checked = (event.target as HTMLInputElement).checked;
+    this.settingsStore.setShowVarioChart(checked);
+  }
+
+  setSpeedChartVisible(event: Event): void {
+    const checked = (event.target as HTMLInputElement).checked;
+    this.settingsStore.setShowSpeedChart(checked);
+  }
+
+  setAltitudeResolution(event: Event): void {
+    const value = Number((event.target as HTMLInputElement).value);
+    this.settingsStore.setAltitudeChartResolutionInSec(value);
+  }
+
+  setVarioResolution(event: Event): void {
+    const value = Number((event.target as HTMLInputElement).value);
+    this.settingsStore.setVarioChartResolutionInSec(value);
+  }
+
+  setSpeedResolution(event: Event): void {
+    const value = Number((event.target as HTMLInputElement).value);
+    this.settingsStore.setSpeedChartResolutionInSec(value);
   }
 
   altitudeData(): FlightChartPoint[] {
