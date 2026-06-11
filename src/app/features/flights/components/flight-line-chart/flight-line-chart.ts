@@ -24,6 +24,7 @@ import { CanvasRenderer } from 'echarts/renderers';
 import type { ECharts, EChartsCoreOption } from 'echarts/core';
 
 import { FlightDetailsStore } from '../../store/flight-details.store';
+import { FlightSettingsStore } from '../../store/flight-settings.store';
 
 echarts.use([
   LineChart,
@@ -61,10 +62,26 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
   private resizeObserver: ResizeObserver | null = null;
 
   private readonly store = inject(FlightDetailsStore);
+  private readonly settingsStore = inject(FlightSettingsStore);
+
+  private readonly climbBoundaryColors = [
+    '#2563eb',
+    '#16a34a',
+    '#dc2626',
+    '#9333ea',
+    '#ea580c',
+    '#0891b2',
+    '#4f46e5',
+    '#be123c',
+  ];
 
   constructor() {
     effect(() => {
       const cursorIndex = this.store.cursorIndex();
+
+      this.settingsStore.showClimbsOnCharts();
+      this.store.climbs();
+      this.store.selectedClimbId();
 
       if (!this.chart) {
         return;
@@ -79,7 +96,7 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
       this.showCursorAtIndex(cursorIndex);
     });
   }
-
+  
   ngAfterViewInit(): void {
     this.chart = echarts.init(this.chartContainer.nativeElement);
     this.chart.group = this.groupId;
@@ -94,6 +111,88 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
     });
 
     this.resizeObserver.observe(this.chartContainer.nativeElement);
+  }
+
+  private buildMarkLineData(cursorTrackIndex: number | null): unknown[] {
+    const data: unknown[] = [];
+
+    if (this.settingsStore.showClimbsOnCharts()) {
+      const climbs = this.store.climbs();
+
+      for (let i = 0; i < climbs.length; i++) {
+        const climb = climbs[i];
+
+        const startElapsedSec = this.getElapsedSecForTrackIndex(climb.startIndex);
+        const endElapsedSec = this.getElapsedSecForTrackIndex(climb.endIndex);
+
+        if (startElapsedSec === null || endElapsedSec === null) {
+          continue;
+        }
+
+        const color =
+          this.climbBoundaryColors[i % this.climbBoundaryColors.length];
+
+        const isSelected = climb.id === this.store.selectedClimbId();
+
+        data.push(
+          {
+            xAxis: startElapsedSec,
+            lineStyle: {
+              color,
+              type: 'dashed',
+              width: isSelected ? 2 : 1,
+              opacity: isSelected ? 1 : 0.75,
+            },
+            label: {
+              show: false,
+            },
+          },
+          {
+            xAxis: endElapsedSec,
+            lineStyle: {
+              color,
+              type: 'dashed',
+              width: isSelected ? 2 : 1,
+              opacity: isSelected ? 1 : 0.75,
+            },
+            label: {
+              show: false,
+            },
+          }
+        );
+      }
+    }
+
+    if (cursorTrackIndex !== null) {
+      const cursorElapsedSec = this.getElapsedSecForTrackIndex(cursorTrackIndex);
+
+      if (cursorElapsedSec !== null) {
+        data.push({
+          xAxis: cursorElapsedSec,
+          lineStyle: {
+            type: 'solid',
+            width: 1,
+            color: '#101828',
+            opacity: 0.9,
+          },
+          label: {
+            show: false,
+          },
+        });
+      }
+    }
+
+    return data;
+  }
+
+  private getElapsedSecForTrackIndex(trackIndex: number): number | null {
+    const point = this.data.find((item) => item.index === trackIndex);
+
+    if (!point) {
+      return null;
+    }
+
+    return point.timeSec - this.getFirstTimeSec();
   }
 
   private registerChartHoverEvents(): void {
@@ -288,13 +387,7 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
             label: {
               show: false,
             },
-            lineStyle: {
-              type: 'solid',
-              width: 1,
-              color: '#101828',
-              opacity: 0.9,
-            },
-            data: [],
+            data: this.buildMarkLineData(this.store.cursorIndex()),
           },
         },
       ],
@@ -328,17 +421,7 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
             label: {
               show: false,
             },
-            lineStyle: {
-              type: 'solid',
-              width: 1,
-              color: '#101828',
-              opacity: 0.9,
-            },
-            data: [
-              {
-                xAxis: elapsedSec,
-              },
-            ],
+            data: this.buildMarkLineData(trackIndex),
           },
         },
       ],
@@ -361,13 +444,17 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
         {
           id: 'main',
           markLine: {
-            data: [],
+            silent: true,
+            symbol: 'none',
+            label: {
+              show: false,
+            },
+            data: this.buildMarkLineData(null),
           },
         },
       ],
     });
   }
-
   private getFirstTimeSec(): number {
     return this.data.length > 0 ? this.data[0].timeSec : 0;
   }

@@ -6,19 +6,18 @@ import { DetectedClimb } from '../models/detected-climb.model';
   providedIn: 'root',
 })
 export class ClimbDetectorService {
+  private readonly minGainM = 100;
+  private readonly minSeparationDropM = 80;
+
   /**
-   * Detects climb phases based on GPS altitude.
+   * Detects major climb phases based on GPS altitude.
    *
-   * This service only detects climbs.
-   * It does not assign ids or flightIds.
-   *
-   * ids and flightIds belong to import/storage logic.
+   * Rules:
+   * - a climb must gain at least minGainM
+   * - a climb ends only after a real drop from the peak
+   * - small bumps inside a larger climb are ignored
    */
-  detectClimbs(
-    track: TrackArrays,
-    minGainM = 25,
-    allowedDropPercent = 5
-  ): DetectedClimb[] {
+  detectClimbs(track: TrackArrays): DetectedClimb[] {
     const climbs: DetectedClimb[] = [];
 
     if (track.timeSec.length < 2) {
@@ -26,60 +25,82 @@ export class ClimbDetectorService {
     }
 
     let startIndex = 0;
-    let peakIndex = 0;
-
     let startAltCm = track.altGpsCm[0];
+
+    let peakIndex = 0;
     let peakAltCm = track.altGpsCm[0];
 
     for (let i = 1; i < track.timeSec.length; i++) {
       const currentAltCm = track.altGpsCm[i];
 
-      // Update the peak while altitude is increasing.
-      if (currentAltCm > peakAltCm) {
-        peakAltCm = currentAltCm;
-        peakIndex = i;
-      }
-
       const gainM = (peakAltCm - startAltCm) / 100;
-      const allowedDropM = Math.max(5, gainM * (allowedDropPercent / 100));
       const dropFromPeakM = (peakAltCm - currentAltCm) / 100;
 
-      // If the climb has enough gain and then drops too much,
-      // the climb ends at the last peak.
-      if (gainM >= minGainM && dropFromPeakM > allowedDropM) {
-        climbs.push(this.createDetectedClimb(track, startIndex, peakIndex));
+      // No valid climb yet: search for the lowest start point.
+      if (gainM < this.minGainM) {
+        if (currentAltCm < startAltCm) {
+          startIndex = i;
+          startAltCm = currentAltCm;
 
-        // Start searching for the next climb from the current point.
-        startIndex = i;
+          peakIndex = i;
+          peakAltCm = currentAltCm;
+          continue;
+        }
+
+        if (currentAltCm > peakAltCm) {
+          peakIndex = i;
+          peakAltCm = currentAltCm;
+        }
+
+        continue;
+      }
+
+      // Valid climb exists: keep extending peak.
+      if (currentAltCm > peakAltCm) {
         peakIndex = i;
-        startAltCm = currentAltCm;
         peakAltCm = currentAltCm;
         continue;
       }
 
-      // If no climb is established yet and altitude drops lower,
-      // reset the start point to the current lower altitude.
-      if (gainM < minGainM && currentAltCm < startAltCm) {
+      // End climb only after a real separation drop.
+      if (dropFromPeakM >= this.minSeparationDropM) {
+        this.addClimbIfValid(climbs, track, startIndex, peakIndex);
+
+        // Restart from current point after the separation drop.
         startIndex = i;
-        peakIndex = i;
         startAltCm = currentAltCm;
+
+        peakIndex = i;
         peakAltCm = currentAltCm;
       }
     }
 
-    // Add an unfinished climb at the end if it is large enough.
-    const finalGainM = (peakAltCm - startAltCm) / 100;
+    // Final unfinished climb.
+    this.addClimbIfValid(climbs, track, startIndex, peakIndex);
 
-    if (finalGainM >= minGainM) {
-      climbs.push(this.createDetectedClimb(track, startIndex, peakIndex));
-    }
 
-    return climbs;
+
+    const allClimbs = climbs.filter((climb) => climb.gainM >= this.minGainM);
+
+    return allClimbs;
   }
 
-  /**
-   * Creates a detected climb from start and peak indexes.
-   */
+  private addClimbIfValid(
+    climbs: DetectedClimb[],
+    track: TrackArrays,
+    startIndex: number,
+    peakIndex: number
+  ): void {
+    const gainM =
+      (track.altGpsCm[peakIndex] - track.altGpsCm[startIndex]) / 100;
+
+    if (gainM < this.minGainM) {
+      return;
+    }
+
+    climbs.push(this.createDetectedClimb(track, startIndex, peakIndex));
+  }
+
   private createDetectedClimb(
     track: TrackArrays,
     startIndex: number,
@@ -107,9 +128,6 @@ export class ClimbDetectorService {
 
       gainM,
       avgClimbMs,
-
-      // First simple version.
-      // Later we can calculate max climb with a 10s sliding window.
       maxClimbMs: avgClimbMs,
     };
   }
