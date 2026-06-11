@@ -1,43 +1,14 @@
-:host {
-  display: block;
-  width: 100%;
-}
-
-.climbs-panel {
-  border: 1px solid #d9e0ea;
-  border-radius: 12px;
-  background: #ffffff;
-  padding: 10px 12px;
-}
-
 .climbs-header {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
   align-items: center;
   gap: 12px;
-  min-width: 0;
-  flex-wrap: wrap;
 }
 
 .climbs-title {
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex: 0 0 auto;
-}
-
-.title {
-  color: #0f172a;
-  font-size: 18px;
-  font-weight: 700;
-  line-height: 1.1;
-  white-space: nowrap;
-}
-
-.count-pill {
-  color: #0f172a;
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 0.03em;
+  gap: 6px;
   white-space: nowrap;
 }
 
@@ -45,11 +16,10 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-
-  color: #334155;
-  font-size: 13px;
-  font-weight: 600;
   white-space: nowrap;
+
+  font-size: 12px;
+  color: #475467;
 
   input {
     margin: 0;
@@ -57,46 +27,112 @@
 }
 
 .climb-navigation {
-  display: inline-flex;
+  min-width: 0;
+  justify-self: end;
+
+  display: grid;
+  grid-template-columns: 32px minmax(130px, 1fr) 32px 92px;
   align-items: center;
   gap: 8px;
+}
+
+.selected-climb-label {
   min-width: 0;
+
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+
+  font-size: 13px;
+  font-weight: 600;
+  color: #344054;
 }
 
 .climb-nav-button,
 .clear-climb-button {
-  border: 1px solid #d9e0ea;
+  height: 32px;
+  padding: 0;
+
+  border: 1px solid #d0d5dd;
   border-radius: 999px;
-  background: #f8fafc;
-  color: #0f172a;
 
-  height: 26px;
-  padding: 0 10px;
+  background: #ffffff;
+  color: #344054;
 
-  font-size: 13px;
-  font-weight: 700;
+  font-family: inherit;
+  font-weight: 600;
   line-height: 1;
+
   cursor: pointer;
 
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease,
+    box-shadow 120ms ease,
+    transform 80ms ease;
+
   &:hover:not(:disabled) {
-    background: #eef3f8;
+    background: #f9fafb;
+    border-color: #98a2b3;
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(1px);
+    background: #f2f4f7;
+  }
+
+  &:focus-visible {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18);
   }
 
   &:disabled {
-    opacity: 0.45;
+    color: #98a2b3;
+    background: #f9fafb;
+    border-color: #eaecf0;
     cursor: default;
   }
 }
 
 .climb-nav-button {
-  width: 26px;
-  padding: 0;
-  font-size: 18px;
+  width: 32px;
+
+  display: inline-grid;
+  place-items: center;
 }
 
-.selected-climb-label {
-  color: #6b7890;
-  font-size: 13px;
-  font-weight: 600;
+.climb-nav-icon {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
+.clear-climb-button {
+  width: 92px;
+  padding: 0 10px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 12px;
   white-space: nowrap;
+}
+
+.clear-climb-button:not(:disabled) {
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+  background: #eff6ff;
+
+  &:hover {
+    background: #dbeafe;
+    border-color: #93c5fd;
+  }
+}
+
+.clear-climb-button.is-hidden {
+  visibility: hidden;
+  pointer-events: none;
 }

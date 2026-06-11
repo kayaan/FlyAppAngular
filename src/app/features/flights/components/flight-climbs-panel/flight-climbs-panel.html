@@ -23,7 +23,20 @@
         title="Previous climb"
         aria-label="Previous climb"
       >
-        ‹
+        <svg
+          viewBox="0 0 20 20"
+          class="climb-nav-icon"
+          aria-hidden="true"
+        >
+          <path
+            d="M12.5 15L7.5 10L12.5 5"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
       </button>
 
       <span class="selected-climb-label">
@@ -42,18 +55,31 @@
         title="Next climb"
         aria-label="Next climb"
       >
-        ›
+        <svg
+          viewBox="0 0 20 20"
+          class="climb-nav-icon"
+          aria-hidden="true"
+        >
+          <path
+            d="M7.5 5L12.5 10L7.5 15"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
       </button>
 
-      @if (detailsStore.selectedClimbId() !== null) {
-        <button
-          type="button"
-          class="clear-climb-button"
-          (click)="detailsStore.clearSelectedClimb()"
-        >
-          Full flight
-        </button>
-      }
+      <button
+        type="button"
+        class="clear-climb-button"
+        (click)="detailsStore.clearSelectedClimb()"
+        [disabled]="detailsStore.selectedClimbId() === null"
+        [class.is-hidden]="detailsStore.selectedClimbId() === null"
+      >
+        Full flight
+      </button>
     </div>
   </header>
 </section>
