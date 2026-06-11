@@ -11,24 +11,11 @@
       </div>
     </header>
 
-    <div class="primary-tags">
-      @for (tag of vm.primaryTags; track tag.label) {
-        <article class="summary-card">
-          <div class="card-label">{{ tag.label }}</div>
-          <div class="card-value">{{ tag.value }}</div>
-
-          @if (tag.subValue) {
-            <div class="card-sub-value">{{ tag.subValue }}</div>
-          }
-        </article>
-      }
-    </div>
-
-    <div class="secondary-metrics">
-      @for (metric of vm.secondaryMetrics; track metric.label) {
+    <div class="metrics">
+      @for (metric of vm.metrics; track metric.label) {
         <div class="metric">
-          <div class="metric-label">{{ metric.label }}</div>
-          <div class="metric-value">{{ metric.value }}</div>
+          <span class="metric-label">{{ metric.label }}</span>
+          <span class="metric-value">{{ metric.value }}</span>
         </div>
       }
     </div>

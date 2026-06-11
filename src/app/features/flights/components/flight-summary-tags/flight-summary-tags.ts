@@ -3,12 +3,6 @@ import { Component, computed, inject } from '@angular/core';
 import { FlightDetailsStore } from '../../store/flight-details.store';
 import { DerivedFlightStats } from '../../models/derived-flight-stats.model';
 
-type SummaryTag = {
-  label: string;
-  value: string;
-  subValue?: string;
-};
-
 type SummaryMetric = {
   label: string;
   value: string;
@@ -17,8 +11,7 @@ type SummaryMetric = {
 type SummaryViewModel = {
   scopeLabel: string;
   timeLabel: string;
-  primaryTags: SummaryTag[];
-  secondaryMetrics: SummaryMetric[];
+  metrics: SummaryMetric[];
 };
 
 @Component({
@@ -41,53 +34,24 @@ export class FlightSummaryTags {
       scopeLabel: this.getScopeLabel(stats),
       timeLabel: this.getTimeLabel(stats),
 
-      primaryTags: [
-        {
-          label: 'Δ Altitude',
-          value: this.formatSignedMeters(stats.altitudeDeltaM),
-          subValue: this.formatAltitudeRange(stats),
-        },
+      metrics: [
         {
           label: 'Duration',
           value: this.formatDuration(stats.durationSec),
-          subValue: `${stats.fixCount} fixes`,
         },
         {
-          label: 'Avg vario',
-          value: this.formatMs(stats.avgVarioMs),
-          subValue: this.formatVarioRange(stats),
+          label: 'Distance',
+          value: this.formatKm(stats.distanceM),
         },
         {
-          label: 'Avg speed',
-          value: this.formatKmh(stats.avgSpeedKmh),
-          subValue: `Max ${this.formatKmh(stats.maxSpeedKmh)}`,
+          label: 'Height Min / Max',
+          value: `${this.formatNumber(stats.altitudeMinM)} / ${this.formatNumber(
+            stats.altitudeMaxM
+          )} m`,
         },
         {
-          label: 'Altitude start',
-          value: this.formatMeters(stats.altitudeStartM),
-          subValue: `End ${this.formatMeters(stats.altitudeEndM)}`,
-        },
-        {
-          label: 'Climbs',
-          value: `${stats.climbCount}`,
-          subValue: this.formatKm(stats.distanceM),
-        },
-      ],
-
-      secondaryMetrics: [
-        {
-          label: 'Altitude Min / Max',
-          value: this.formatAltitudeRange(stats),
-        },
-        {
-          label: 'Vario Min / Max',
-          value: this.formatVarioRange(stats),
-        },
-        {
-          label: 'Speed Avg / Max',
-          value: `${this.formatKmh(stats.avgSpeedKmh)} / ${this.formatKmh(
-            stats.maxSpeedKmh
-          )}`,
+          label: 'Δ Altitude',
+          value: this.formatSignedMeters(stats.altitudeDeltaM),
         },
         {
           label: 'Gain / Loss',
@@ -96,8 +60,28 @@ export class FlightSummaryTags {
           )} m`,
         },
         {
-          label: 'Distance',
-          value: this.formatKm(stats.distanceM),
+          label: 'Avg vario',
+          value: this.formatMs(stats.avgVarioMs),
+        },
+        {
+          label: 'Vario Min / Max',
+          value: this.formatVarioRange(stats),
+        },
+        {
+          label: 'Avg speed',
+          value: this.formatKmh(stats.avgSpeedKmh),
+        },
+        {
+          label: 'Max speed',
+          value: this.formatKmh(stats.maxSpeedKmh),
+        },
+        {
+          label: 'Climbs',
+          value: `${stats.climbCount}`,
+        },
+        {
+          label: 'Fixes',
+          value: `${stats.fixCount}`,
         },
       ],
     };
@@ -118,20 +102,7 @@ export class FlightSummaryTags {
   private getTimeLabel(stats: DerivedFlightStats): string {
     return `${this.formatRelativeTime(stats.startTimeSec)} → ${this.formatRelativeTime(
       stats.endTimeSec
-    )} / ${this.formatDuration(stats.durationSec)}`;
-  }
-
-  private formatAltitudeRange(stats: DerivedFlightStats): string {
-    if (
-      !this.hasNumber(stats.altitudeMinM) ||
-      !this.hasNumber(stats.altitudeMaxM)
-    ) {
-      return '—';
-    }
-
-    return `${this.formatNumber(stats.altitudeMinM)} / ${this.formatNumber(
-      stats.altitudeMaxM
-    )} m`;
+    )}`;
   }
 
   private formatVarioRange(stats: DerivedFlightStats): string {
@@ -162,14 +133,6 @@ export class FlightSummaryTags {
 
   private formatRelativeTime(seconds: number | null): string {
     return this.formatDuration(seconds);
-  }
-
-  private formatMeters(value: number | null): string {
-    if (!this.hasNumber(value)) {
-      return '—';
-    }
-
-    return `${this.formatNumber(value)} m`;
   }
 
   private formatSignedMeters(value: number | null): string {

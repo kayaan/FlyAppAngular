@@ -10,11 +10,9 @@
   padding: 10px 12px;
 }
 
-/* Header */
 .summary-header {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
   gap: 12px;
 
   margin-bottom: 10px;
@@ -57,56 +55,10 @@
   min-width: 0;
 }
 
-/* Compact KPI strip */
-.primary-tags {
+.metrics {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-}
-
-.summary-card {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 6px;
-
-  width: auto;
-  min-width: 0;
-  min-height: 0;
-
-  border: 1px solid #d9e0ea;
-  border-radius: 999px;
-  padding: 6px 10px;
-  background: #ffffff;
-}
-
-.card-label {
-  color: #758397;
-  font-size: 12px;
-  line-height: 1;
-  white-space: nowrap;
-}
-
-.card-value {
-  color: #000000;
-  font-size: 14px;
-  font-weight: 800;
-  line-height: 1;
-  white-space: nowrap;
-}
-
-.card-sub-value {
-  display: none;
-}
-
-/* Compact secondary metrics */
-.secondary-metrics {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px solid #e4e9f0;
 }
 
 .metric {
@@ -148,7 +100,6 @@
   font-size: 14px;
 }
 
-/* Medium screens */
 @media (max-width: 900px) {
   .summary-header {
     gap: 8px;
@@ -166,23 +117,19 @@
     font-size: 13px;
   }
 
-  .summary-card,
   .metric {
     padding: 5px 9px;
   }
 
-  .card-label,
   .metric-label {
     font-size: 11px;
   }
 
-  .card-value,
   .metric-value {
     font-size: 13px;
   }
 }
 
-/* Small screens */
 @media (max-width: 600px) {
   .summary-header {
     flex-wrap: wrap;
@@ -192,13 +139,10 @@
     width: 100%;
   }
 
-  .summary-card,
   .metric {
     max-width: 100%;
   }
 
-  .card-label,
-  .card-value,
   .metric-label,
   .metric-value {
     white-space: normal;
