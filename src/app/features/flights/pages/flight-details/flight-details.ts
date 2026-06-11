@@ -12,6 +12,7 @@ import { FlightSummaryTags } from '../../components/flight-summary-tags/flight-s
 import { FlightSettingsStore } from '../../store/flight-settings.store';
 import { TrackArrays } from '../../models/track-arrays.model';
 import { debounceTime, Subject, takeUntil } from 'rxjs';
+import { FlightClimbsPanel } from '../../components/flight-climbs-panel/flight-climbs-panel';
 
 
 const RESOLUTION_INPUT_DEBOUNCE_MS = 350;
@@ -19,7 +20,7 @@ const RESOLUTION_INPUT_DEBOUNCE_MS = 350;
 @Component({
   selector: 'app-flight-details',
   standalone: true,
-  imports: [CommonModule, RouterLink, FlightLineChart, FlightMap, FlightSummaryTags],
+  imports: [CommonModule, RouterLink, FlightLineChart, FlightMap, FlightSummaryTags, FlightClimbsPanel],
   templateUrl: './flight-details.html',
   styleUrl: './flight-details.scss',
   providers: [FlightDetailsStore],

@@ -2,124 +2,152 @@
 
 import { inject } from '@angular/core';
 import {
-    patchState,
-    signalStore,
-    withHooks,
-    withMethods,
-    withState,
+  patchState,
+  signalStore,
+  withHooks,
+  withMethods,
+  withState,
 } from '@ngrx/signals';
 
 import {
-    DEFAULT_FLIGHT_SETTINGS,
-    ChartHeightMode,
-    MapTileMode,
+  DEFAULT_FLIGHT_SETTINGS,
+  ChartHeightMode,
+  MapTileMode,
 } from '../models/flight-settings.model';
 import { FlightSettingsStorageService } from '../services/flight-settings-storage.service';
 
 export const FlightSettingsStore = signalStore(
-    { providedIn: 'root' },
+  { providedIn: 'root' },
 
-    withState(DEFAULT_FLIGHT_SETTINGS),
+  withState(DEFAULT_FLIGHT_SETTINGS),
 
-    withMethods((store) => {
-        const storage = inject(FlightSettingsStorageService);
+  withMethods((store) => {
+    const storage = inject(FlightSettingsStorageService);
 
-        function normalizeResolution(value: number): number {
-            if (!Number.isFinite(value)) {
-                return 1;
-            }
+    function normalizeResolution(value: number): number {
+      if (!Number.isFinite(value)) {
+        return 1;
+      }
 
-            return Math.max(1, Math.min(60, Math.round(value)));
-        }
+      return Math.max(1, Math.min(60, Math.round(value)));
+    }
 
-        function persist(): void {
-            storage.save({
-                mapTileMode: store.mapTileMode(),
-                showAltitudeChart: store.showAltitudeChart(),
-                showVarioChart: store.showVarioChart(),
-                showSpeedChart: store.showSpeedChart(),
-                chartHeightMode: store.chartHeightMode(),
+    function persist(): void {
+      storage.save({
+        mapTileMode: store.mapTileMode(),
 
-                altitudeChartResolutionInSec: store.altitudeChartResolutionInSec(),
-                varioChartResolutionInSec: store.varioChartResolutionInSec(),
-                speedChartResolutionInSec: store.speedChartResolutionInSec(),
+        showAltitudeChart: store.showAltitudeChart(),
+        showVarioChart: store.showVarioChart(),
+        showSpeedChart: store.showSpeedChart(),
 
-                showStatsPanel: store.showStatsPanel(),
-            });
-        }
+        chartHeightMode: store.chartHeightMode(),
 
-        return {
-            setShowStatsPanel(show: boolean): void {
-                patchState(store, {
-                    showStatsPanel: show,
-                });
+        altitudeChartResolutionInSec: store.altitudeChartResolutionInSec(),
+        varioChartResolutionInSec: store.varioChartResolutionInSec(),
+        speedChartResolutionInSec: store.speedChartResolutionInSec(),
 
-                persist();
-            },
+        showStatsPanel: store.showStatsPanel(),
+        showClimbsOnCharts: store.showClimbsOnCharts(),
+      });
+    }
 
-            setMapTileMode(mapTileMode: MapTileMode): void {
-                patchState(store, { mapTileMode });
-                persist();
-            },
+    return {
+      setShowStatsPanel(show: boolean): void {
+        patchState(store, {
+          showStatsPanel: show,
+        });
 
-            setChartHeightMode(chartHeightMode: ChartHeightMode): void {
-                patchState(store, { chartHeightMode });
-                persist();
-            },
+        persist();
+      },
 
-            setShowAltitudeChart(value: boolean): void {
-                patchState(store, {
-                    showAltitudeChart: value,
-                });
-                persist();
-            },
+      setShowClimbsOnCharts(show: boolean): void {
+        patchState(store, {
+          showClimbsOnCharts: show,
+        });
 
-            setShowVarioChart(value: boolean): void {
-                patchState(store, {
-                    showVarioChart: value
-                });
-                persist();
-            },
+        persist();
+      },
 
-            setShowSpeedChart(value: boolean): void {
-                patchState(store, {
-                    showSpeedChart: value,
-                });
-                persist();
-            },
+      setMapTileMode(mapTileMode: MapTileMode): void {
+        patchState(store, {
+          mapTileMode,
+        });
 
-            setAltitudeChartResolutionInSec(value: number): void {
-                patchState(store, {
-                    altitudeChartResolutionInSec: normalizeResolution(value),
-                });
-                persist();
-            },
+        persist();
+      },
 
-            setVarioChartResolutionInSec(value: number): void {
-                patchState(store, {
-                    varioChartResolutionInSec: normalizeResolution(value),
-                });
-                persist();
-            },
+      setChartHeightMode(chartHeightMode: ChartHeightMode): void {
+        patchState(store, {
+          chartHeightMode,
+        });
 
-            setSpeedChartResolutionInSec(value: number): void {
-                patchState(store, {
-                    speedChartResolutionInSec: normalizeResolution(value),
-                });
-                persist();
-            },
+        persist();
+      },
 
-            resetSettings(): void {
-                storage.reset();
-                patchState(store, DEFAULT_FLIGHT_SETTINGS);
-            },
-        };
-    }),
+      setShowAltitudeChart(show: boolean): void {
+        patchState(store, {
+          showAltitudeChart: show,
+        });
 
-    withHooks({
-        onInit(store) {
-            const storage = inject(FlightSettingsStorageService);
-            patchState(store, storage.load());
-        },
-    }),
+        persist();
+      },
+
+      setShowVarioChart(show: boolean): void {
+        patchState(store, {
+          showVarioChart: show,
+        });
+
+        persist();
+      },
+
+      setShowSpeedChart(show: boolean): void {
+        patchState(store, {
+          showSpeedChart: show,
+        });
+
+        persist();
+      },
+
+      setAltitudeChartResolutionInSec(value: number): void {
+        patchState(store, {
+          altitudeChartResolutionInSec: normalizeResolution(value),
+        });
+
+        persist();
+      },
+
+      setVarioChartResolutionInSec(value: number): void {
+        patchState(store, {
+          varioChartResolutionInSec: normalizeResolution(value),
+        });
+
+        persist();
+      },
+
+      setSpeedChartResolutionInSec(value: number): void {
+        patchState(store, {
+          speedChartResolutionInSec: normalizeResolution(value),
+        });
+
+        persist();
+      },
+
+      resetSettings(): void {
+        storage.reset();
+
+        patchState(store, DEFAULT_FLIGHT_SETTINGS);
+      },
+    };
+  }),
+
+  withHooks({
+    onInit(store): void {
+      const storage = inject(FlightSettingsStorageService);
+
+      patchState(store, {
+        ...DEFAULT_FLIGHT_SETTINGS,
+        ...storage.load(),
+      });
+    },
+  })
 );

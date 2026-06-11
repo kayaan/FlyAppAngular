@@ -57,6 +57,44 @@ export const FlightDetailsStore = signalStore(
     const derivedStatsService = inject(DerivedFlightStatsService);
 
     return {
+      climbCount: computed(() => store.climbs().length),
+
+      selectedClimbIndex: computed(() => {
+        const selectedClimbId = store.selectedClimbId();
+
+        if (selectedClimbId === null) {
+          return -1;
+        }
+
+        return store.climbs().findIndex((climb) => climb.id === selectedClimbId);
+      }),
+
+      selectedClimb: computed(() => {
+        const selectedClimbId = store.selectedClimbId();
+
+        if (selectedClimbId === null) {
+          return null;
+        }
+
+        return (
+          store.climbs().find((climb) => climb.id === selectedClimbId) ?? null
+        );
+      }),
+
+      selectedClimbNumber: computed(() => {
+        const selectedClimbId = store.selectedClimbId();
+
+        if (selectedClimbId === null) {
+          return null;
+        }
+
+        const index = store
+          .climbs()
+          .findIndex((climb) => climb.id === selectedClimbId);
+
+        return index >= 0 ? index + 1 : null;
+      }),
+
       derivedStats: computed(() => {
         const selectedRange = store.selectedRange();
         const selectedClimbId = store.selectedClimbId();
@@ -64,18 +102,18 @@ export const FlightDetailsStore = signalStore(
         const selection: StatsSelection =
           selectedRange !== null
             ? {
-              type: 'range',
-              startIndex: selectedRange.startIndex,
-              endIndex: selectedRange.endIndex,
-            }
+                type: 'range',
+                startIndex: selectedRange.startIndex,
+                endIndex: selectedRange.endIndex,
+              }
             : selectedClimbId !== null
               ? {
-                type: 'climb',
-                climbId: selectedClimbId,
-              }
+                  type: 'climb',
+                  climbId: selectedClimbId,
+                }
               : {
-                type: 'flight',
-              };
+                  type: 'flight',
+                };
 
         return derivedStatsService.derive(
           store.track(),
@@ -85,7 +123,7 @@ export const FlightDetailsStore = signalStore(
       }),
     };
   }),
-  
+
   withComputed((store) => {
     const settings = inject(FlightSettingsStore);
     const trackColorService = inject(TrackColorService);
@@ -94,14 +132,37 @@ export const FlightDetailsStore = signalStore(
       coloredTrackSegments: computed(() =>
         trackColorService.buildVarioColoredSegments(
           store.track(),
-          settings.varioChartResolutionInSec(),
-        ),
+          settings.varioChartResolutionInSec()
+        )
       ),
     };
   }),
 
   withMethods((store) => {
     const storage = inject(FlightIndexedDbService);
+
+    function selectClimbByIndex(index: number): void {
+      const climbs = store.climbs();
+
+      if (climbs.length === 0) {
+        patchState(store, {
+          selectedClimbId: null,
+          selectedRange: null,
+          cursorIndex: null,
+        });
+
+        return;
+      }
+
+      const safeIndex = Math.max(0, Math.min(index, climbs.length - 1));
+      const climb = climbs[safeIndex];
+
+      patchState(store, {
+        selectedClimbId: climb.id,
+        selectedRange: null,
+        cursorIndex: null,
+      });
+    }
 
     return {
       setCursorIndex(index: number | null): void {
@@ -111,8 +172,72 @@ export const FlightDetailsStore = signalStore(
       },
 
       selectClimb(climbId: number): void {
+        const exists = store.climbs().some((climb) => climb.id === climbId);
+
+        if (!exists) {
+          return;
+        }
+
         patchState(store, {
           selectedClimbId: climbId,
+          selectedRange: null,
+          cursorIndex: null,
+        });
+      },
+
+      selectNextClimb(): void {
+        const climbs = store.climbs();
+
+        if (climbs.length === 0) {
+          return;
+        }
+
+        const selectedClimbId = store.selectedClimbId();
+
+        if (selectedClimbId === null) {
+          selectClimbByIndex(0);
+          return;
+        }
+
+        const currentIndex = climbs.findIndex(
+          (climb) => climb.id === selectedClimbId
+        );
+
+        const nextIndex =
+          currentIndex < 0 || currentIndex >= climbs.length - 1
+            ? 0
+            : currentIndex + 1;
+
+        selectClimbByIndex(nextIndex);
+      },
+
+      selectPreviousClimb(): void {
+        const climbs = store.climbs();
+
+        if (climbs.length === 0) {
+          return;
+        }
+
+        const selectedClimbId = store.selectedClimbId();
+
+        if (selectedClimbId === null) {
+          selectClimbByIndex(climbs.length - 1);
+          return;
+        }
+
+        const currentIndex = climbs.findIndex(
+          (climb) => climb.id === selectedClimbId
+        );
+
+        const previousIndex =
+          currentIndex <= 0 ? climbs.length - 1 : currentIndex - 1;
+
+        selectClimbByIndex(previousIndex);
+      },
+
+      clearSelectedClimb(): void {
+        patchState(store, {
+          selectedClimbId: null,
           selectedRange: null,
           cursorIndex: null,
         });
@@ -137,9 +262,6 @@ export const FlightDetailsStore = signalStore(
         });
       },
 
-      /**
-       * Loads one flight with track, climbs and stats.
-       */
       async loadFlight(flightId: number): Promise<void> {
         patchState(store, {
           loading: true,
@@ -194,23 +316,15 @@ export const FlightDetailsStore = signalStore(
         }
       },
 
-      /**
-       * Clears the loaded details.
-       */
       clear(): void {
         patchState(store, initialState);
       },
 
-      /**
-       * Clears the current error.
-       */
       clearError(): void {
         patchState(store, {
           error: null,
         });
       },
     };
-  }),
-
-
+  })
 );

@@ -1,0 +1,102 @@
+:host {
+  display: block;
+  width: 100%;
+}
+
+.climbs-panel {
+  border: 1px solid #d9e0ea;
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 10px 12px;
+}
+
+.climbs-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.climbs-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.title {
+  color: #0f172a;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.count-pill {
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+.show-climbs-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+
+  color: #334155;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+
+  input {
+    margin: 0;
+  }
+}
+
+.climb-navigation {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.climb-nav-button,
+.clear-climb-button {
+  border: 1px solid #d9e0ea;
+  border-radius: 999px;
+  background: #f8fafc;
+  color: #0f172a;
+
+  height: 26px;
+  padding: 0 10px;
+
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    background: #eef3f8;
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+}
+
+.climb-nav-button {
+  width: 26px;
+  padding: 0;
+  font-size: 18px;
+}
+
+.selected-climb-label {
+  color: #6b7890;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}

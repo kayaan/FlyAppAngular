@@ -15,6 +15,8 @@ export interface FlightSettings {
   speedChartResolutionInSec: number;
 
   showStatsPanel: boolean,
+
+  showClimbsOnCharts: boolean;
 }
 
 export const DEFAULT_FLIGHT_SETTINGS: FlightSettings = {
@@ -28,5 +30,7 @@ export const DEFAULT_FLIGHT_SETTINGS: FlightSettings = {
   varioChartResolutionInSec: 5,
   speedChartResolutionInSec: 5,
 
-  showStatsPanel: false
+  showStatsPanel: false,
+
+  showClimbsOnCharts: false
 };

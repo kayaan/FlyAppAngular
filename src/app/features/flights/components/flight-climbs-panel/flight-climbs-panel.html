@@ -1,0 +1,59 @@
+<section class="climbs-panel">
+  <header class="climbs-header">
+    <div class="climbs-title">
+      <span class="title">Climbs</span>
+      <span class="count-pill">{{ detailsStore.climbCount() }}</span>
+    </div>
+
+    <label class="show-climbs-toggle">
+      <input
+        type="checkbox"
+        [checked]="settingsStore.showClimbsOnCharts()"
+        (change)="toggleShowClimbsOnCharts($event)"
+      />
+      <span>Show on charts</span>
+    </label>
+
+    <div class="climb-navigation">
+      <button
+        type="button"
+        class="climb-nav-button"
+        (click)="detailsStore.selectPreviousClimb()"
+        [disabled]="detailsStore.climbCount() === 0"
+        title="Previous climb"
+        aria-label="Previous climb"
+      >
+        ‹
+      </button>
+
+      <span class="selected-climb-label">
+        @if (detailsStore.selectedClimbNumber(); as climbNumber) {
+          Climb {{ climbNumber }} / {{ detailsStore.climbCount() }}
+        } @else {
+          No climb selected
+        }
+      </span>
+
+      <button
+        type="button"
+        class="climb-nav-button"
+        (click)="detailsStore.selectNextClimb()"
+        [disabled]="detailsStore.climbCount() === 0"
+        title="Next climb"
+        aria-label="Next climb"
+      >
+        ›
+      </button>
+
+      @if (detailsStore.selectedClimbId() !== null) {
+        <button
+          type="button"
+          class="clear-climb-button"
+          (click)="detailsStore.clearSelectedClimb()"
+        >
+          Full flight
+        </button>
+      }
+    </div>
+  </header>
+</section>
