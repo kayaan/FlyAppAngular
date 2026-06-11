@@ -11,14 +11,12 @@ export type NewFlightStats = Omit<FlightStats, 'id' | 'flightId'>;
 export interface NewFlightImport {
   flight: NewFlight;
   track: TrackArrays;
-  climbs: NewClimb[];
   stats: NewFlightStats[];
 }
 
 export interface FlightDetails {
   flight: Flight;
   track: TrackArrays | undefined;
-  climbs: Climb[];
   stats: FlightStats[];
 }
 

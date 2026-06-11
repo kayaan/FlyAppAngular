@@ -164,7 +164,6 @@ export class FlightIndexedDbService implements FlightStorage {
         return {
             flight,
             track,
-            climbs,
             stats,
         };
     }
@@ -343,13 +342,6 @@ export class FlightIndexedDbService implements FlightStorage {
             flightId,
             track: importData.track,
         });
-
-        for (const climb of importData.climbs) {
-            await tx.objectStore('climbs').add({
-                ...climb,
-                flightId,
-            } as Climb);
-        }
 
         for (const stats of importData.stats) {
             await tx.objectStore('stats').add({

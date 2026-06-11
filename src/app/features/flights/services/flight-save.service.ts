@@ -88,7 +88,6 @@ export class FlightSaveService {
     const flightId = await this.storage.saveCompleteImport({
       flight: newFlight,
       track: analysis.track,
-      climbs: analysis.climbs,
       stats,
     });
 

@@ -23,7 +23,6 @@ export interface FlightImportAnalysisResult {
 
   track: TrackArrays;
   stats: CalculatedFlightStats;
-  climbs: DetectedClimb[];
 }
 
 @Injectable({
@@ -32,7 +31,6 @@ export interface FlightImportAnalysisResult {
 export class FlightImportService {
   private readonly igcParser = inject(IgcParserService);
   private readonly statsCalculator = inject(FlightStatsCalculatorService);
-  private readonly climbDetector = inject(ClimbDetectorService);
   private readonly fileHashService = inject(FileHashService);
 
   /**
@@ -53,7 +51,6 @@ export class FlightImportService {
     const parsed = this.igcParser.parse(igcText);
 
     const stats = this.statsCalculator.calculate(parsed.track);
-    const climbs = this.climbDetector.detectClimbs(parsed.track);
 
     return {
       fileName: file.name,
@@ -63,7 +60,6 @@ export class FlightImportService {
 
       track: parsed.track,
       stats,
-      climbs,
     };
   }
 }
