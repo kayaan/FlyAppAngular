@@ -6,7 +6,7 @@ import { DetectedClimb } from '../models/detected-climb.model';
   providedIn: 'root',
 })
 export class ClimbDetectorService {
-  private readonly minGainM = 100;
+  private readonly minGainM = 50;
   private readonly minSeparationDropM = 80;
 
   /**

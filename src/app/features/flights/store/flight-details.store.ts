@@ -16,6 +16,8 @@ import { DerivedFlightStatsService } from '../services/derived-flight-stats.serv
 import { StatsSelection } from '../models/derived-flight-stats.model';
 import { FlightSettingsStore } from './flight-settings.store';
 import { TrackColorService } from '../services/track-color.service';
+import { ClimbDetectorService } from '../services/climb-detector.service';
+import { DetectedClimb } from '../models/detected-climb.model';
 
 type FlightDetailsState = {
   flight: Flight | null;
@@ -102,18 +104,18 @@ export const FlightDetailsStore = signalStore(
         const selection: StatsSelection =
           selectedRange !== null
             ? {
-                type: 'range',
-                startIndex: selectedRange.startIndex,
-                endIndex: selectedRange.endIndex,
-              }
+              type: 'range',
+              startIndex: selectedRange.startIndex,
+              endIndex: selectedRange.endIndex,
+            }
             : selectedClimbId !== null
               ? {
-                  type: 'climb',
-                  climbId: selectedClimbId,
-                }
+                type: 'climb',
+                climbId: selectedClimbId,
+              }
               : {
-                  type: 'flight',
-                };
+                type: 'flight',
+              };
 
         return derivedStatsService.derive(
           store.track(),
@@ -140,6 +142,7 @@ export const FlightDetailsStore = signalStore(
 
   withMethods((store) => {
     const storage = inject(FlightIndexedDbService);
+    const climbDetector = inject(ClimbDetectorService);
 
     function selectClimbByIndex(index: number): void {
       const climbs = store.climbs();
@@ -162,6 +165,31 @@ export const FlightDetailsStore = signalStore(
         selectedRange: null,
         cursorIndex: null,
       });
+    }
+
+    function calculateClimbs(track: TrackArrays | null, flightId: number): Climb[] {
+      if (!track) {
+        return [];
+      }
+
+      return climbDetector.detectClimbs(track).map(
+        (climb: DetectedClimb, index): Climb => ({
+          id: index + 1,
+          flightId,
+
+          startIndex: climb.startIndex,
+          endIndex: climb.endIndex,
+          peakIndex: climb.peakIndex,
+
+          startTimeSec: climb.startTimeSec,
+          endTimeSec: climb.endTimeSec,
+          durationSec: climb.durationSec,
+
+          gainM: climb.gainM,
+          avgClimbMs: climb.avgClimbMs,
+          maxClimbMs: climb.maxClimbMs,
+        })
+      );
     }
 
     return {
@@ -290,10 +318,13 @@ export const FlightDetailsStore = signalStore(
             return;
           }
 
+          const track = details.track ?? null;
+          const climbs = calculateClimbs(track, details.flight.id);
+
           patchState(store, {
             flight: details.flight,
-            track: details.track ?? null,
-            climbs: details.climbs,
+            track,
+            climbs,
             stats: details.stats,
             selectedClimbId: null,
             selectedRange: null,
