@@ -148,3 +148,43 @@
     white-space: normal;
   }
 }
+
+.summary-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+
+  border: 1px solid #d9e0ea;
+  border-radius: 999px;
+  background: #f8fafc;
+  color: #0f172a;
+
+  cursor: pointer;
+
+  &:hover {
+    background: #eef3f8;
+  }
+}
+
+.summary-toggle-icon {
+  display: block;
+  width: 8px;
+  height: 8px;
+
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+
+  box-sizing: border-box;
+  transform-origin: center;
+  transform: rotate(225deg);
+  transition: transform 140ms ease;
+}
+
+.summary-toggle-icon.collapsed {
+  transform: rotate(45deg);
+}

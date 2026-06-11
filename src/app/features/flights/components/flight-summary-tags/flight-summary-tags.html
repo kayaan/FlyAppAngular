@@ -1,27 +1,34 @@
 @if (vm(); as vm) {
-  <section class="summary-panel">
-    <header class="summary-header">
-      <div class="summary-title">
-        <span class="title">Stats</span>
-        <span class="scope-pill">{{ vm.scopeLabel }}</span>
-      </div>
-
-      <div class="summary-time">
-        {{ vm.timeLabel }}
-      </div>
-    </header>
-
-    <div class="metrics">
-      @for (metric of vm.metrics; track metric.label) {
-        <div class="metric">
-          <span class="metric-label">{{ metric.label }}</span>
-          <span class="metric-value">{{ metric.value }}</span>
-        </div>
-      }
+<section class="summary-panel">
+  <header class="summary-header">
+    <div class="summary-title">
+      <span class="title">Stats</span>
+      <span class="scope-pill">{{ vm.scopeLabel }}</span>
     </div>
-  </section>
+
+    <div class="summary-time">
+      {{ vm.timeLabel }}
+    </div>
+
+    <button type="button" class="summary-toggle" (click)="toggleStatsPanel()"
+      [attr.aria-label]="showStatsPanel() ? 'Show fewer stats' : 'Show all stats'"
+      [attr.title]="showStatsPanel() ? 'Show fewer stats' : 'Show all stats'">
+      <span class="summary-toggle-icon" [class.collapsed]="!showStatsPanel()">
+      </span>
+    </button>
+  </header>
+
+  <div class="metrics">
+    @for (metric of showStatsPanel() ? vm.metrics : vm.compactMetrics; track metric.label) {
+    <div class="metric">
+      <span class="metric-label">{{ metric.label }}</span>
+      <span class="metric-value">{{ metric.value }}</span>
+    </div>
+    }
+  </div>
+</section>
 } @else {
-  <section class="summary-panel empty">
-    <div class="empty-text">No stats available.</div>
-  </section>
+<section class="summary-panel empty">
+  <div class="empty-text">No stats available.</div>
+</section>
 }

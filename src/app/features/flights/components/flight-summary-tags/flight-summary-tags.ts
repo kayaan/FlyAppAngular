@@ -1,6 +1,7 @@
 import { Component, computed, inject } from '@angular/core';
 
 import { FlightDetailsStore } from '../../store/flight-details.store';
+import { FlightSettingsStore } from '../../store/flight-settings.store';
 import { DerivedFlightStats } from '../../models/derived-flight-stats.model';
 
 type SummaryMetric = {
@@ -12,6 +13,7 @@ type SummaryViewModel = {
   scopeLabel: string;
   timeLabel: string;
   metrics: SummaryMetric[];
+  compactMetrics: SummaryMetric[];
 };
 
 @Component({
@@ -22,6 +24,9 @@ type SummaryViewModel = {
 })
 export class FlightSummaryTags {
   private readonly store = inject(FlightDetailsStore);
+  private readonly settingsStore = inject(FlightSettingsStore);
+
+  readonly showStatsPanel = this.settingsStore.showStatsPanel;
 
   readonly vm = computed<SummaryViewModel | null>(() => {
     const stats = this.store.derivedStats();
@@ -30,62 +35,68 @@ export class FlightSummaryTags {
       return null;
     }
 
+    const metrics: SummaryMetric[] = [
+      {
+        label: 'Duration',
+        value: this.formatDuration(stats.durationSec),
+      },
+      {
+        label: 'Distance',
+        value: this.formatKm(stats.distanceM),
+      },
+      {
+        label: 'Height Min / Max',
+        value: `${this.formatNumber(stats.altitudeMinM)} / ${this.formatNumber(
+          stats.altitudeMaxM
+        )} m`,
+      },
+      {
+        label: 'Δ Altitude',
+        value: this.formatSignedMeters(stats.altitudeDeltaM),
+      },
+      {
+        label: 'Gain / Loss',
+        value: `+${this.formatNumber(stats.altitudeGainM)} / -${this.formatNumber(
+          stats.altitudeLossM
+        )} m`,
+      },
+      {
+        label: 'Avg vario',
+        value: this.formatMs(stats.avgVarioMs),
+      },
+      {
+        label: 'Vario Min / Max',
+        value: this.formatVarioRange(stats),
+      },
+      {
+        label: 'Avg speed',
+        value: this.formatKmh(stats.avgSpeedKmh),
+      },
+      {
+        label: 'Max speed',
+        value: this.formatKmh(stats.maxSpeedKmh),
+      },
+      {
+        label: 'Climbs',
+        value: `${stats.climbCount}`,
+      },
+      {
+        label: 'Fixes',
+        value: `${stats.fixCount}`,
+      },
+    ];
+
     return {
       scopeLabel: this.getScopeLabel(stats),
       timeLabel: this.getTimeLabel(stats),
-
-      metrics: [
-        {
-          label: 'Duration',
-          value: this.formatDuration(stats.durationSec),
-        },
-        {
-          label: 'Distance',
-          value: this.formatKm(stats.distanceM),
-        },
-        {
-          label: 'Height Min / Max',
-          value: `${this.formatNumber(stats.altitudeMinM)} / ${this.formatNumber(
-            stats.altitudeMaxM
-          )} m`,
-        },
-        {
-          label: 'Δ Altitude',
-          value: this.formatSignedMeters(stats.altitudeDeltaM),
-        },
-        {
-          label: 'Gain / Loss',
-          value: `+${this.formatNumber(stats.altitudeGainM)} / -${this.formatNumber(
-            stats.altitudeLossM
-          )} m`,
-        },
-        {
-          label: 'Avg vario',
-          value: this.formatMs(stats.avgVarioMs),
-        },
-        {
-          label: 'Vario Min / Max',
-          value: this.formatVarioRange(stats),
-        },
-        {
-          label: 'Avg speed',
-          value: this.formatKmh(stats.avgSpeedKmh),
-        },
-        {
-          label: 'Max speed',
-          value: this.formatKmh(stats.maxSpeedKmh),
-        },
-        {
-          label: 'Climbs',
-          value: `${stats.climbCount}`,
-        },
-        {
-          label: 'Fixes',
-          value: `${stats.fixCount}`,
-        },
-      ],
+      metrics,
+      compactMetrics: metrics.slice(0, 3),
     };
   });
+
+  toggleStatsPanel(): void {
+    this.settingsStore.setShowStatsPanel(!this.settingsStore.showStatsPanel());
+  }
 
   private getScopeLabel(stats: DerivedFlightStats): string {
     if (stats.scopeType === 'climb') {
