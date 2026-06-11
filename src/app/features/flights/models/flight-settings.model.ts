@@ -11,8 +11,10 @@ export interface FlightSettings {
   chartHeightMode: ChartHeightMode;
 
   altitudeChartResolutionInSec: number;
-  varioChartResolutionInSec : number;
+  varioChartResolutionInSec: number;
   speedChartResolutionInSec: number;
+
+  showStatsPanel: boolean,
 }
 
 export const DEFAULT_FLIGHT_SETTINGS: FlightSettings = {
@@ -24,5 +26,7 @@ export const DEFAULT_FLIGHT_SETTINGS: FlightSettings = {
 
   altitudeChartResolutionInSec: 2,
   varioChartResolutionInSec: 5,
-  speedChartResolutionInSec: 5
+  speedChartResolutionInSec: 5,
+
+  showStatsPanel: false
 };

@@ -43,10 +43,20 @@ export const FlightSettingsStore = signalStore(
                 altitudeChartResolutionInSec: store.altitudeChartResolutionInSec(),
                 varioChartResolutionInSec: store.varioChartResolutionInSec(),
                 speedChartResolutionInSec: store.speedChartResolutionInSec(),
+
+                showStatsPanel: store.showStatsPanel(),
             });
         }
 
         return {
+            setShowStatsPanel(show: boolean): void {
+                patchState(store, {
+                    showStatsPanel: show,
+                });
+
+                persist();
+            },
+
             setMapTileMode(mapTileMode: MapTileMode): void {
                 patchState(store, { mapTileMode });
                 persist();
