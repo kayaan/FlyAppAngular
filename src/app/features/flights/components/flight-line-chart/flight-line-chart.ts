@@ -75,16 +75,31 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
     '#be123c',
   ];
 
+  private currentZoomStartPercent = 0;
+  private currentZoomEndPercent = 100;
+  private lastFocusedClimbId: number | null = null;
+
   constructor() {
     effect(() => {
       const cursorIndex = this.store.cursorIndex();
+      const selectedClimbId = this.store.selectedClimbId();
 
+      // trigger chart refresh when these signals change
       this.settingsStore.showClimbsOnCharts();
       this.store.climbs();
-      this.store.selectedClimbId();
 
       if (!this.chart) {
         return;
+      }
+
+      if (selectedClimbId !== this.lastFocusedClimbId) {
+        this.lastFocusedClimbId = selectedClimbId;
+
+        if (selectedClimbId !== null) {
+          this.ensureSelectedClimbVisible(selectedClimbId);
+        } else {
+          this.zoomToFullFlight();
+        }
       }
 
       if (cursorIndex === null) {
@@ -96,7 +111,7 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
       this.showCursorAtIndex(cursorIndex);
     });
   }
-  
+
   ngAfterViewInit(): void {
     this.chart = echarts.init(this.chartContainer.nativeElement);
     this.chart.group = this.groupId;
@@ -113,54 +128,132 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
     this.resizeObserver.observe(this.chartContainer.nativeElement);
   }
 
+  private zoomToFullFlight(): void {
+    if (!this.chart) {
+      return;
+    }
+
+    this.chart.dispatchAction({
+      type: 'dataZoom',
+      xAxisIndex: 0,
+      start: 0,
+      end: 100,
+    });
+
+    this.currentZoomStartPercent = 0;
+    this.currentZoomEndPercent = 100;
+  }
+
+  private getVisibleClimbMarkLines() {
+    const climbs = this.store.climbs();
+    const selectedClimbId = this.store.selectedClimbId();
+    const showAllClimbs = this.settingsStore.showClimbsOnCharts();
+
+    const visibleClimbs = showAllClimbs
+      ? climbs
+      : climbs.filter((climb) => climb.id === selectedClimbId);
+
+    return visibleClimbs.flatMap((climb, index) => {
+      const color = this.getClimbColor(index);
+
+      return [
+        {
+          xAxis: climb.startIndex,
+          lineStyle: {
+            color,
+            type: 'dotted',
+            width: 2,
+          },
+          label: {
+            show: false,
+          },
+        },
+        {
+          xAxis: climb.endIndex,
+          lineStyle: {
+            color,
+            type: 'dotted',
+            width: 2,
+          },
+          label: {
+            show: false,
+          },
+        },
+      ];
+    });
+  }
+
+  private getClimbColor(index: number): string {
+    const colors = [
+      '#2563eb',
+      '#16a34a',
+      '#dc2626',
+      '#9333ea',
+      '#ea580c',
+      '#0891b2',
+    ];
+
+    return colors[index % colors.length];
+  }
+
   private buildMarkLineData(cursorTrackIndex: number | null): unknown[] {
     const data: unknown[] = [];
 
-    if (this.settingsStore.showClimbsOnCharts()) {
-      const climbs = this.store.climbs();
+    const climbs = this.store.climbs();
+    const selectedClimbId = this.store.selectedClimbId();
+    const showAllClimbs = this.settingsStore.showClimbsOnCharts();
 
-      for (let i = 0; i < climbs.length; i++) {
-        const climb = climbs[i];
+    const visibleClimbs = showAllClimbs
+      ? climbs
+      : selectedClimbId !== null
+        ? climbs.filter((climb) => climb.id === selectedClimbId)
+        : [];
 
-        const startElapsedSec = this.getElapsedSecForTrackIndex(climb.startIndex);
-        const endElapsedSec = this.getElapsedSecForTrackIndex(climb.endIndex);
+    for (const climb of visibleClimbs) {
+      const climbIndex = climbs.findIndex((item) => item.id === climb.id);
 
-        if (startElapsedSec === null || endElapsedSec === null) {
-          continue;
-        }
-
-        const color =
-          this.climbBoundaryColors[i % this.climbBoundaryColors.length];
-
-        const isSelected = climb.id === this.store.selectedClimbId();
-
-        data.push(
-          {
-            xAxis: startElapsedSec,
-            lineStyle: {
-              color,
-              type: 'dashed',
-              width: isSelected ? 2 : 1,
-              opacity: isSelected ? 1 : 0.75,
-            },
-            label: {
-              show: false,
-            },
-          },
-          {
-            xAxis: endElapsedSec,
-            lineStyle: {
-              color,
-              type: 'dashed',
-              width: isSelected ? 2 : 1,
-              opacity: isSelected ? 1 : 0.75,
-            },
-            label: {
-              show: false,
-            },
-          }
-        );
+      if (climbIndex < 0) {
+        continue;
       }
+
+      const startElapsedSec = this.getElapsedSecForTrackIndex(climb.startIndex);
+      const endElapsedSec = this.getElapsedSecForTrackIndex(climb.endIndex);
+
+      if (startElapsedSec === null || endElapsedSec === null) {
+        continue;
+      }
+
+      const color =
+        this.climbBoundaryColors[climbIndex % this.climbBoundaryColors.length];
+
+      const isSelected = climb.id === selectedClimbId;
+
+      data.push(
+        {
+          xAxis: startElapsedSec,
+          lineStyle: {
+            color,
+            type: 'dotted',
+            width: isSelected ? 2.5 : 1.5,
+            opacity: isSelected ? 1 : 0.65,
+          },
+          label: {
+            show: false,
+          },
+        },
+        {
+          xAxis: endElapsedSec,
+          lineStyle: {
+            color,
+            type: 'dotted',
+            width: isSelected ? 2.5 : 1.5,
+            opacity: isSelected ? 1 : 0.65,
+          },
+          label: {
+            show: false,
+          },
+        }
+      );
     }
 
     if (cursorTrackIndex !== null) {
@@ -226,9 +319,123 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
       }
     });
 
+    this.chart.on('dataZoom', (event: any) => {
+      const zoom = event.batch?.[0] ?? event;
+
+      if (typeof zoom.start === 'number') {
+        this.currentZoomStartPercent = zoom.start;
+      }
+
+      if (typeof zoom.end === 'number') {
+        this.currentZoomEndPercent = zoom.end;
+      }
+    });
+
     this.chartContainer.nativeElement.addEventListener('mouseleave', () => {
       this.store.setCursorIndex(null);
     });
+  }
+
+  private ensureSelectedClimbVisible(selectedClimbId: number): void {
+    if (!this.chart || this.data.length === 0) {
+      return;
+    }
+
+    const selectedClimb = this.store
+      .climbs()
+      .find((climb) => climb.id === selectedClimbId);
+
+    if (!selectedClimb) {
+      return;
+    }
+
+    const climbStartX = this.getElapsedSecForTrackIndex(selectedClimb.startIndex);
+    const climbEndX = this.getElapsedSecForTrackIndex(selectedClimb.endIndex);
+
+    if (climbStartX === null || climbEndX === null) {
+      return;
+    }
+
+    const fullStartX = 0;
+    const fullEndX = this.getMaxElapsedSec();
+    const fullRange = fullEndX - fullStartX;
+
+    if (fullRange <= 0) {
+      return;
+    }
+
+    const currentStartX =
+      fullStartX + (fullRange * this.currentZoomStartPercent) / 100;
+
+    const currentEndX =
+      fullStartX + (fullRange * this.currentZoomEndPercent) / 100;
+
+    const currentWindowSize = currentEndX - currentStartX;
+    const climbSize = climbEndX - climbStartX;
+
+    const paddingSec = Math.max(30, climbSize * 0.2);
+    const requiredStartX = Math.max(fullStartX, climbStartX - paddingSec);
+    const requiredEndX = Math.min(fullEndX, climbEndX + paddingSec);
+    const requiredWindowSize = requiredEndX - requiredStartX;
+
+    const isFullyVisible =
+      climbStartX >= currentStartX && climbEndX <= currentEndX;
+
+    if (isFullyVisible) {
+      return;
+    }
+
+    if (requiredWindowSize >= currentWindowSize) {
+      this.zoomToRange(requiredStartX, requiredEndX);
+      return;
+    }
+
+    const climbCenterX = (climbStartX + climbEndX) / 2;
+    let nextStartX = climbCenterX - currentWindowSize / 2;
+    let nextEndX = climbCenterX + currentWindowSize / 2;
+
+    if (nextStartX < fullStartX) {
+      nextStartX = fullStartX;
+      nextEndX = fullStartX + currentWindowSize;
+    }
+
+    if (nextEndX > fullEndX) {
+      nextEndX = fullEndX;
+      nextStartX = fullEndX - currentWindowSize;
+    }
+
+    this.zoomToRange(nextStartX, nextEndX);
+  }
+
+  private zoomToRange(startX: number, endX: number): void {
+    if (!this.chart) {
+      return;
+    }
+
+    this.chart.dispatchAction({
+      type: 'dataZoom',
+      xAxisIndex: 0,
+      startValue: startX,
+      endValue: endX,
+    });
+
+    const fullRange = this.getMaxElapsedSec();
+
+    if (fullRange > 0) {
+      this.currentZoomStartPercent = (startX / fullRange) * 100;
+      this.currentZoomEndPercent = (endX / fullRange) * 100;
+    }
+  }
+
+  private getMaxElapsedSec(): number {
+    if (this.data.length === 0) {
+      return 0;
+    }
+
+    const firstTimeSec = this.getFirstTimeSec();
+    const lastTimeSec = this.data[this.data.length - 1].timeSec;
+
+    return Math.max(0, lastTimeSec - firstTimeSec);
   }
 
   private findNearestDataIndexByElapsedTime(elapsedSec: number): number | null {
