@@ -18,4 +18,9 @@ export class FlightClimbsPanel {
 
     this.settingsStore.setShowClimbsOnCharts(input.checked);
   }
+
+  protected showFullFlight(): void {
+    this.detailsStore.clearSelectedClimb();
+    this.detailsStore.zoomToSelectedClimb();
+  }
 }

@@ -11,6 +11,8 @@ import {
 import * as L from 'leaflet';
 
 import { FlightDetailsStore } from '../../store/flight-details.store';
+import { TrackArrays } from '../../models/track-arrays.model';
+import { Climb } from '../../models/climb.model';
 
 @Component({
   selector: 'app-flight-map',
@@ -34,6 +36,10 @@ export class FlightMap implements AfterViewInit, OnDestroy {
 
   private hoverPointMarker: L.CircleMarker | null = null;
   private hoverHaloMarker: L.CircleMarker | null = null;
+
+  private selectedClimbHaloLayer: L.Polyline | null = null;
+
+  private handledZoomToSelectedClimbRequest = 0;
 
   constructor() {
     effect(() => {
@@ -60,8 +66,176 @@ export class FlightMap implements AfterViewInit, OnDestroy {
 
       this.showHoverPointAtIndex(cursorIndex);
     });
+
+    effect(() => {
+      const track = this.store.track();
+      const climbs = this.store.climbs();
+      const selectedClimbId = this.store.selectedClimbId();
+
+      if (!this.map || !track) {
+        return;
+      }
+
+      this.renderSelectedClimbHalo(track, climbs, selectedClimbId);
+    });
+
+    effect(() => {
+      const request = this.store.zoomToSelectedClimbRequest();
+
+      if (!this.map || request === 0) {
+        return;
+      }
+
+      if (request === this.handledZoomToSelectedClimbRequest) {
+        return;
+      }
+
+      this.handledZoomToSelectedClimbRequest = request;
+
+      const track = this.store.track();
+      const climbs = this.store.climbs();
+      const selectedClimbId = this.store.selectedClimbId();
+
+      if (!track) {
+        return;
+      }
+
+      this.fitMapToSelection(track, climbs, selectedClimbId);
+    });
   }
 
+  private fitMapToSelection(
+    track: TrackArrays,
+    climbs: Climb[],
+    selectedClimbId: number | null,
+  ): void {
+    if (!this.map) {
+      return;
+    }
+
+    if (selectedClimbId === null) {
+      this.fitMapToTrack(track);
+      return;
+    }
+
+    const climb = climbs.find((x) => x.id === selectedClimbId);
+
+    if (!climb) {
+      return;
+    }
+
+    const points = this.buildTrackPoints(
+      track,
+      climb.startIndex,
+      climb.endIndex,
+    );
+
+    if (points.length < 2) {
+      return;
+    }
+
+    this.map.fitBounds(L.latLngBounds(points), {
+      padding: [48, 48],
+      maxZoom: 15,
+      animate: true,
+    });
+  }
+
+  private fitMapToTrack(track: TrackArrays): void {
+    if (!this.map) {
+      return;
+    }
+
+    const points = this.buildTrackPoints(
+      track,
+      0,
+      track.latE7.length - 1,
+    );
+
+    if (points.length < 2) {
+      return;
+    }
+
+    this.map.fitBounds(L.latLngBounds(points), {
+      padding: [24, 24],
+      animate: true,
+    });
+  }
+
+  private buildTrackPoints(
+    track: TrackArrays,
+    startIndex: number,
+    endIndex: number,
+  ): L.LatLngExpression[] {
+    const points: L.LatLngExpression[] = [];
+
+    const safeStartIndex = Math.max(0, startIndex);
+    const safeEndIndex = Math.min(track.latE7.length - 1, endIndex);
+
+    for (let i = safeStartIndex; i <= safeEndIndex; i++) {
+      const lat = track.latE7[i] / 10_000_000;
+      const lon = track.lonE7[i] / 10_000_000;
+
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+        continue;
+      }
+
+      if (lat === 0 && lon === 0) {
+        continue;
+      }
+
+      points.push([lat, lon]);
+    }
+
+    return points;
+  }
+
+  private renderSelectedClimbHalo(
+    track: TrackArrays,
+    climbs: Climb[],
+    selectedClimbId: number | null,
+  ): void {
+    if (!this.map) {
+      return;
+    }
+
+    this.selectedClimbHaloLayer?.remove();
+    this.selectedClimbHaloLayer = null;
+
+    if (selectedClimbId === null) {
+      return;
+    }
+
+    const climb = climbs.find((x) => x.id === selectedClimbId);
+
+    if (!climb) {
+      return;
+    }
+
+    const points: L.LatLngExpression[] = [];
+
+    for (let i = climb.startIndex; i <= climb.endIndex; i++) {
+      points.push([
+        track.latE7[i] / 10_000_000,
+        track.lonE7[i] / 10_000_000,
+      ]);
+    }
+
+    if (points.length < 2) {
+      return;
+    }
+
+    this.selectedClimbHaloLayer = L.polyline(points, {
+      pane: 'selectedClimbHaloPane',
+      color: '#0b26f5',
+      weight: 16,
+      opacity: 0.96,
+      lineCap: 'round',
+      lineJoin: 'round',
+      interactive: false,
+    }).addTo(this.map);
+
+  }
   private showHoverPointAtIndex(index: number): void {
     const track = this.store.track();
 
@@ -134,6 +308,14 @@ export class FlightMap implements AfterViewInit, OnDestroy {
       this.hideHoverPoint();
       this.store.setCursorIndex(null);
     });
+
+
+    this.map.createPane('selectedClimbHaloPane');
+    this.map.getPane('selectedClimbHaloPane')!.style.zIndex = '410';
+
+    this.map.createPane('trackPane');
+    this.map.getPane('trackPane')!.style.zIndex = '420';
+
 
     setTimeout(() => {
       this.map?.invalidateSize();
@@ -458,6 +640,7 @@ export class FlightMap implements AfterViewInit, OnDestroy {
       }
 
       const layer = L.polyline(validPoints, {
+        pane: 'trackPane',
         color: segment.color,
         weight: 5,
         opacity: 0.95,

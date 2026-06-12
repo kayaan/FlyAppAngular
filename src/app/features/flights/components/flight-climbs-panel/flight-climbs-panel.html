@@ -6,81 +6,43 @@
     </div>
 
     <label class="show-climbs-toggle">
-      <input
-        type="checkbox"
-        [checked]="settingsStore.showClimbsOnCharts()"
-        (change)="toggleShowClimbsOnCharts($event)"
-      />
+      <input type="checkbox" [checked]="settingsStore.showClimbsOnCharts()"
+        (change)="toggleShowClimbsOnCharts($event)" />
       <span>Show on charts</span>
     </label>
 
     <div class="climb-navigation">
-      <button
-        type="button"
-        class="climb-nav-button"
-        (click)="detailsStore.selectPreviousClimb()"
-        [disabled]="detailsStore.climbCount() === 0"
-        title="Previous climb"
-        aria-label="Previous climb"
-      >
+      <button type="button" class="climb-nav-button" (click)="detailsStore.selectPreviousClimb()"
+        [disabled]="detailsStore.climbCount() === 0" title="Previous climb" aria-label="Previous climb">
         <svg viewBox="0 0 20 20" class="climb-nav-icon" aria-hidden="true">
-          <path
-            d="M12.5 15L7.5 10L12.5 5"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
+          <path d="M12.5 15L7.5 10L12.5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round" />
         </svg>
       </button>
 
       <span class="selected-climb-label">
         @if (detailsStore.selectedClimbNumber(); as climbNumber) {
-          Climb {{ climbNumber }} / {{ detailsStore.climbCount() }}
+        Climb {{ climbNumber }} / {{ detailsStore.climbCount() }}
         } @else {
-          No climb selected
+        No climb selected
         }
       </span>
 
-      <button
-        type="button"
-        class="climb-nav-button"
-        (click)="detailsStore.selectNextClimb()"
-        [disabled]="detailsStore.climbCount() === 0"
-        title="Next climb"
-        aria-label="Next climb"
-      >
+      <button type="button" class="climb-nav-button" (click)="detailsStore.selectNextClimb()"
+        [disabled]="detailsStore.climbCount() === 0" title="Next climb" aria-label="Next climb">
         <svg viewBox="0 0 20 20" class="climb-nav-icon" aria-hidden="true">
-          <path
-            d="M7.5 5L12.5 10L7.5 15"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
+          <path d="M7.5 5L12.5 10L7.5 15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round" />
         </svg>
       </button>
 
-      <button
-        type="button"
-        class="zoom-climb-button"
-        (click)="detailsStore.zoomToSelectedClimb()"
-        [disabled]="detailsStore.selectedClimbId() === null"
-        title="Zoom to selected climb"
-        aria-label="Zoom to selected climb"
-      >
+      <button type="button" class="zoom-climb-button" (click)="detailsStore.zoomToSelectedClimb()"
+        [disabled]="detailsStore.selectedClimbId() === null" title="Zoom to selected climb"
+        aria-label="Zoom to selected climb">
         Zoom
       </button>
 
-      <button
-        type="button"
-        class="clear-climb-button"
-        (click)="detailsStore.clearSelectedClimb()"
-        [disabled]="detailsStore.selectedClimbId() === null"
-        [class.is-hidden]="detailsStore.selectedClimbId() === null"
-      >
+      <button type="button" class="clear-climb-button" (click)="showFullFlight()">
         Full flight
       </button>
     </div>
