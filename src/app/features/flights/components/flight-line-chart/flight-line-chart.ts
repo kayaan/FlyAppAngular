@@ -44,7 +44,6 @@ echarts.use([
 // This is important because charts, map, cursor and climbs all need
 // to refer back to the same original flight fix.
 //
-
 // `timeSec` is the original absolute flight time in seconds.
 //
 // `value` is the displayed value for this chart.
@@ -120,6 +119,7 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
   // Prevents repeated zooming when unrelated signals update.
   private lastFocusedClimbId: number | null = null;
 
+  // Last explicit "zoom to selected climb" command handled by this chart.
   private lastZoomToSelectedClimbRequest = 0;
 
   constructor() {
@@ -135,6 +135,18 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
 
       if (!this.chart) {
         return;
+      }
+
+      // Explicit user command:
+      // This must run before the cursor-null return.
+      // Otherwise clicking "Zoom climb" while no cursor is active does nothing
+      // until the next chart hover.
+      if (
+        selectedClimbId !== null &&
+        zoomToSelectedClimbRequest !== this.lastZoomToSelectedClimbRequest
+      ) {
+        this.lastZoomToSelectedClimbRequest = zoomToSelectedClimbRequest;
+        this.zoomToSelectedClimb(selectedClimbId);
       }
 
       // If the selected climb changed, ensure it is visible.
@@ -155,14 +167,6 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
         this.hideCursorLine();
         this.chart.dispatchAction({ type: 'hideTip' });
         return;
-      }
-
-      if (
-        selectedClimbId !== null &&
-        zoomToSelectedClimbRequest !== this.lastZoomToSelectedClimbRequest
-      ) {
-        this.lastZoomToSelectedClimbRequest = zoomToSelectedClimbRequest;
-        this.zoomToSelectedClimb(selectedClimbId);
       }
 
       // Active cursor:
@@ -224,7 +228,6 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
     this.chart = null;
   }
 
-
   private zoomToSelectedClimb(selectedClimbId: number): void {
     const selectedClimb = this.store
       .climbs()
@@ -252,7 +255,7 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
 
     this.zoomToRange(startX, endX);
   }
-  
+
   private updateChart(): void {
     if (!this.chart) {
       return;
@@ -542,7 +545,7 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
           label: {
             show: false,
           },
-        }
+        },
       );
     }
 
