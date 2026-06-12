@@ -5,27 +5,14 @@
       <span class="count-pill">{{ detailsStore.climbCount() }}</span>
     </div>
 
-    <div class="climbs-chart-controls">
-      <label class="show-climbs-toggle">
-        <input
-          type="checkbox"
-          [checked]="settingsStore.showClimbsOnCharts()"
-          (change)="toggleShowClimbsOnCharts($event)"
-        />
-        <span>Show on charts</span>
-      </label>
-
-      <button
-        type="button"
-        class="zoom-climb-button"
-        (click)="detailsStore.zoomToSelectedClimb()"
-        [disabled]="detailsStore.selectedClimbId() === null"
-        title="Zoom to selected climb"
-        aria-label="Zoom to selected climb"
-      >
-        Zoom climb
-      </button>
-    </div>
+    <label class="show-climbs-toggle">
+      <input
+        type="checkbox"
+        [checked]="settingsStore.showClimbsOnCharts()"
+        (change)="toggleShowClimbsOnCharts($event)"
+      />
+      <span>Show on charts</span>
+    </label>
 
     <div class="climb-navigation">
       <button
@@ -74,6 +61,17 @@
             stroke-linejoin="round"
           />
         </svg>
+      </button>
+
+      <button
+        type="button"
+        class="zoom-climb-button"
+        (click)="detailsStore.zoomToSelectedClimb()"
+        [disabled]="detailsStore.selectedClimbId() === null"
+        title="Zoom to selected climb"
+        aria-label="Zoom to selected climb"
+      >
+        Zoom
       </button>
 
       <button
