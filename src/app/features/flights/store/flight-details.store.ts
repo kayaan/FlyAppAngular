@@ -36,7 +36,8 @@ type FlightDetailsState = {
   loading: boolean;
   error: string | null;
 
-  zoomToSelectedClimbRequest: number
+  zoomToSelectedClimbRequest: number;
+  resetChartZoomRequest: number;
 };
 
 const initialState: FlightDetailsState = {
@@ -54,6 +55,7 @@ const initialState: FlightDetailsState = {
   error: null,
 
   zoomToSelectedClimbRequest: 0,
+  resetChartZoomRequest: 0,
 };
 
 export const FlightDetailsStore = signalStore(
@@ -108,18 +110,18 @@ export const FlightDetailsStore = signalStore(
         const selection: StatsSelection =
           selectedRange !== null
             ? {
-              type: 'range',
-              startIndex: selectedRange.startIndex,
-              endIndex: selectedRange.endIndex,
-            }
+                type: 'range',
+                startIndex: selectedRange.startIndex,
+                endIndex: selectedRange.endIndex,
+              }
             : selectedClimbId !== null
               ? {
-                type: 'climb',
-                climbId: selectedClimbId,
-              }
+                  type: 'climb',
+                  climbId: selectedClimbId,
+                }
               : {
-                type: 'flight',
-              };
+                  type: 'flight',
+                };
 
         return derivedStatsService.derive(
           store.track(),
@@ -171,7 +173,10 @@ export const FlightDetailsStore = signalStore(
       });
     }
 
-    function calculateClimbs(track: TrackArrays | null, flightId: number): Climb[] {
+    function calculateClimbs(
+      track: TrackArrays | null,
+      flightId: number
+    ): Climb[] {
       if (!track) {
         return [];
       }
@@ -198,11 +203,17 @@ export const FlightDetailsStore = signalStore(
 
     return {
       zoomToSelectedClimb(): void {
-        patchState(store, (state) => ({
-          zoomToSelectedClimbRequest: state.zoomToSelectedClimbRequest + 1,
-        }));
+        patchState(store, {
+          zoomToSelectedClimbRequest: store.zoomToSelectedClimbRequest() + 1,
+        });
       },
-      
+
+      requestResetChartZoom(): void {
+        patchState(store, {
+          resetChartZoomRequest: store.resetChartZoomRequest() + 1,
+        });
+      },
+
       setCursorIndex(index: number | null): void {
         patchState(store, {
           cursorIndex: index,
@@ -278,6 +289,7 @@ export const FlightDetailsStore = signalStore(
           selectedClimbId: null,
           selectedRange: null,
           cursorIndex: null,
+          resetChartZoomRequest: store.resetChartZoomRequest() + 1,
         });
       },
 
@@ -297,6 +309,7 @@ export const FlightDetailsStore = signalStore(
           selectedClimbId: null,
           selectedRange: null,
           cursorIndex: null,
+          resetChartZoomRequest: store.resetChartZoomRequest() + 1,
         });
       },
 
@@ -307,6 +320,7 @@ export const FlightDetailsStore = signalStore(
           selectedClimbId: null,
           selectedRange: null,
           cursorIndex: null,
+          resetChartZoomRequest: store.resetChartZoomRequest() + 1,
         });
 
         try {
@@ -323,6 +337,7 @@ export const FlightDetailsStore = signalStore(
               cursorIndex: null,
               loading: false,
               error: 'Flight not found.',
+              resetChartZoomRequest: store.resetChartZoomRequest() + 1,
             });
 
             return;
@@ -341,6 +356,7 @@ export const FlightDetailsStore = signalStore(
             cursorIndex: null,
             loading: false,
             error: null,
+            resetChartZoomRequest: store.resetChartZoomRequest() + 1,
           });
         } catch {
           patchState(store, {
@@ -353,6 +369,7 @@ export const FlightDetailsStore = signalStore(
             cursorIndex: null,
             loading: false,
             error: 'Could not load flight details.',
+            resetChartZoomRequest: store.resetChartZoomRequest() + 1,
           });
         }
       },
