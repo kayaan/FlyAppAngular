@@ -14,13 +14,14 @@ import { TrackArrays } from '../../models/track-arrays.model';
 import { debounceTime, Subject, takeUntil } from 'rxjs';
 import { FlightClimbsPanel } from '../../components/flight-climbs-panel/flight-climbs-panel';
 
+import { Flight3d } from '../../components/flight-3d/flight-3d';
 
 const RESOLUTION_INPUT_DEBOUNCE_MS = 350;
 
 @Component({
   selector: 'app-flight-details',
   standalone: true,
-  imports: [CommonModule, RouterLink, FlightLineChart, FlightMap, FlightSummaryTags, FlightClimbsPanel],
+  imports: [CommonModule, RouterLink, FlightLineChart, FlightMap, FlightSummaryTags, FlightClimbsPanel, Flight3d],
   templateUrl: './flight-details.html',
   styleUrl: './flight-details.scss',
   providers: [FlightDetailsStore],
@@ -40,6 +41,12 @@ export class FlightDetails implements OnInit, OnDestroy {
   private readonly speedResolutionInput$: Subject<number> = new Subject<number>();
 
   private readonly resolutionDebounceMs = 500;
+
+  viewMode: 'map' | '3d' = 'map';
+
+  setViewMode(mode: 'map' | '3d'): void {
+    this.viewMode = mode;
+  }
 
   constructor() {
     this.altitudeResolutionInput$

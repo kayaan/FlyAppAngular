@@ -79,9 +79,39 @@
           <h2>Track</h2>
         </header>
 
-        <div class="map-placeholder">
-          <app-flight-map />
-        </div>
+<div class="map-placeholder">
+  <div class="view-mode-toggle" role="radiogroup" aria-label="View mode">
+    <label class="view-mode-option">
+      <input
+        type="radio"
+        name="viewMode"
+        value="map"
+        [checked]="viewMode === 'map'"
+        (change)="setViewMode('map')"
+      />
+      <span>Map</span>
+    </label>
+
+    <label class="view-mode-option">
+      <input
+        type="radio"
+        name="viewMode"
+        value="3d"
+        [checked]="viewMode === '3d'"
+        (change)="setViewMode('3d')"
+      />
+      <span>3D</span>
+    </label>
+  </div>
+
+  <div class="view-mode-content">
+    @if (viewMode === 'map') {
+      <app-flight-map />
+    } @else {
+      <app-flight-3d />
+    }
+  </div>
+</div>
       </div>
     </section>
   </div>
