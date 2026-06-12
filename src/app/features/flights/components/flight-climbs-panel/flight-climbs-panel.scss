@@ -12,10 +12,23 @@
   white-space: nowrap;
 }
 
+.climbs-chart-controls {
+  min-width: 0;
+
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+
+  white-space: nowrap;
+}
+
 .show-climbs-toggle {
+  height: 32px;
+
   display: inline-flex;
   align-items: center;
   gap: 6px;
+
   white-space: nowrap;
 
   font-size: 12px;
@@ -23,6 +36,55 @@
 
   input {
     margin: 0;
+  }
+}
+
+.zoom-climb-button {
+  height: 32px;
+  padding: 0 12px;
+
+  border: 1px solid #d0d5dd;
+  border-radius: 999px;
+
+  background: #ffffff;
+  color: #344054;
+
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+
+  cursor: pointer;
+
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease,
+    box-shadow 120ms ease,
+    transform 80ms ease;
+
+  &:hover:not(:disabled) {
+    background: #f9fafb;
+    border-color: #98a2b3;
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(1px);
+    background: #f2f4f7;
+  }
+
+  &:focus-visible {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18);
+  }
+
+  &:disabled {
+    color: #98a2b3;
+    background: #f9fafb;
+    border-color: #eaecf0;
+    cursor: default;
   }
 }
 

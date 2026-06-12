@@ -35,6 +35,8 @@ type FlightDetailsState = {
 
   loading: boolean;
   error: string | null;
+
+  zoomToSelectedClimbRequest: number
 };
 
 const initialState: FlightDetailsState = {
@@ -50,6 +52,8 @@ const initialState: FlightDetailsState = {
 
   loading: false,
   error: null,
+
+  zoomToSelectedClimbRequest: 0,
 };
 
 export const FlightDetailsStore = signalStore(
@@ -193,6 +197,12 @@ export const FlightDetailsStore = signalStore(
     }
 
     return {
+      zoomToSelectedClimb(): void {
+        patchState(store, (state) => ({
+          zoomToSelectedClimbRequest: state.zoomToSelectedClimbRequest + 1,
+        }));
+      },
+      
       setCursorIndex(index: number | null): void {
         patchState(store, {
           cursorIndex: index,

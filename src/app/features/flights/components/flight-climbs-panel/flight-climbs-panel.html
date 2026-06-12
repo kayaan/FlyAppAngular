@@ -5,14 +5,27 @@
       <span class="count-pill">{{ detailsStore.climbCount() }}</span>
     </div>
 
-    <label class="show-climbs-toggle">
-      <input
-        type="checkbox"
-        [checked]="settingsStore.showClimbsOnCharts()"
-        (change)="toggleShowClimbsOnCharts($event)"
-      />
-      <span>Show on charts</span>
-    </label>
+    <div class="climbs-chart-controls">
+      <label class="show-climbs-toggle">
+        <input
+          type="checkbox"
+          [checked]="settingsStore.showClimbsOnCharts()"
+          (change)="toggleShowClimbsOnCharts($event)"
+        />
+        <span>Show on charts</span>
+      </label>
+
+      <button
+        type="button"
+        class="zoom-climb-button"
+        (click)="detailsStore.zoomToSelectedClimb()"
+        [disabled]="detailsStore.selectedClimbId() === null"
+        title="Zoom to selected climb"
+        aria-label="Zoom to selected climb"
+      >
+        Zoom climb
+      </button>
+    </div>
 
     <div class="climb-navigation">
       <button
@@ -23,11 +36,7 @@
         title="Previous climb"
         aria-label="Previous climb"
       >
-        <svg
-          viewBox="0 0 20 20"
-          class="climb-nav-icon"
-          aria-hidden="true"
-        >
+        <svg viewBox="0 0 20 20" class="climb-nav-icon" aria-hidden="true">
           <path
             d="M12.5 15L7.5 10L12.5 5"
             fill="none"
@@ -55,11 +64,7 @@
         title="Next climb"
         aria-label="Next climb"
       >
-        <svg
-          viewBox="0 0 20 20"
-          class="climb-nav-icon"
-          aria-hidden="true"
-        >
+        <svg viewBox="0 0 20 20" class="climb-nav-icon" aria-hidden="true">
           <path
             d="M7.5 5L12.5 10L7.5 15"
             fill="none"

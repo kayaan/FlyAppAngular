@@ -120,10 +120,13 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
   // Prevents repeated zooming when unrelated signals update.
   private lastFocusedClimbId: number | null = null;
 
+  private lastZoomToSelectedClimbRequest = 0;
+
   constructor() {
     effect(() => {
       const cursorIndex = this.store.cursorIndex();
       const selectedClimbId = this.store.selectedClimbId();
+      const zoomToSelectedClimbRequest = this.store.zoomToSelectedClimbRequest();
 
       // These signal reads are intentional.
       // They make this effect re-run when climb visibility or climb data changes.
@@ -152,6 +155,14 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
         this.hideCursorLine();
         this.chart.dispatchAction({ type: 'hideTip' });
         return;
+      }
+
+      if (
+        selectedClimbId !== null &&
+        zoomToSelectedClimbRequest !== this.lastZoomToSelectedClimbRequest
+      ) {
+        this.lastZoomToSelectedClimbRequest = zoomToSelectedClimbRequest;
+        this.zoomToSelectedClimb(selectedClimbId);
       }
 
       // Active cursor:
@@ -213,6 +224,35 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
     this.chart = null;
   }
 
+
+  private zoomToSelectedClimb(selectedClimbId: number): void {
+    const selectedClimb = this.store
+      .climbs()
+      .find((climb) => climb.id === selectedClimbId);
+
+    if (!selectedClimb) {
+      return;
+    }
+
+    const climbStartX = this.getElapsedSecForTrackIndex(selectedClimb.startIndex);
+    const climbEndX = this.getElapsedSecForTrackIndex(selectedClimb.endIndex);
+
+    if (climbStartX === null || climbEndX === null) {
+      return;
+    }
+
+    const fullStartX = 0;
+    const fullEndX = this.getMaxElapsedSec();
+
+    const climbSize = climbEndX - climbStartX;
+    const paddingSec = Math.max(30, climbSize * 0.2);
+
+    const startX = Math.max(fullStartX, climbStartX - paddingSec);
+    const endX = Math.min(fullEndX, climbEndX + paddingSec);
+
+    this.zoomToRange(startX, endX);
+  }
+  
   private updateChart(): void {
     if (!this.chart) {
       return;
