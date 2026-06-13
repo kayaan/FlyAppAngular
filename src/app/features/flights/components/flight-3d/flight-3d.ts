@@ -10,6 +10,7 @@ import {
 
 import {
   ArcType,
+  CallbackProperty,
   Cartesian2,
   Cartesian3,
   Color,
@@ -59,11 +60,16 @@ export class Flight3d implements AfterViewInit, OnDestroy {
   private cursorEntity: Entity | null = null;
   private cursorTooltipElement: HTMLDivElement | null = null;
 
+  private replayTrackEntity: Entity | null = null;
+  private replayTrackPositions: Cartesian3[] = [];
+  private lastReplayTrackIndex = -1;
+
   private mouseMoveHandler: ScreenSpaceEventHandler | null = null;
 
   constructor() {
     effect(() => {
       const track = this.store.track();
+      const isReplayPlaying = this.store.isReplayPlaying();
 
       this.settingsStore.varioChartResolutionInSec();
 
@@ -75,6 +81,14 @@ export class Flight3d implements AfterViewInit, OnDestroy {
         return;
       }
 
+      if (isReplayPlaying) {
+        this.clearTrackEntities();
+        this.clearSelectedClimbEntity();
+        return;
+      }
+
+      this.clearReplayTrackEntity();
+
       const shouldCenter = track !== this.lastTrackReference;
 
       this.renderTrack(track, shouldCenter);
@@ -85,14 +99,24 @@ export class Flight3d implements AfterViewInit, OnDestroy {
     effect(() => {
       const track = this.store.track();
       const cursorIndex = this.store.cursorIndex();
+      const isReplayPlaying = this.store.isReplayPlaying();
 
       if (!this.viewer || !track || cursorIndex === null) {
         this.clearCursorEntity();
         this.hideCursorTooltip();
+
+        if (isReplayPlaying) {
+          this.clearReplayTrackEntity();
+        }
+
         return;
       }
 
       this.updateCursorAtIndex(track, cursorIndex);
+
+      if (isReplayPlaying) {
+        this.renderReplayTrackUntilIndex(track, cursorIndex);
+      }
     });
 
     effect(() => {
@@ -101,6 +125,12 @@ export class Flight3d implements AfterViewInit, OnDestroy {
       const selectedClimbId = this.store.selectedClimbId();
       const showOnlySelectedClimbIn3d =
         this.store.showOnlySelectedClimbTrack();
+      const isReplayPlaying = this.store.isReplayPlaying();
+
+      if (isReplayPlaying) {
+        this.clearSelectedClimbEntity();
+        return;
+      }
 
       if (
         !this.viewer ||
@@ -181,12 +211,98 @@ export class Flight3d implements AfterViewInit, OnDestroy {
 
     this.clearCursorEntity();
     this.removeCursorTooltipElement();
+    this.clearReplayTrackEntity();
     this.clearTrackEntities();
     this.clearSelectedClimbEntity();
 
     this.viewer?.destroy();
     this.viewer = null;
     this.lastTrackReference = null;
+  }
+
+  private renderReplayTrackUntilIndex(
+    track: TrackArrays,
+    cursorIndex: number,
+  ): void {
+    if (!this.viewer) {
+      return;
+    }
+
+    const pointCount = Math.min(
+      track.latE7.length,
+      track.lonE7.length,
+      track.altGpsCm.length,
+      track.timeSec.length,
+    );
+
+    if (pointCount < 2) {
+      return;
+    }
+
+    const safeCursorIndex = Math.max(
+      1,
+      Math.min(cursorIndex, pointCount - 1),
+    );
+
+    if (safeCursorIndex < this.lastReplayTrackIndex) {
+      this.resetReplayTrackData();
+    }
+
+    if (!this.replayTrackEntity) {
+      this.replayTrackPositions = [];
+
+      const startPosition = this.buildPosition(track, 0);
+
+      if (startPosition) {
+        this.replayTrackPositions.push(startPosition);
+      }
+
+      this.replayTrackEntity = this.viewer.entities.add({
+        name: 'Replay track',
+        polyline: {
+          positions: new CallbackProperty(() => {
+            return this.replayTrackPositions;
+          }, false) as any,
+          width: 3,
+          material: Color.ORANGE.withAlpha(1.0),
+          depthFailMaterial: Color.YELLOW.withAlpha(1.0),
+          clampToGround: false,
+          arcType: ArcType.NONE,
+        },
+      });
+
+      this.lastReplayTrackIndex = 0;
+    }
+
+    if (safeCursorIndex <= this.lastReplayTrackIndex) {
+      return;
+    }
+
+    for (let i = this.lastReplayTrackIndex + 1; i <= safeCursorIndex; i++) {
+      const position = this.buildPosition(track, i);
+
+      if (position) {
+        this.replayTrackPositions.push(position);
+      }
+    }
+
+    this.lastReplayTrackIndex = safeCursorIndex;
+
+    this.viewer.scene.requestRender();
+  }
+
+  private clearReplayTrackEntity(): void {
+    if (this.viewer && this.replayTrackEntity) {
+      this.viewer.entities.remove(this.replayTrackEntity);
+    }
+
+    this.replayTrackEntity = null;
+    this.resetReplayTrackData();
+  }
+
+  private resetReplayTrackData(): void {
+    this.replayTrackPositions = [];
+    this.lastReplayTrackIndex = -1;
   }
 
   private registerCursorPicking(): void {
