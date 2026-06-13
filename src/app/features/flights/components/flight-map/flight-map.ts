@@ -41,6 +41,11 @@ export class FlightMap implements AfterViewInit, OnDestroy {
 
   private handledZoomToSelectedClimbRequest = 0;
 
+  private replayTrackLayers: L.Polyline[] = [];
+  private lastReplayCursorIndex: number | null = null;
+
+
+
   constructor() {
     effect(() => {
       this.store.coloredTrackSegments();
@@ -59,6 +64,7 @@ export class FlightMap implements AfterViewInit, OnDestroy {
 
     effect(() => {
       const cursorIndex = this.store.cursorIndex();
+      const isReplayPlaying = this.store.isReplayPlaying();
 
       if (!this.map) {
         return;
@@ -67,10 +73,24 @@ export class FlightMap implements AfterViewInit, OnDestroy {
       if (cursorIndex === null) {
         this.hideHoverTooltip();
         this.hideHoverPoint();
+        this.clearReplayTrackLayer();
+
+        if (!isReplayPlaying) {
+          this.renderTrack();
+        }
+
         return;
       }
 
       this.showCursorAtIndex(cursorIndex);
+
+      if (isReplayPlaying) {
+        this.clearTrackLayers();
+        this.renderReplayTrackUntilIndex(cursorIndex);
+        return;
+      }
+
+      this.clearReplayTrackLayer();
     });
 
     effect(() => {
@@ -115,6 +135,29 @@ export class FlightMap implements AfterViewInit, OnDestroy {
 
       this.fitMapToSelection(track, climbs, selectedClimbId);
     });
+
+    effect(() => {
+      const isReplayPlaying = this.store.isReplayPlaying();
+
+      if (!this.map) {
+        return;
+      }
+
+      if (isReplayPlaying) {
+        this.clearTrackLayers();
+
+        const cursorIndex = this.store.cursorIndex();
+
+        if (cursorIndex !== null) {
+          this.renderReplayTrackUntilIndex(cursorIndex);
+        }
+
+        return;
+      }
+
+      this.clearReplayTrackLayer();
+      this.renderTrack();
+    });
   }
 
   ngAfterViewInit(): void {
@@ -134,6 +177,85 @@ export class FlightMap implements AfterViewInit, OnDestroy {
 
     this.map?.remove();
     this.map = null;
+
+    this.clearReplayTrackLayer();
+  }
+
+  private renderReplayTrackUntilIndex(cursorIndex: number): void {
+    if (!this.map) {
+      return;
+    }
+
+    const safeCursorIndex = Math.max(0, cursorIndex);
+
+    if (
+      this.lastReplayCursorIndex !== null &&
+      safeCursorIndex === this.lastReplayCursorIndex
+    ) {
+      return;
+    }
+
+    this.lastReplayCursorIndex = safeCursorIndex;
+
+    this.clearReplayTrackLayer();
+
+    const segments = this.store.coloredTrackSegments();
+
+    for (const segment of segments) {
+      const points = segment.points;
+
+      if (points.length < 2) {
+        continue;
+      }
+
+      const visiblePoints: L.LatLngExpression[] = [];
+
+      for (let i = 0; i < points.length; i++) {
+        const trackIndex = segment.startIndex + i;
+
+        if (trackIndex > safeCursorIndex) {
+          break;
+        }
+
+        const [lat, lon] = points[i];
+
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+          continue;
+        }
+
+        if (lat === 0 && lon === 0) {
+          continue;
+        }
+
+        visiblePoints.push([lat, lon]);
+      }
+
+      if (visiblePoints.length < 2) {
+        continue;
+      }
+
+      const layer = L.polyline(visiblePoints, {
+        pane: 'replayTrackPane',
+        color: segment.color,
+        weight: 6,
+        opacity: 0.98,
+        lineCap: 'round',
+        lineJoin: 'round',
+        interactive: false,
+      }).addTo(this.map);
+
+      this.replayTrackLayers.push(layer);
+    }
+  }
+
+
+  private clearReplayTrackLayer(): void {
+    for (const layer of this.replayTrackLayers) {
+      layer.remove();
+    }
+
+    this.replayTrackLayers = [];
+    this.lastReplayCursorIndex = null;
   }
 
   private initMap(): void {
@@ -175,13 +297,17 @@ export class FlightMap implements AfterViewInit, OnDestroy {
     this.map.createPane('trackPane');
     this.map.getPane('trackPane')!.style.zIndex = '420';
 
-    this.map.createPane('cursorPane');
-    this.map.getPane('cursorPane')!.style.zIndex = '500';
-    this.map.getPane('cursorPane')!.style.pointerEvents = 'none';
-
     this.map.createPane('cursorTooltipPane');
     this.map.getPane('cursorTooltipPane')!.style.zIndex = '510';
     this.map.getPane('cursorTooltipPane')!.style.pointerEvents = 'none';
+
+    this.map.createPane('replayTrackPane');
+    this.map.getPane('replayTrackPane')!.style.zIndex = '490';
+    this.map.getPane('replayTrackPane')!.style.pointerEvents = 'none';
+
+    this.map.createPane('cursorPane');
+    this.map.getPane('cursorPane')!.style.zIndex = '500';
+    this.map.getPane('cursorPane')!.style.pointerEvents = 'none';
 
     setTimeout(() => {
       this.map?.invalidateSize();
@@ -753,62 +879,48 @@ export class FlightMap implements AfterViewInit, OnDestroy {
       return;
     }
 
-    const safeStartIndex = Math.max(1, Math.min(startIndex, endIndex));
+    const safeStartIndex = Math.max(0, Math.min(startIndex, endIndex));
     const safeEndIndex = Math.min(
       track.latE7.length - 1,
       Math.max(startIndex, endIndex),
     );
 
-    for (let i = safeStartIndex; i <= safeEndIndex; i++) {
-      const lat1 = track.latE7[i - 1] / 10_000_000;
-      const lon1 = track.lonE7[i - 1] / 10_000_000;
-      const lat2 = track.latE7[i] / 10_000_000;
-      const lon2 = track.lonE7[i] / 10_000_000;
+    const segments = this.store.coloredTrackSegments();
 
-      if (
-        !Number.isFinite(lat1) ||
-        !Number.isFinite(lon1) ||
-        !Number.isFinite(lat2) ||
-        !Number.isFinite(lon2)
-      ) {
+    for (const segment of segments) {
+      if (segment.endIndex < safeStartIndex) {
         continue;
       }
 
-      if ((lat1 === 0 && lon1 === 0) || (lat2 === 0 && lon2 === 0)) {
+      if (segment.startIndex > safeEndIndex) {
+        break;
+      }
+
+      const validPoints = segment.points.filter(([lat, lon]) => {
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+          return false;
+        }
+
+        return !(lat === 0 && lon === 0);
+      });
+
+      if (validPoints.length < 2) {
         continue;
       }
 
-      const varioMs = this.calculateInstantVarioMs(i);
-
-      const layer = L.polyline(
-        [
-          [lat1, lon1],
-          [lat2, lon2],
-        ],
-        {
-          pane: 'trackPane',
-          color: this.getTrackColorForVario(varioMs),
-          weight: 5,
-          opacity: 0.95,
-          interactive: false,
-        },
-      ).addTo(this.map);
+      const layer = L.polyline(validPoints, {
+        pane: 'trackPane',
+        color: segment.color,
+        weight: 5,
+        opacity: 0.95,
+        interactive: false,
+      }).addTo(this.map);
 
       this.trackLayers.push(layer);
     }
   }
 
-  private getTrackColorForVario(varioMs: number): string {
-    if (!Number.isFinite(varioMs)) {
-      return '#22d3ee';
-    }
 
-    if (varioMs >= 0) {
-      return '#0f766e';
-    }
-
-    return '#dc2626';
-  }
 
   private clearTrackLayers(): void {
     for (const layer of this.trackLayers) {

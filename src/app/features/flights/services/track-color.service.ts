@@ -18,6 +18,8 @@ const STRONG_CLIMB_COLOR = '#004e1f';
   providedIn: 'root',
 })
 export class TrackColorService {
+
+
   buildVarioColoredSegments(
     track: TrackArrays | null,
     resolutionSec: number,
@@ -38,6 +40,8 @@ export class TrackColorService {
       const varioMs = this.averageVarioMs(track, previousIndex, i);
 
       segments.push({
+        startIndex: i - 1,
+        endIndex: i,
         color: this.getVarioColor(varioMs),
         points: [
           [track.latE7[i - 1] / 10_000_000, track.lonE7[i - 1] / 10_000_000],
