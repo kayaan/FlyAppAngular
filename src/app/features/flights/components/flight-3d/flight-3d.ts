@@ -14,7 +14,9 @@ import {
   Color,
   EllipsoidTerrainProvider,
   Entity,
+  HeightReference,
   Ion,
+  PointGraphics,
   Viewer,
   createWorldTerrainAsync,
 } from 'cesium';
@@ -49,6 +51,8 @@ export class Flight3d implements AfterViewInit, OnDestroy {
   private flightTrackEntities: Entity[] = [];
   private lastTrackReference: TrackArrays | null = null;
 
+  private cursorEntity: Entity | null = null;
+
   constructor() {
     effect(() => {
       const track = this.store.track();
@@ -68,24 +72,83 @@ export class Flight3d implements AfterViewInit, OnDestroy {
 
       this.lastTrackReference = track;
     });
+
+    effect(() => {
+      const track = this.store.track();
+      const cursorIndex = this.store.cursorIndex();
+
+      if (!this.viewer || !track || cursorIndex === null) {
+        this.clearCursorEntity();
+        return;
+      }
+
+      this.updateCursorEntity(track, cursorIndex);
+    });
+  }
+
+  private updateCursorEntity(track: TrackArrays, index: number): void {
+    if (!this.viewer) {
+      return;
+    }
+
+    if (index < 0 || index >= track.latE7.length) {
+      this.clearCursorEntity();
+      return;
+    }
+
+    const position = this.buildPosition(track, index);
+
+    if (!position) {
+      this.clearCursorEntity();
+      return;
+    }
+
+    if (!this.cursorEntity) {
+      this.cursorEntity = this.viewer.entities.add({
+        name: 'Chart cursor position',
+        position,
+        point: new PointGraphics({
+          pixelSize: 12,
+          color: Color.YELLOW,
+          outlineColor: Color.BLACK,
+          outlineWidth: 2,
+          heightReference: HeightReference.NONE,
+          disableDepthTestDistance: Number.POSITIVE_INFINITY,
+        }),
+      });
+
+      return;
+    }
+
+    this.cursorEntity.position = position as any;
+  }
+
+  private clearCursorEntity(): void {
+    if (!this.viewer || !this.cursorEntity) {
+      this.cursorEntity = null;
+      return;
+    }
+
+    this.viewer.entities.remove(this.cursorEntity);
+    this.cursorEntity = null;
   }
 
   async ngAfterViewInit(): Promise<void> {
     Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJlYzNkODk4Mi1lNzYwLTQzNGUtOTNlNC04MDMwOTBiYmI4ZDQiLCJpZCI6NDQzODEzLCJzdWIiOiJBeWRpbiBLYXlhIiwiaXNzIjoiaHR0cHM6Ly9hcGkuY2VzaXVtLmNvbSIsImF1ZCI6IlVudGl0bGVkIiwiaWF0IjoxNzgxMzA1MDc4fQ.IuzlHEZoO7BhDqRcMhOl_Eq76TMUYUn0qqnhHnOkuqY',
-    
-    this.viewer = new Viewer(this.cesiumContainer.nativeElement, {
-      animation: false,
-      timeline: false,
-      baseLayerPicker: false,
-      geocoder: false,
-      homeButton: false,
-      sceneModePicker: false,
-      navigationHelpButton: false,
-      fullscreenButton: false,
-      infoBox: false,
-      selectionIndicator: false,
-      terrainProvider: new EllipsoidTerrainProvider(),
-    });
+
+      this.viewer = new Viewer(this.cesiumContainer.nativeElement, {
+        animation: false,
+        timeline: false,
+        baseLayerPicker: false,
+        geocoder: false,
+        homeButton: false,
+        sceneModePicker: false,
+        navigationHelpButton: false,
+        fullscreenButton: false,
+        infoBox: false,
+        selectionIndicator: false,
+        terrainProvider: new EllipsoidTerrainProvider(),
+      });
 
     this.viewer.terrainProvider = await createWorldTerrainAsync({
       requestVertexNormals: true,
@@ -120,6 +183,7 @@ export class Flight3d implements AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.clearCursorEntity();
     this.clearTrackEntities();
 
     this.viewer?.destroy();
@@ -334,8 +398,8 @@ export class Flight3d implements AfterViewInit, OnDestroy {
   }
 
   private getColorForVarioClass(varioClass: number): Color {
-const lightGreen = Color.fromCssColorString('#22d3ee'); // weak climb cyan
-const darkGreen = Color.fromCssColorString('#0f766e');  // strong climb teal
+    const lightGreen = Color.fromCssColorString('#22d3ee'); // weak climb cyan
+    const darkGreen = Color.fromCssColorString('#0f766e');  // strong climb teal
 
     const lightRed = Color.fromCssColorString('#ef4444');
     const darkRed = Color.fromCssColorString('#7f1d1d');
