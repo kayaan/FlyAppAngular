@@ -1,0 +1,79 @@
+:host {
+  display: block;
+  min-width: 320px;
+}
+
+.replay-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.replay-main-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.replay-button,
+.speed-button {
+  height: 28px;
+
+  border: 1px solid #d0d5dd;
+  border-radius: 999px;
+
+  background: #ffffff;
+  color: #344054;
+
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    background: #f9fafb;
+    border-color: #98a2b3;
+  }
+
+  &:disabled {
+    color: #98a2b3;
+    background: #f9fafb;
+    border-color: #eaecf0;
+    cursor: default;
+  }
+}
+
+.replay-button {
+  width: 32px;
+  padding: 0;
+}
+
+.replay-play-button {
+  width: 42px;
+}
+
+.speed-buttons {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 4px;
+}
+
+.speed-button {
+  min-width: 34px;
+  padding: 0 9px;
+}
+
+.speed-button.is-active {
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+  background: #eff6ff;
+}
+
+.replay-slider {
+  width: 100%;
+  margin: 0;
+}

@@ -65,11 +65,12 @@ export class FlightMap implements AfterViewInit, OnDestroy {
       }
 
       if (cursorIndex === null) {
+        this.hideHoverTooltip();
         this.hideHoverPoint();
         return;
       }
 
-      this.showHoverPointAtIndex(cursorIndex);
+      this.showCursorAtIndex(cursorIndex);
     });
 
     effect(() => {
@@ -116,9 +117,150 @@ export class FlightMap implements AfterViewInit, OnDestroy {
     });
   }
 
-  private clearSelectedClimbHalo(): void {
-    this.selectedClimbHaloLayer?.remove();
-    this.selectedClimbHaloLayer = null;
+  ngAfterViewInit(): void {
+    this.initMap();
+    this.renderTrack();
+  }
+
+  ngOnDestroy(): void {
+    if (!this.store.isReplayPlaying()) {
+      this.store.setCursorIndex(null);
+    }
+
+    this.hideHoverTooltip();
+    this.hideHoverPoint();
+    this.clearSelectedClimbHalo();
+    this.clearTrackLayers();
+
+    this.map?.remove();
+    this.map = null;
+  }
+
+  private initMap(): void {
+    if (this.map) {
+      return;
+    }
+
+    this.map = L.map(this.mapContainer.nativeElement, {
+      zoomControl: true,
+      attributionControl: true,
+    });
+
+    L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+      maxZoom: 17,
+      attribution:
+        'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, ' +
+        'SRTM | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA)',
+    }).addTo(this.map);
+
+    this.map.setView([48.7758, 9.1829], 10);
+
+    this.map.on('mousemove', (event: L.LeafletMouseEvent) => {
+      this.handleMapMouseMove(event);
+    });
+
+    this.map.on('mouseout', () => {
+      if (this.store.isReplayPlaying()) {
+        return;
+      }
+
+      this.hideHoverTooltip();
+      this.hideHoverPoint();
+      this.store.setCursorIndex(null);
+    });
+
+    this.map.createPane('selectedClimbHaloPane');
+    this.map.getPane('selectedClimbHaloPane')!.style.zIndex = '410';
+
+    this.map.createPane('trackPane');
+    this.map.getPane('trackPane')!.style.zIndex = '420';
+
+    this.map.createPane('cursorPane');
+    this.map.getPane('cursorPane')!.style.zIndex = '500';
+    this.map.getPane('cursorPane')!.style.pointerEvents = 'none';
+
+    this.map.createPane('cursorTooltipPane');
+    this.map.getPane('cursorTooltipPane')!.style.zIndex = '510';
+    this.map.getPane('cursorTooltipPane')!.style.pointerEvents = 'none';
+
+    setTimeout(() => {
+      this.map?.invalidateSize();
+    }, 0);
+  }
+
+  private handleMapMouseMove(event: L.LeafletMouseEvent): void {
+    if (this.store.isReplayPlaying()) {
+      return;
+    }
+
+    if (!this.map) {
+      return;
+    }
+
+    const track = this.store.track();
+
+    if (!track || track.latE7.length < 2) {
+      this.hideHoverTooltip();
+      this.hideHoverPoint();
+      this.store.setCursorIndex(null);
+      return;
+    }
+
+    const nearest = this.findNearestTrackIndex(event.latlng);
+
+    if (!nearest || nearest.distancePx > this.hoverTolerancePx) {
+      this.hideHoverTooltip();
+      this.hideHoverPoint();
+      this.store.setCursorIndex(null);
+      return;
+    }
+
+    const index = nearest.index;
+
+    if (this.store.cursorIndex() !== index) {
+      this.store.setCursorIndex(index);
+    }
+
+    this.showHoverTooltip(
+      nearest.latLng,
+      this.buildHoverTooltipContent(index),
+    );
+
+    this.showHoverPoint(nearest.latLng);
+  }
+
+  private showCursorAtIndex(index: number): void {
+    const track = this.store.track();
+
+    if (!this.map || !track) {
+      return;
+    }
+
+    if (index < 0 || index >= track.latE7.length) {
+      this.hideHoverTooltip();
+      this.hideHoverPoint();
+      return;
+    }
+
+    const lat = track.latE7[index] / 10_000_000;
+    const lon = track.lonE7[index] / 10_000_000;
+
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+      this.hideHoverTooltip();
+      this.hideHoverPoint();
+      return;
+    }
+
+    if (lat === 0 && lon === 0) {
+      this.hideHoverTooltip();
+      this.hideHoverPoint();
+      return;
+    }
+
+    const latLng = L.latLng(lat, lon);
+
+    this.showHoverPoint(latLng);
+    this.showHoverTooltip(latLng, this.buildHoverTooltipContent(index));
   }
 
   private fitMapToSelection(
@@ -251,128 +393,11 @@ export class FlightMap implements AfterViewInit, OnDestroy {
       lineJoin: 'round',
       interactive: false,
     }).addTo(this.map);
-
-  }
-  private showHoverPointAtIndex(index: number): void {
-    const track = this.store.track();
-
-    if (!this.map || !track) {
-      return;
-    }
-
-    if (index < 0 || index >= track.latE7.length) {
-      this.hideHoverPoint();
-      return;
-    }
-
-    const lat = track.latE7[index] / 10_000_000;
-    const lon = track.lonE7[index] / 10_000_000;
-
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-      this.hideHoverPoint();
-      return;
-    }
-
-    if (lat === 0 && lon === 0) {
-      this.hideHoverPoint();
-      return;
-    }
-
-    this.showHoverPoint(L.latLng(lat, lon));
   }
 
-  ngAfterViewInit(): void {
-    this.initMap();
-    this.renderTrack();
-  }
-
-  ngOnDestroy(): void {
-    this.store.setCursorIndex(null);
-
-    this.hideHoverTooltip();
-    this.hideHoverPoint();
-    this.clearSelectedClimbHalo();
-    this.clearTrackLayers();
-
-    this.map?.remove();
-    this.map = null;
-  }
-
-  private initMap(): void {
-    if (this.map) {
-      return;
-    }
-
-    this.map = L.map(this.mapContainer.nativeElement, {
-      zoomControl: true,
-      attributionControl: true,
-    });
-
-    L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
-      maxZoom: 17,
-      attribution:
-        'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, ' +
-        'SRTM | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA)',
-    }).addTo(this.map);
-
-    this.map.setView([48.7758, 9.1829], 10);
-
-    this.map.on('mousemove', (event: L.LeafletMouseEvent) => {
-      this.handleMapMouseMove(event);
-    });
-
-    this.map.on('mouseout', () => {
-      this.hideHoverTooltip();
-      this.hideHoverPoint();
-      this.store.setCursorIndex(null);
-    });
-
-
-    this.map.createPane('selectedClimbHaloPane');
-    this.map.getPane('selectedClimbHaloPane')!.style.zIndex = '410';
-
-    this.map.createPane('trackPane');
-    this.map.getPane('trackPane')!.style.zIndex = '420';
-
-
-    setTimeout(() => {
-      this.map?.invalidateSize();
-    }, 0);
-  }
-
-  private handleMapMouseMove(event: L.LeafletMouseEvent): void {
-    if (!this.map) {
-      return;
-    }
-
-    const track = this.store.track();
-
-    if (!track || track.latE7.length < 2) {
-      this.hideHoverTooltip();
-      this.hideHoverPoint();
-      this.store.setCursorIndex(null);
-      return;
-    }
-
-    const nearest = this.findNearestTrackIndex(event.latlng);
-
-    if (!nearest || nearest.distancePx > this.hoverTolerancePx) {
-      this.hideHoverTooltip();
-      this.hideHoverPoint();
-      this.store.setCursorIndex(null);
-      return;
-    }
-
-    const index = nearest.index;
-
-    this.store.setCursorIndex(index);
-
-    this.showHoverTooltip(
-      nearest.latLng,
-      this.buildHoverTooltipContent(index),
-    );
-
-    this.showHoverPoint(nearest.latLng);
+  private clearSelectedClimbHalo(): void {
+    this.selectedClimbHaloLayer?.remove();
+    this.selectedClimbHaloLayer = null;
   }
 
   private findNearestTrackIndex(
@@ -473,12 +498,12 @@ export class FlightMap implements AfterViewInit, OnDestroy {
     const speedKmh = this.calculateInstantSpeedKmh(index);
 
     return `
-    <div class="map-hover-tooltip">
-      <div><strong>Altitude:</strong> ${altitudeM.toFixed(0)} m</div>
-      <div><strong>Vario:</strong> ${varioMs.toFixed(1)} m/s</div>
-      <div><strong>Speed:</strong> ${speedKmh.toFixed(0)} km/h</div>
-    </div>
-  `;
+      <div class="map-hover-tooltip">
+        <div><strong>Altitude:</strong> ${altitudeM.toFixed(0)} m</div>
+        <div><strong>Vario:</strong> ${varioMs.toFixed(1)} m/s</div>
+        <div><strong>Speed:</strong> ${speedKmh.toFixed(0)} km/h</div>
+      </div>
+    `;
   }
 
   private calculateInstantVarioMs(index: number): number {
@@ -551,6 +576,7 @@ export class FlightMap implements AfterViewInit, OnDestroy {
 
     if (!this.hoverTooltip) {
       this.hoverTooltip = L.tooltip({
+        pane: 'cursorTooltipPane',
         permanent: false,
         sticky: false,
         direction: 'top',
@@ -581,6 +607,7 @@ export class FlightMap implements AfterViewInit, OnDestroy {
 
     if (!this.hoverHaloMarker) {
       this.hoverHaloMarker = L.circleMarker(latLng, {
+        pane: 'cursorPane',
         radius: 11,
         color: '#3d0000',
         weight: 2,
@@ -591,10 +618,12 @@ export class FlightMap implements AfterViewInit, OnDestroy {
       }).addTo(this.map);
     } else {
       this.hoverHaloMarker.setLatLng(latLng);
+      this.hoverHaloMarker.bringToFront();
     }
 
     if (!this.hoverPointMarker) {
       this.hoverPointMarker = L.circleMarker(latLng, {
+        pane: 'cursorPane',
         radius: 4,
         color: '#ffffff',
         weight: 2,
@@ -605,6 +634,7 @@ export class FlightMap implements AfterViewInit, OnDestroy {
       }).addTo(this.map);
     } else {
       this.hoverPointMarker.setLatLng(latLng);
+      this.hoverPointMarker.bringToFront();
     }
   }
 
@@ -622,11 +652,6 @@ export class FlightMap implements AfterViewInit, OnDestroy {
       this.map.removeLayer(this.hoverHaloMarker);
       this.hoverHaloMarker = null;
     }
-  }
-
-
-  private toRad(value: number): number {
-    return (value * Math.PI) / 180;
   }
 
   private renderTrack(): void {
@@ -660,7 +685,11 @@ export class FlightMap implements AfterViewInit, OnDestroy {
         return;
       }
 
-      this.renderSelectedClimbTrackColored(track, climb.startIndex, climb.endIndex);
+      this.renderSelectedClimbTrackColored(
+        track,
+        climb.startIndex,
+        climb.endIndex,
+      );
 
       setTimeout(() => {
         this.map?.invalidateSize();
@@ -714,7 +743,6 @@ export class FlightMap implements AfterViewInit, OnDestroy {
       this.map?.invalidateSize();
     }, 0);
   }
-
 
   private renderSelectedClimbTrackColored(
     track: TrackArrays,
@@ -788,5 +816,9 @@ export class FlightMap implements AfterViewInit, OnDestroy {
     }
 
     this.trackLayers = [];
+  }
+
+  private toRad(value: number): number {
+    return (value * Math.PI) / 180;
   }
 }

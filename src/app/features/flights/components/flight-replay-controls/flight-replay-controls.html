@@ -1,0 +1,63 @@
+<div class="replay-controls">
+  <div class="replay-main-controls">
+    <button
+      type="button"
+      class="replay-button"
+      (click)="startBackward()"
+      [disabled]="!hasReplayRange()"
+      title="Replay backward"
+      aria-label="Replay backward"
+    >
+      ‹
+    </button>
+
+    <button
+      type="button"
+      class="replay-button replay-play-button"
+      (click)="toggleReplay()"
+      [disabled]="!hasReplayRange()"
+      title="Play or pause replay"
+      aria-label="Play or pause replay"
+    >
+      @if (store.isReplayPlaying()) {
+        II
+      } @else {
+        ▶
+      }
+    </button>
+
+    <button
+      type="button"
+      class="replay-button"
+      (click)="startForward()"
+      [disabled]="!hasReplayRange()"
+      title="Replay forward"
+      aria-label="Replay forward"
+    >
+      ›
+    </button>
+
+    <div class="speed-buttons" aria-label="Replay speed">
+      @for (speed of replaySpeeds; track speed) {
+        <button
+          type="button"
+          class="speed-button"
+          [class.is-active]="store.replaySpeed() === speed"
+          (click)="setSpeed(speed)"
+        >
+          {{ speed }}x
+        </button>
+      }
+    </div>
+  </div>
+
+  <input
+    class="replay-slider"
+    type="range"
+    [min]="replayMinIndex()"
+    [max]="replayMaxIndex()"
+    [value]="sliderValue()"
+    [disabled]="!hasReplayRange()"
+    (input)="setSliderPosition($event)"
+  />
+</div>

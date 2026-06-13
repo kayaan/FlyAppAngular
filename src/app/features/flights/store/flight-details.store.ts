@@ -19,6 +19,9 @@ import { TrackColorService } from '../services/track-color.service';
 import { ClimbDetectorService } from '../services/climb-detector.service';
 import { DetectedClimb } from '../models/detected-climb.model';
 
+type ReplayDirection = -1 | 1;
+type ReplaySpeed = 1 | 2 | 5 | 10 | 20 | 50;
+
 type FlightDetailsState = {
   flight: Flight | null;
   track: TrackArrays | null;
@@ -40,6 +43,10 @@ type FlightDetailsState = {
   resetChartZoomRequest: number;
 
   showOnlySelectedClimbTrack: boolean;
+
+  isReplayPlaying: boolean;
+  replayDirection: ReplayDirection;
+  replaySpeed: ReplaySpeed;
 };
 
 const initialState: FlightDetailsState = {
@@ -60,6 +67,10 @@ const initialState: FlightDetailsState = {
   resetChartZoomRequest: 0,
 
   showOnlySelectedClimbTrack: false,
+
+  isReplayPlaying: false,
+  replayDirection: 1,
+  replaySpeed: 10,
 };
 
 export const FlightDetailsStore = signalStore(
@@ -154,6 +165,8 @@ export const FlightDetailsStore = signalStore(
     const storage = inject(FlightIndexedDbService);
     const climbDetector = inject(ClimbDetectorService);
 
+
+
     function selectClimbByIndex(index: number): void {
       const climbs = store.climbs();
 
@@ -205,6 +218,54 @@ export const FlightDetailsStore = signalStore(
       );
     }
 
+    let replayTimerId: number | null = null;
+    let lastReplayTimestampMs: number | null = null;
+    let replayCurrentTimeSec: number | null = null;
+
+    const stopReplayTimer = () => {
+      if (replayTimerId !== null) {
+        window.clearInterval(replayTimerId);
+        replayTimerId = null;
+      }
+
+      lastReplayTimestampMs = null;
+      replayCurrentTimeSec = null;
+    };
+
+    const getReplayRange = (): { startIndex: number; endIndex: number } | null => {
+      const track = store.track();
+
+      if (!track || track.timeSec.length === 0) {
+        return null;
+      }
+
+      return {
+        startIndex: 0,
+        endIndex: track.timeSec.length - 1,
+      };
+    };
+
+    const findNearestIndexByTimeSec = (
+      trackTimeSec: Int32Array,
+      targetTimeSec: number,
+      startIndex: number,
+      endIndex: number,
+    ): number => {
+      let bestIndex = startIndex;
+      let bestDistance = Number.POSITIVE_INFINITY;
+
+      for (let i = startIndex; i <= endIndex; i++) {
+        const distance = Math.abs(trackTimeSec[i] - targetTimeSec);
+
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          bestIndex = i;
+        }
+      }
+
+      return bestIndex;
+    };
+
     return {
       setShowOnlySelectedClimbIn3d(value: boolean) {
         patchState(store, { showOnlySelectedClimbTrack: value });
@@ -223,6 +284,10 @@ export const FlightDetailsStore = signalStore(
       },
 
       setCursorIndex(index: number | null): void {
+
+        if (store.isReplayPlaying()) {
+          return;
+        }
         patchState(store, {
           cursorIndex: index,
         });
@@ -390,6 +455,145 @@ export const FlightDetailsStore = signalStore(
       clearError(): void {
         patchState(store, {
           error: null,
+        });
+      },
+
+      startReplayForward() {
+        this.startReplay(1);
+      },
+
+      startReplayBackward() {
+        this.startReplay(-1);
+      },
+
+      startReplay(direction: ReplayDirection) {
+        const track = store.track();
+        const range = getReplayRange();
+
+        if (!track || !range) {
+          return;
+        }
+
+        let cursorIndex = store.cursorIndex();
+
+        if (
+          cursorIndex === null ||
+          cursorIndex < range.startIndex ||
+          cursorIndex > range.endIndex
+        ) {
+          cursorIndex = direction === 1 ? range.startIndex : range.endIndex;
+        }
+
+        stopReplayTimer();
+
+        lastReplayTimestampMs = performance.now();
+        replayCurrentTimeSec = track.timeSec[cursorIndex];
+
+        patchState(store, {
+          cursorIndex,
+          isReplayPlaying: true,
+          replayDirection: direction,
+        });
+
+        const REPLAY_INTERVAL_MS = 50;
+
+        replayTimerId = window.setInterval(() => {
+          const currentTrack = store.track();
+          const currentRange = getReplayRange();
+
+          if (!currentTrack || !currentRange) {
+            stopReplayTimer();
+            patchState(store, { isReplayPlaying: false });
+            return;
+          }
+
+          if (replayCurrentTimeSec === null) {
+            const currentCursorIndex = store.cursorIndex();
+
+            if (currentCursorIndex === null) {
+              return;
+            }
+
+            replayCurrentTimeSec = currentTrack.timeSec[currentCursorIndex];
+          }
+
+          const elapsedReplaySec =
+            (REPLAY_INTERVAL_MS / 1000) * store.replaySpeed();
+
+          replayCurrentTimeSec +=
+            store.replayDirection() * elapsedReplaySec;
+
+          const rangeStartTimeSec = currentTrack.timeSec[currentRange.startIndex];
+          const rangeEndTimeSec = currentTrack.timeSec[currentRange.endIndex];
+
+          if (replayCurrentTimeSec <= rangeStartTimeSec) {
+            patchState(store, {
+              cursorIndex: currentRange.startIndex,
+              isReplayPlaying: false,
+            });
+            stopReplayTimer();
+            return;
+          }
+
+          if (replayCurrentTimeSec >= rangeEndTimeSec) {
+            patchState(store, {
+              cursorIndex: currentRange.endIndex,
+              isReplayPlaying: false,
+            });
+            stopReplayTimer();
+            return;
+          }
+
+          const nextIndex = findNearestIndexByTimeSec(
+            currentTrack.timeSec,
+            replayCurrentTimeSec,
+            currentRange.startIndex,
+            currentRange.endIndex
+          );
+
+          patchState(store, {
+            cursorIndex: nextIndex,
+          });
+        }, REPLAY_INTERVAL_MS);
+      },
+
+
+
+      pauseReplay() {
+        stopReplayTimer();
+        patchState(store, { isReplayPlaying: false });
+      },
+
+      toggleReplay() {
+        if (store.isReplayPlaying()) {
+          this.pauseReplay();
+          return;
+        }
+
+        this.startReplay(store.replayDirection());
+      },
+
+      setReplaySpeed(speed: ReplaySpeed) {
+        patchState(store, { replaySpeed: speed });
+      },
+
+      setReplayCursor(index: number) {
+        const range = getReplayRange();
+
+        if (!range) {
+          return;
+        }
+
+        const safeIndex = Math.max(
+          range.startIndex,
+          Math.min(range.endIndex, index),
+        );
+
+        stopReplayTimer();
+
+        patchState(store, {
+          cursorIndex: safeIndex,
+          isReplayPlaying: false,
         });
       },
     };

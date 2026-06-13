@@ -86,6 +86,7 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
     this.setupZoomToSelectedClimbEffect();
     this.setupResetChartZoomEffect();
     this.setupClimbOverlayEffect();
+    this.setupReplayTooltipTriggerEffect();
   }
 
   ngAfterViewInit(): void {
@@ -93,7 +94,6 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
     this.chart.group = this.groupId;
 
     this.updateChart();
-
     this.registerChartHoverEvents();
 
     echarts.connect(this.groupId);
@@ -126,6 +126,22 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
 
     this.chart?.dispose();
     this.chart = null;
+  }
+
+  private setupReplayTooltipTriggerEffect(): void {
+    effect(() => {
+      const isReplayPlaying = this.store.isReplayPlaying();
+
+      if (!this.chart) {
+        return;
+      }
+
+      this.chart.setOption({
+        tooltip: {
+          triggerOn: isReplayPlaying ? 'none' : 'mousemove|click',
+        },
+      });
+    });
   }
 
   private setupCursorEffect(): void {
@@ -192,10 +208,6 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
     effect(() => {
       this.settingsStore.showClimbsOnCharts();
       this.store.climbs();
-
-      // Important:
-      // selectedClimbId may change during climb navigation.
-      // This effect may update markLines, but it must never zoom.
       this.store.selectedClimbId();
 
       if (!this.chart) {
@@ -262,6 +274,7 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
 
       tooltip: {
         trigger: 'axis',
+        triggerOn: this.store.isReplayPlaying() ? 'none' : 'mousemove|click',
         confine: true,
         axisPointer: {
           type: 'line',
@@ -354,6 +367,10 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
     }
 
     this.chart.on('updateAxisPointer', (event: any) => {
+      if (this.shouldIgnorePointerInput()) {
+        return;
+      }
+
       const axisInfo = event.axesInfo?.[0];
 
       if (!axisInfo) {
@@ -366,7 +383,8 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
         return;
       }
 
-      const nearestDataIndex = this.findNearestDataIndexByElapsedTime(elapsedSec);
+      const nearestDataIndex =
+        this.findNearestDataIndexByElapsedTime(elapsedSec);
 
       if (nearestDataIndex === null) {
         return;
@@ -392,8 +410,16 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
     });
 
     this.chartContainer.nativeElement.addEventListener('mouseleave', () => {
+      if (this.shouldIgnorePointerInput()) {
+        return;
+      }
+
       this.store.setCursorIndex(null);
     });
+  }
+
+  private shouldIgnorePointerInput(): boolean {
+    return this.store.isReplayPlaying();
   }
 
   private buildMarkLineData(cursorTrackIndex: number | null): unknown[] {

@@ -10,21 +10,19 @@ import {
 
 import {
   ArcType,
+  Cartesian2,
   Cartesian3,
-  Cartographic,
   Color,
   EllipsoidTerrainProvider,
   Entity,
   HeightReference,
   Ion,
   PointGraphics,
+  SceneTransforms,
   ScreenSpaceEventHandler,
   ScreenSpaceEventType,
   Viewer,
   createWorldTerrainAsync,
-  Math as CesiumMath,
-  Cartesian2,
-  SceneTransforms,
 } from 'cesium';
 
 import { FlightDetailsStore } from '../../store/flight-details.store';
@@ -53,25 +51,22 @@ export class Flight3d implements AfterViewInit, OnDestroy {
   private readonly varioClassCount = 12;
   private readonly maxVarioForColorMs = 4;
 
-
   private viewer: Viewer | null = null;
   private flightTrackEntities: Entity[] = [];
   private lastTrackReference: TrackArrays | null = null;
   private selectedClimbEntity: Entity | null = null;
 
   private cursorEntity: Entity | null = null;
+  private cursorTooltipElement: HTMLDivElement | null = null;
 
   private mouseMoveHandler: ScreenSpaceEventHandler | null = null;
-
 
   constructor() {
     effect(() => {
       const track = this.store.track();
 
-      // Re-render colors when resolution changes.
       this.settingsStore.varioChartResolutionInSec();
 
-      // Re-render 3D track when selected climb / only-mode changes.
       this.store.showOnlySelectedClimbTrack();
       this.store.selectedClimbId();
       this.store.climbs();
@@ -93,10 +88,11 @@ export class Flight3d implements AfterViewInit, OnDestroy {
 
       if (!this.viewer || !track || cursorIndex === null) {
         this.clearCursorEntity();
+        this.hideCursorTooltip();
         return;
       }
 
-      this.updateCursorEntity(track, cursorIndex);
+      this.updateCursorAtIndex(track, cursorIndex);
     });
 
     effect(() => {
@@ -126,17 +122,312 @@ export class Flight3d implements AfterViewInit, OnDestroy {
       this.renderSelectedClimbHighlight(
         track,
         selectedClimb.startIndex,
-        selectedClimb.endIndex
+        selectedClimb.endIndex,
       );
     });
+  }
+
+  async ngAfterViewInit(): Promise<void> {
+    Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJlYzNkODk4Mi1lNzYwLTQzNGUtOTNlNC04MDMwOTBiYmI4ZDQiLCJpZCI6NDQzODEzLCJzdWIiOiJBeWRpbiBLYXlhIiwiaXNzIjoiaHR0cHM6Ly9hcGkuY2VzaXVtLmNvbSIsImF1ZCI6IlVudGl0bGVkIiwiaWF0IjoxNzgxMzA1MDc4fQ.IuzlHEZoO7BhDqRcMhOl_Eq76TMUYUn0qqnhHnOkuqY';
+
+    this.viewer = new Viewer(this.cesiumContainer.nativeElement, {
+      animation: false,
+      timeline: false,
+      baseLayerPicker: false,
+      geocoder: false,
+      homeButton: false,
+      sceneModePicker: false,
+      navigationHelpButton: false,
+      fullscreenButton: false,
+      infoBox: false,
+      selectionIndicator: false,
+      terrainProvider: new EllipsoidTerrainProvider(),
+    });
+
+    this.createCursorTooltipElement();
+    this.registerCursorPicking();
+
+    this.viewer.terrainProvider = await createWorldTerrainAsync({
+      requestVertexNormals: true,
+    });
+
+    this.viewer.scene.globe.enableLighting = false;
+    this.viewer.scene.globe.showGroundAtmosphere = false;
+    this.viewer.scene.globe.depthTestAgainstTerrain = false;
+
+    this.viewer.scene.verticalExaggeration = this.verticalExaggeration;
+    this.viewer.scene.verticalExaggerationRelativeHeight =
+      this.verticalExaggerationRelativeHeight;
+
+    if (this.viewer.scene.skyAtmosphere) {
+      this.viewer.scene.skyAtmosphere.show = false;
+    }
+
+    if (this.viewer.scene.sun) {
+      this.viewer.scene.sun.show = false;
+    }
+
+    if (this.viewer.scene.moon) {
+      this.viewer.scene.moon.show = false;
+    }
+
+    this.renderTrack(this.store.track(), true);
+    this.lastTrackReference = this.store.track();
+  }
+
+  ngOnDestroy(): void {
+    this.mouseMoveHandler?.destroy();
+    this.mouseMoveHandler = null;
+
+    this.clearCursorEntity();
+    this.removeCursorTooltipElement();
+    this.clearTrackEntities();
+    this.clearSelectedClimbEntity();
+
+    this.viewer?.destroy();
+    this.viewer = null;
+    this.lastTrackReference = null;
+  }
+
+  private registerCursorPicking(): void {
+    if (!this.viewer) {
+      return;
+    }
+
+    this.mouseMoveHandler = new ScreenSpaceEventHandler(
+      this.viewer.scene.canvas,
+    );
+
+    this.mouseMoveHandler.setInputAction(
+      (movement: { endPosition: Cartesian2 }) => {
+        if (this.store.isReplayPlaying()) {
+          return;
+        }
+
+        const track = this.store.track();
+
+        if (!this.viewer || !track) {
+          this.store.setCursorIndex(null);
+          return;
+        }
+
+        const nearestIndex = this.findNearestTrackIndexByScreenPosition(
+          track,
+          movement.endPosition,
+        );
+
+        if (nearestIndex === null) {
+          this.store.setCursorIndex(null);
+          return;
+        }
+
+        if (this.store.cursorIndex() !== nearestIndex) {
+          this.store.setCursorIndex(nearestIndex);
+        }
+      },
+      ScreenSpaceEventType.MOUSE_MOVE,
+    );
+  }
+
+  private findNearestTrackIndexByScreenPosition(
+    track: TrackArrays,
+    mousePosition: Cartesian2,
+  ): number | null {
+    if (!this.viewer) {
+      return null;
+    }
+
+    const pointCount = Math.min(
+      track.latE7.length,
+      track.lonE7.length,
+      track.altGpsCm.length,
+      track.timeSec.length,
+    );
+
+    if (pointCount === 0) {
+      return null;
+    }
+
+    const maxPixelDistance = 18;
+
+    let bestIndex: number | null = null;
+    let bestDistance = Number.POSITIVE_INFINITY;
+
+    for (let i = 0; i < pointCount; i += this.renderStep) {
+      const worldPosition = this.buildPosition(track, i);
+
+      if (!worldPosition) {
+        continue;
+      }
+
+      const screenPosition = SceneTransforms.worldToWindowCoordinates(
+        this.viewer.scene,
+        worldPosition,
+      );
+
+      if (!screenPosition) {
+        continue;
+      }
+
+      const dx = screenPosition.x - mousePosition.x;
+      const dy = screenPosition.y - mousePosition.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestIndex = i;
+      }
+    }
+
+    if (bestIndex === null || bestDistance > maxPixelDistance) {
+      return null;
+    }
+
+    return bestIndex;
+  }
+
+  private updateCursorAtIndex(track: TrackArrays, index: number): void {
+    if (!this.viewer) {
+      return;
+    }
+
+    if (index < 0 || index >= track.latE7.length) {
+      this.clearCursorEntity();
+      this.hideCursorTooltip();
+      return;
+    }
+
+    const position = this.buildPosition(track, index);
+
+    if (!position) {
+      this.clearCursorEntity();
+      this.hideCursorTooltip();
+      return;
+    }
+
+    this.updateCursorEntity(position);
+    this.updateCursorTooltip(track, index, position);
+  }
+
+  private updateCursorEntity(position: Cartesian3): void {
+    if (!this.viewer) {
+      return;
+    }
+
+    if (!this.cursorEntity) {
+      this.cursorEntity = this.viewer.entities.add({
+        name: 'Replay cursor position',
+        position,
+        point: new PointGraphics({
+          pixelSize: 12,
+          color: Color.YELLOW,
+          outlineColor: Color.BLACK,
+          outlineWidth: 2,
+          heightReference: HeightReference.NONE,
+          disableDepthTestDistance: Number.POSITIVE_INFINITY,
+        }),
+      });
+
+      return;
+    }
+
+    this.cursorEntity.position = position as any;
+  }
+
+  private clearCursorEntity(): void {
+    if (!this.viewer || !this.cursorEntity) {
+      this.cursorEntity = null;
+      return;
+    }
+
+    this.viewer.entities.remove(this.cursorEntity);
+    this.cursorEntity = null;
+  }
+
+  private createCursorTooltipElement(): void {
+    if (this.cursorTooltipElement) {
+      return;
+    }
+
+    const element = document.createElement('div');
+
+    element.className = 'flight-3d-cursor-tooltip';
+    element.style.position = 'absolute';
+    element.style.display = 'none';
+    element.style.pointerEvents = 'none';
+    element.style.zIndex = '20';
+    element.style.padding = '6px 8px';
+    element.style.borderRadius = '6px';
+    element.style.background = 'rgba(16, 24, 40, 0.92)';
+    element.style.color = '#ffffff';
+    element.style.fontSize = '12px';
+    element.style.lineHeight = '1.35';
+    element.style.whiteSpace = 'nowrap';
+    element.style.transform = 'translate(-50%, -115%)';
+
+    this.cesiumContainer.nativeElement.style.position = 'relative';
+    this.cesiumContainer.nativeElement.appendChild(element);
+
+    this.cursorTooltipElement = element;
+  }
+
+  private updateCursorTooltip(
+    track: TrackArrays,
+    index: number,
+    position: Cartesian3,
+  ): void {
+    if (!this.viewer || !this.cursorTooltipElement) {
+      return;
+    }
+
+    const screenPosition = SceneTransforms.worldToWindowCoordinates(
+      this.viewer.scene,
+      position,
+    );
+
+    if (!screenPosition) {
+      this.hideCursorTooltip();
+      return;
+    }
+
+    this.cursorTooltipElement.innerHTML =
+      this.buildCursorTooltipContent(track, index);
+
+    this.cursorTooltipElement.style.left = `${screenPosition.x}px`;
+    this.cursorTooltipElement.style.top = `${screenPosition.y}px`;
+    this.cursorTooltipElement.style.display = 'block';
+  }
+
+  private hideCursorTooltip(): void {
+    if (!this.cursorTooltipElement) {
+      return;
+    }
+
+    this.cursorTooltipElement.style.display = 'none';
+  }
+
+  private removeCursorTooltipElement(): void {
+    this.cursorTooltipElement?.remove();
+    this.cursorTooltipElement = null;
+  }
+
+  private buildCursorTooltipContent(track: TrackArrays, index: number): string {
+    const altitudeM = track.altGpsCm[index] / 100;
+    const varioMs = this.calculateInstantVarioMs(track, index);
+    const speedKmh = this.calculateInstantSpeedKmh(track, index);
+
+    return `
+      <div><strong>Altitude:</strong> ${altitudeM.toFixed(0)} m</div>
+      <div><strong>Vario:</strong> ${varioMs.toFixed(1)} m/s</div>
+      <div><strong>Speed:</strong> ${speedKmh.toFixed(0)} km/h</div>
+    `;
   }
 
   private renderSelectedClimbHighlight(
     track: TrackArrays,
     startIndex: number,
-    endIndex: number
+    endIndex: number,
   ): void {
-
     if (this.store.showOnlySelectedClimbTrack()) {
       this.clearSelectedClimbEntity();
       return;
@@ -152,7 +443,7 @@ export class Flight3d implements AfterViewInit, OnDestroy {
       track.latE7.length,
       track.lonE7.length,
       track.altGpsCm.length,
-      track.timeSec.length
+      track.timeSec.length,
     );
 
     if (pointCount < 2) {
@@ -198,210 +489,6 @@ export class Flight3d implements AfterViewInit, OnDestroy {
     this.selectedClimbEntity = null;
   }
 
-  async ngAfterViewInit(): Promise<void> {
-    Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJlYzNkODk4Mi1lNzYwLTQzNGUtOTNlNC04MDMwOTBiYmI4ZDQiLCJpZCI6NDQzODEzLCJzdWIiOiJBeWRpbiBLYXlhIiwiaXNzIjoiaHR0cHM6Ly9hcGkuY2VzaXVtLmNvbSIsImF1ZCI6IlVudGl0bGVkIiwiaWF0IjoxNzgxMzA1MDc4fQ.IuzlHEZoO7BhDqRcMhOl_Eq76TMUYUn0qqnhHnOkuqY',
-
-      this.viewer = new Viewer(this.cesiumContainer.nativeElement, {
-        animation: false,
-        timeline: false,
-        baseLayerPicker: false,
-        geocoder: false,
-        homeButton: false,
-        sceneModePicker: false,
-        navigationHelpButton: false,
-        fullscreenButton: false,
-        infoBox: false,
-        selectionIndicator: false,
-        terrainProvider: new EllipsoidTerrainProvider(),
-      });
-
-    this.registerCursorPicking();
-
-    this.viewer.terrainProvider = await createWorldTerrainAsync({
-      requestVertexNormals: true,
-    });
-
-    // Keep imagery visible, but disable day/night darkening.
-    this.viewer.scene.globe.enableLighting = false;
-    this.viewer.scene.globe.showGroundAtmosphere = false;
-
-    // Keep the flight track visible even if terrain exaggeration would
-    // otherwise hide parts of it behind the terrain.
-    this.viewer.scene.globe.depthTestAgainstTerrain = false;
-
-    this.viewer.scene.verticalExaggeration = this.verticalExaggeration;
-    this.viewer.scene.verticalExaggerationRelativeHeight =
-      this.verticalExaggerationRelativeHeight;
-
-    if (this.viewer.scene.skyAtmosphere) {
-      this.viewer.scene.skyAtmosphere.show = false;
-    }
-
-    if (this.viewer.scene.sun) {
-      this.viewer.scene.sun.show = false;
-    }
-
-    if (this.viewer.scene.moon) {
-      this.viewer.scene.moon.show = false;
-    }
-
-    this.renderTrack(this.store.track(), true);
-    this.lastTrackReference = this.store.track();
-  }
-
-
-  ngOnDestroy(): void {
-    this.mouseMoveHandler?.destroy();
-    this.mouseMoveHandler = null;
-
-    this.clearCursorEntity();
-    this.clearTrackEntities();
-
-    this.viewer?.destroy();
-    this.viewer = null;
-    this.lastTrackReference = null;
-
-    this.clearSelectedClimbEntity();
-  }
-
-  private registerCursorPicking(): void {
-    if (!this.viewer) {
-      return;
-    }
-
-    this.mouseMoveHandler = new ScreenSpaceEventHandler(
-      this.viewer.scene.canvas
-    );
-
-    this.mouseMoveHandler.setInputAction((movement: { endPosition: Cartesian2 }) => {
-      const track = this.store.track();
-
-      if (!this.viewer || !track) {
-        this.store.setCursorIndex(null);
-        return;
-      }
-
-      const nearestIndex = this.findNearestTrackIndexByScreenPosition(
-        track,
-        movement.endPosition
-      );
-
-      if (nearestIndex === null) {
-        this.store.setCursorIndex(null);
-        return;
-      }
-
-      if (this.store.cursorIndex() !== nearestIndex) {
-        this.store.setCursorIndex(nearestIndex);
-      }
-    }, ScreenSpaceEventType.MOUSE_MOVE);
-  }
-
-  private findNearestTrackIndexByScreenPosition(
-    track: TrackArrays,
-    mousePosition: Cartesian2
-  ): number | null {
-    if (!this.viewer) {
-      return null;
-    }
-
-    const pointCount = Math.min(
-      track.latE7.length,
-      track.lonE7.length,
-      track.altGpsCm.length,
-      track.timeSec.length
-    );
-
-    if (pointCount === 0) {
-      return null;
-    }
-
-    const maxPixelDistance = 18;
-
-    let bestIndex: number | null = null;
-    let bestDistance = Number.POSITIVE_INFINITY;
-
-    for (let i = 0; i < pointCount; i += this.renderStep) {
-      const worldPosition = this.buildPosition(track, i);
-
-      if (!worldPosition) {
-        continue;
-      }
-
-      const screenPosition = SceneTransforms.worldToWindowCoordinates(
-        this.viewer.scene,
-        worldPosition
-      );
-
-      if (!screenPosition) {
-        continue;
-      }
-
-      const dx = screenPosition.x - mousePosition.x;
-      const dy = screenPosition.y - mousePosition.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-
-      if (distance < bestDistance) {
-        bestDistance = distance;
-        bestIndex = i;
-      }
-    }
-
-    if (bestIndex === null || bestDistance > maxPixelDistance) {
-      return null;
-    }
-
-    return bestIndex;
-  }
-
-  private updateCursorEntity(track: TrackArrays, index: number): void {
-    if (!this.viewer) {
-      return;
-    }
-
-    if (index < 0 || index >= track.latE7.length) {
-      this.clearCursorEntity();
-      return;
-    }
-
-    const position = this.buildPosition(track, index);
-
-    if (!position) {
-      this.clearCursorEntity();
-      return;
-    }
-
-    if (!this.cursorEntity) {
-      this.cursorEntity = this.viewer.entities.add({
-        name: 'Chart cursor position',
-        position,
-        point: new PointGraphics({
-          pixelSize: 12,
-          color: Color.YELLOW,
-          outlineColor: Color.BLACK,
-          outlineWidth: 2,
-          heightReference: HeightReference.NONE,
-          disableDepthTestDistance: Number.POSITIVE_INFINITY,
-        }),
-      });
-
-      return;
-    }
-
-    this.cursorEntity.position = position as any;
-  }
-
-  private clearCursorEntity(): void {
-    if (!this.viewer || !this.cursorEntity) {
-      this.cursorEntity = null;
-      return;
-    }
-
-    this.viewer.entities.remove(this.cursorEntity);
-    this.cursorEntity = null;
-  }
-
-
   private renderTrack(track: TrackArrays | null, shouldCenter: boolean): void {
     if (!this.viewer) {
       return;
@@ -417,7 +504,6 @@ export class Flight3d implements AfterViewInit, OnDestroy {
       this.store.showOnlySelectedClimbTrack();
 
     const selectedClimbId = this.store.selectedClimbId();
-
 
     this.clearSelectedClimbEntity();
 
@@ -461,17 +547,17 @@ export class Flight3d implements AfterViewInit, OnDestroy {
       track.latE7.length,
       track.lonE7.length,
       track.altGpsCm.length,
-      track.timeSec.length
+      track.timeSec.length,
     );
 
     const start = Math.max(
       0,
-      Math.min(selectedClimb.startIndex, selectedClimb.endIndex)
+      Math.min(selectedClimb.startIndex, selectedClimb.endIndex),
     );
 
     const end = Math.min(
       pointCount - 1,
-      Math.max(selectedClimb.startIndex, selectedClimb.endIndex)
+      Math.max(selectedClimb.startIndex, selectedClimb.endIndex),
     );
 
     const entities: Entity[] = [];
@@ -494,7 +580,7 @@ export class Flight3d implements AfterViewInit, OnDestroy {
       const varioMs = this.averageVarioMs(
         track,
         i,
-        this.settingsStore.varioChartResolutionInSec()
+        this.settingsStore.varioChartResolutionInSec(),
       );
 
       const nextClass = this.getVarioClass(varioMs);
@@ -528,19 +614,6 @@ export class Flight3d implements AfterViewInit, OnDestroy {
     return entities;
   }
 
-  private clearTrackEntities(): void {
-    if (!this.viewer) {
-      this.flightTrackEntities = [];
-      return;
-    }
-
-    for (const entity of this.flightTrackEntities) {
-      this.viewer.entities.remove(entity);
-    }
-
-    this.flightTrackEntities = [];
-  }
-
   private buildColoredTrackBlocks(track: TrackArrays): Entity[] {
     if (!this.viewer) {
       return [];
@@ -552,7 +625,7 @@ export class Flight3d implements AfterViewInit, OnDestroy {
       track.latE7.length,
       track.lonE7.length,
       track.altGpsCm.length,
-      track.timeSec.length
+      track.timeSec.length,
     );
 
     let currentClass: number | null = null;
@@ -573,7 +646,7 @@ export class Flight3d implements AfterViewInit, OnDestroy {
       const varioMs = this.averageVarioMs(
         track,
         i,
-        this.settingsStore.varioChartResolutionInSec()
+        this.settingsStore.varioChartResolutionInSec(),
       );
 
       const nextClass = this.getVarioClass(varioMs);
@@ -609,7 +682,7 @@ export class Flight3d implements AfterViewInit, OnDestroy {
 
   private addTrackBlockEntity(
     positions: Cartesian3[],
-    varioClass: number
+    varioClass: number,
   ): Entity {
     if (!this.viewer) {
       throw new Error('Cesium viewer is not initialized.');
@@ -625,6 +698,19 @@ export class Flight3d implements AfterViewInit, OnDestroy {
         arcType: ArcType.NONE,
       },
     });
+  }
+
+  private clearTrackEntities(): void {
+    if (!this.viewer) {
+      this.flightTrackEntities = [];
+      return;
+    }
+
+    for (const entity of this.flightTrackEntities) {
+      this.viewer.entities.remove(entity);
+    }
+
+    this.flightTrackEntities = [];
   }
 
   private buildPosition(track: TrackArrays, index: number): Cartesian3 | null {
@@ -646,12 +732,12 @@ export class Flight3d implements AfterViewInit, OnDestroy {
   private averageVarioMs(
     track: TrackArrays,
     index: number,
-    resolutionSec: number
+    resolutionSec: number,
   ): number {
     const previousIndex = this.findPreviousIndexByResolution(
       track,
       index,
-      resolutionSec
+      resolutionSec,
     );
 
     const deltaAltM =
@@ -667,10 +753,69 @@ export class Flight3d implements AfterViewInit, OnDestroy {
     return deltaAltM / deltaTimeSec;
   }
 
+  private calculateInstantVarioMs(track: TrackArrays, index: number): number {
+    if (index <= 0) {
+      return 0;
+    }
+
+    const durationSec = track.timeSec[index] - track.timeSec[index - 1];
+
+    if (durationSec <= 0) {
+      return 0;
+    }
+
+    const altitudeDeltaM =
+      (track.altGpsCm[index] - track.altGpsCm[index - 1]) / 100;
+
+    return altitudeDeltaM / durationSec;
+  }
+
+  private calculateInstantSpeedKmh(track: TrackArrays, index: number): number {
+    if (index <= 0) {
+      return 0;
+    }
+
+    const durationSec = track.timeSec[index] - track.timeSec[index - 1];
+
+    if (durationSec <= 0) {
+      return 0;
+    }
+
+    const lat1 = track.latE7[index - 1] / 10_000_000;
+    const lon1 = track.lonE7[index - 1] / 10_000_000;
+    const lat2 = track.latE7[index] / 10_000_000;
+    const lon2 = track.lonE7[index] / 10_000_000;
+
+    const distanceM = this.distanceMeters(lat1, lon1, lat2, lon2);
+
+    return (distanceM / durationSec) * 3.6;
+  }
+
+  private distanceMeters(
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number,
+  ): number {
+    const earthRadiusM = 6_371_000;
+
+    const dLat = this.toRad(lat2 - lat1);
+    const dLon = this.toRad(lon2 - lon1);
+
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(this.toRad(lat1)) *
+        Math.cos(this.toRad(lat2)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+
+    return earthRadiusM * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
   private findPreviousIndexByResolution(
     track: TrackArrays,
     index: number,
-    resolutionSec: number
+    resolutionSec: number,
   ): number {
     const currentTimeSec = track.timeSec[index];
     const minTimeSec = currentTimeSec - resolutionSec;
@@ -689,12 +834,12 @@ export class Flight3d implements AfterViewInit, OnDestroy {
 
   private getVarioClass(varioMs: number): number {
     if (!Number.isFinite(varioMs)) {
-      return 1; // fallback: hellgrün statt weiß
+      return 1;
     }
 
     const clamped = Math.max(
       -this.maxVarioForColorMs,
-      Math.min(this.maxVarioForColorMs, varioMs)
+      Math.min(this.maxVarioForColorMs, varioMs),
     );
 
     const strength = Math.abs(clamped) / this.maxVarioForColorMs;
@@ -703,16 +848,16 @@ export class Flight3d implements AfterViewInit, OnDestroy {
       1,
       Math.min(
         this.varioClassCount,
-        Math.ceil(strength * this.varioClassCount)
-      )
+        Math.ceil(strength * this.varioClassCount),
+      ),
     );
 
     return clamped >= 0 ? level : -level;
   }
 
   private getColorForVarioClass(varioClass: number): Color {
-    const lightGreen = Color.fromCssColorString('#22d3ee'); // weak climb cyan
-    const darkGreen = Color.fromCssColorString('#0f766e');  // strong climb teal
+    const lightGreen = Color.fromCssColorString('#22d3ee');
+    const darkGreen = Color.fromCssColorString('#0f766e');
 
     const lightRed = Color.fromCssColorString('#ef4444');
     const darkRed = Color.fromCssColorString('#7f1d1d');
@@ -734,7 +879,7 @@ export class Flight3d implements AfterViewInit, OnDestroy {
       from.red + (to.red - from.red) * clampedT,
       from.green + (to.green - from.green) * clampedT,
       from.blue + (to.blue - from.blue) * clampedT,
-      from.alpha + (to.alpha - from.alpha) * clampedT
+      from.alpha + (to.alpha - from.alpha) * clampedT,
     );
   }
 
@@ -743,7 +888,11 @@ export class Flight3d implements AfterViewInit, OnDestroy {
       this.trackAltitudeOffsetM +
       this.verticalExaggerationRelativeHeight +
       (heightM - this.verticalExaggerationRelativeHeight) *
-      this.verticalExaggeration
+        this.verticalExaggeration
     );
+  }
+
+  private toRad(value: number): number {
+    return (value * Math.PI) / 180;
   }
 }

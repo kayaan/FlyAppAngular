@@ -73,47 +73,49 @@
 
     </section>
 
-    <section class="right-panel">
-      <div class="map-card">
-        <header>
-          <h2>Track</h2>
-        </header>
+<section class="right-panel">
+  <div class="map-card">
+    <header class="map-card-header">
+      <h2>Track</h2>
 
-<div class="map-placeholder">
-  <div class="view-mode-toggle" role="radiogroup" aria-label="View mode">
-    <label class="view-mode-option">
-      <input
-        type="radio"
-        name="viewMode"
-        value="map"
-        [checked]="viewMode === 'map'"
-        (change)="setViewMode('map')"
-      />
-      <span>Map</span>
-    </label>
+      <app-flight-replay-controls />
+    </header>
 
-    <label class="view-mode-option">
-      <input
-        type="radio"
-        name="viewMode"
-        value="3d"
-        [checked]="viewMode === '3d'"
-        (change)="setViewMode('3d')"
-      />
-      <span>3D</span>
-    </label>
-  </div>
+    <div class="map-placeholder">
+      <div class="view-mode-toggle" role="radiogroup" aria-label="View mode">
+        <label class="view-mode-option">
+          <input
+            type="radio"
+            name="viewMode"
+            value="map"
+            [checked]="viewMode === 'map'"
+            (change)="setViewMode('map')"
+          />
+          <span>Map</span>
+        </label>
 
-  <div class="view-mode-content">
-    @if (viewMode === 'map') {
-      <app-flight-map />
-    } @else {
-      <app-flight-3d />
-    }
-  </div>
-</div>
+        <label class="view-mode-option">
+          <input
+            type="radio"
+            name="viewMode"
+            value="3d"
+            [checked]="viewMode === '3d'"
+            (change)="setViewMode('3d')"
+          />
+          <span>3D</span>
+        </label>
       </div>
-    </section>
+
+      <div class="view-mode-content">
+        @if (viewMode === 'map') {
+          <app-flight-map />
+        } @else {
+          <app-flight-3d />
+        }
+      </div>
+    </div>
+  </div>
+</section>
   </div>
   }
 
