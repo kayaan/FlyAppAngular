@@ -23,6 +23,8 @@ import {
   Viewer,
   createWorldTerrainAsync,
   Math as CesiumMath,
+  Cartesian2,
+  SceneTransforms,
 } from 'cesium';
 
 import { FlightDetailsStore } from '../../store/flight-details.store';
@@ -47,7 +49,7 @@ export class Flight3d implements AfterViewInit, OnDestroy {
 
   private readonly trackAltitudeOffsetM = 100;
 
-  private readonly renderStep = 1;
+  private readonly renderStep = 3;
   private readonly varioClassCount = 12;
   private readonly maxVarioForColorMs = 4;
 
@@ -165,7 +167,7 @@ export class Flight3d implements AfterViewInit, OnDestroy {
       this.viewer.scene.canvas
     );
 
-    this.mouseMoveHandler.setInputAction((movement: any) => {
+    this.mouseMoveHandler.setInputAction((movement: { endPosition: Cartesian2 }) => {
       const track = this.store.track();
 
       if (!this.viewer || !track) {
@@ -173,23 +175,10 @@ export class Flight3d implements AfterViewInit, OnDestroy {
         return;
       }
 
-      const cartesian = this.viewer.scene.pickPosition(movement.endPosition)
-        ?? this.viewer.camera.pickEllipsoid(
-          movement.endPosition,
-          this.viewer.scene.globe.ellipsoid
-        );
-
-      if (!cartesian) {
-        this.store.setCursorIndex(null);
-        return;
-      }
-
-      const cartographic = Cartographic.fromCartesian(cartesian);
-
-      const lat = CesiumMath.toDegrees(cartographic.latitude);
-      const lon = CesiumMath.toDegrees(cartographic.longitude);
-
-      const nearestIndex = this.findNearestTrackIndexByLatLon(track, lat, lon);
+      const nearestIndex = this.findNearestTrackIndexByScreenPosition(
+        track,
+        movement.endPosition
+      );
 
       if (nearestIndex === null) {
         this.store.setCursorIndex(null);
@@ -202,38 +191,62 @@ export class Flight3d implements AfterViewInit, OnDestroy {
     }, ScreenSpaceEventType.MOUSE_MOVE);
   }
 
-
-
-  private findNearestTrackIndexByLatLon(
-    track: TrackArrays,
-    lat: number,
-    lon: number
-  ): number | null {
-    const pointCount = Math.min(track.latE7.length, track.lonE7.length);
-
-    if (pointCount === 0) {
-      return null;
-    }
-
-    let bestIndex = 0;
-    let bestDistance = Number.POSITIVE_INFINITY;
-
-    for (let i = 0; i < pointCount; i += this.renderStep) {
-      const pointLat = track.latE7[i] / 10_000_000;
-      const pointLon = track.lonE7[i] / 10_000_000;
-
-      const distance =
-        (pointLat - lat) * (pointLat - lat) +
-        (pointLon - lon) * (pointLon - lon);
-
-      if (distance < bestDistance) {
-        bestDistance = distance;
-        bestIndex = i;
-      }
-    }
-
-    return bestIndex;
+private findNearestTrackIndexByScreenPosition(
+  track: TrackArrays,
+  mousePosition: Cartesian2
+): number | null {
+  if (!this.viewer) {
+    return null;
   }
+
+  const pointCount = Math.min(
+    track.latE7.length,
+    track.lonE7.length,
+    track.altGpsCm.length,
+    track.timeSec.length
+  );
+
+  if (pointCount === 0) {
+    return null;
+  }
+
+  const maxPixelDistance = 18;
+
+  let bestIndex: number | null = null;
+  let bestDistance = Number.POSITIVE_INFINITY;
+
+  for (let i = 0; i < pointCount; i += this.renderStep) {
+    const worldPosition = this.buildPosition(track, i);
+
+    if (!worldPosition) {
+      continue;
+    }
+
+    const screenPosition = SceneTransforms.worldToWindowCoordinates(
+      this.viewer.scene,
+      worldPosition
+    );
+
+    if (!screenPosition) {
+      continue;
+    }
+
+    const dx = screenPosition.x - mousePosition.x;
+    const dy = screenPosition.y - mousePosition.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      bestIndex = i;
+    }
+  }
+
+  if (bestIndex === null || bestDistance > maxPixelDistance) {
+    return null;
+  }
+
+  return bestIndex;
+}
 
   private updateCursorEntity(track: TrackArrays, index: number): void {
     if (!this.viewer) {
@@ -398,7 +411,7 @@ export class Flight3d implements AfterViewInit, OnDestroy {
       name: 'Flight track block',
       polyline: {
         positions,
-        width: 1.5,
+        width: 1.0,
         material: this.getColorForVarioClass(varioClass),
         clampToGround: false,
         arcType: ArcType.NONE,
