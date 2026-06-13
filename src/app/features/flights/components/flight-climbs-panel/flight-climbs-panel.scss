@@ -1,8 +1,13 @@
+.climbs-panel {
+  width: 100%;
+}
+
 .climbs-header {
-  display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr);
+  display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
+  flex-wrap: nowrap;
+  white-space: nowrap;
 }
 
 .climbs-title {
@@ -12,7 +17,20 @@
   white-space: nowrap;
 }
 
-.show-climbs-toggle {
+.title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #101828;
+}
+
+.count-pill {
+  font-size: 14px;
+  font-weight: 500;
+  color: #344054;
+}
+
+.show-climbs-toggle,
+.show-selected-climb-toggle {
   height: 32px;
 
   display: inline-flex;
@@ -30,25 +48,22 @@
 }
 
 .climb-navigation {
-  min-width: 0;
-  justify-self: end;
-
-  display: grid;
-  grid-template-columns: 32px minmax(130px, 1fr) 32px 64px 92px;
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .selected-climb-label {
-  min-width: 0;
+  min-width: 52px;
 
   text-align: center;
   white-space: nowrap;
-  overflow: hidden;
 
-  font-size: 13px;
-  font-weight: 600;
-  color: #344054;
+  font-size: 14px;
+  font-weight: 700;
+  color: #182230;
 }
 
 .climb-nav-button,

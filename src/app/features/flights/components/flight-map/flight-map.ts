@@ -43,9 +43,14 @@ export class FlightMap implements AfterViewInit, OnDestroy {
 
   constructor() {
     effect(() => {
-      const segments = this.store.coloredTrackSegments();
+      this.store.coloredTrackSegments();
 
-      if (!this.map || segments.length === 0) {
+      this.store.track();
+      this.store.climbs();
+      this.store.selectedClimbId();
+      this.store.showOnlySelectedClimbTrack();
+
+      if (!this.map) {
         return;
       }
 
@@ -71,8 +76,15 @@ export class FlightMap implements AfterViewInit, OnDestroy {
       const track = this.store.track();
       const climbs = this.store.climbs();
       const selectedClimbId = this.store.selectedClimbId();
+      const showOnlySelectedClimbTrack =
+        this.store.showOnlySelectedClimbTrack();
 
       if (!this.map || !track) {
+        return;
+      }
+
+      if (showOnlySelectedClimbTrack) {
+        this.clearSelectedClimbHalo();
         return;
       }
 
@@ -102,6 +114,11 @@ export class FlightMap implements AfterViewInit, OnDestroy {
 
       this.fitMapToSelection(track, climbs, selectedClimbId);
     });
+  }
+
+  private clearSelectedClimbHalo(): void {
+    this.selectedClimbHaloLayer?.remove();
+    this.selectedClimbHaloLayer = null;
   }
 
   private fitMapToSelection(
@@ -274,6 +291,7 @@ export class FlightMap implements AfterViewInit, OnDestroy {
 
     this.hideHoverTooltip();
     this.hideHoverPoint();
+    this.clearSelectedClimbHalo();
     this.clearTrackLayers();
 
     this.map?.remove();
@@ -616,13 +634,46 @@ export class FlightMap implements AfterViewInit, OnDestroy {
       return;
     }
 
+    this.clearTrackLayers();
+
+    const showOnlySelectedClimbTrack =
+      this.store.showOnlySelectedClimbTrack();
+
+    const track = this.store.track();
+    const climbs = this.store.climbs();
+    const selectedClimbId = this.store.selectedClimbId();
+
+    if (showOnlySelectedClimbTrack && track && selectedClimbId !== null) {
+      const climb = climbs.find((x) => x.id === selectedClimbId);
+
+      if (!climb) {
+        return;
+      }
+
+      const points = this.buildTrackPoints(
+        track,
+        climb.startIndex,
+        climb.endIndex,
+      );
+
+      if (points.length < 2) {
+        return;
+      }
+
+      this.renderSelectedClimbTrackColored(track, climb.startIndex, climb.endIndex);
+
+      setTimeout(() => {
+        this.map?.invalidateSize();
+      }, 0);
+
+      return;
+    }
+
     const segments = this.store.coloredTrackSegments();
 
     if (segments.length === 0) {
       return;
     }
-
-    this.clearTrackLayers();
 
     const boundsPoints: L.LatLngExpression[] = [];
 
@@ -662,6 +713,73 @@ export class FlightMap implements AfterViewInit, OnDestroy {
     setTimeout(() => {
       this.map?.invalidateSize();
     }, 0);
+  }
+
+
+  private renderSelectedClimbTrackColored(
+    track: TrackArrays,
+    startIndex: number,
+    endIndex: number,
+  ): void {
+    if (!this.map) {
+      return;
+    }
+
+    const safeStartIndex = Math.max(1, Math.min(startIndex, endIndex));
+    const safeEndIndex = Math.min(
+      track.latE7.length - 1,
+      Math.max(startIndex, endIndex),
+    );
+
+    for (let i = safeStartIndex; i <= safeEndIndex; i++) {
+      const lat1 = track.latE7[i - 1] / 10_000_000;
+      const lon1 = track.lonE7[i - 1] / 10_000_000;
+      const lat2 = track.latE7[i] / 10_000_000;
+      const lon2 = track.lonE7[i] / 10_000_000;
+
+      if (
+        !Number.isFinite(lat1) ||
+        !Number.isFinite(lon1) ||
+        !Number.isFinite(lat2) ||
+        !Number.isFinite(lon2)
+      ) {
+        continue;
+      }
+
+      if ((lat1 === 0 && lon1 === 0) || (lat2 === 0 && lon2 === 0)) {
+        continue;
+      }
+
+      const varioMs = this.calculateInstantVarioMs(i);
+
+      const layer = L.polyline(
+        [
+          [lat1, lon1],
+          [lat2, lon2],
+        ],
+        {
+          pane: 'trackPane',
+          color: this.getTrackColorForVario(varioMs),
+          weight: 5,
+          opacity: 0.95,
+          interactive: false,
+        },
+      ).addTo(this.map);
+
+      this.trackLayers.push(layer);
+    }
+  }
+
+  private getTrackColorForVario(varioMs: number): string {
+    if (!Number.isFinite(varioMs)) {
+      return '#22d3ee';
+    }
+
+    if (varioMs >= 0) {
+      return '#0f766e';
+    }
+
+    return '#dc2626';
   }
 
   private clearTrackLayers(): void {

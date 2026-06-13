@@ -12,9 +12,9 @@
     </label>
 
     <label class="show-selected-climb-toggle">
-      <input type="checkbox" [checked]="detailsStore.showOnlySelectedClimbIn3d()"
+      <input type="checkbox" [checked]="detailsStore.showOnlySelectedClimbTrack()"
         (change)="toggleShowOnlySelectedClimbIn3d($event)" />
-      <span>Show only selected climb</span>
+      <span>Selected only</span>
     </label>
 
     <div class="climb-navigation">
@@ -28,9 +28,9 @@
 
       <span class="selected-climb-label">
         @if (detailsStore.selectedClimbNumber(); as climbNumber) {
-        Climb {{ climbNumber }} / {{ detailsStore.climbCount() }}
+        {{ climbNumber }} / {{ detailsStore.climbCount() }}
         } @else {
-        No climb selected
+        - / -
         }
       </span>
 

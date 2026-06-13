@@ -72,7 +72,7 @@ export class Flight3d implements AfterViewInit, OnDestroy {
       this.settingsStore.varioChartResolutionInSec();
 
       // Re-render 3D track when selected climb / only-mode changes.
-      this.store.showOnlySelectedClimbIn3d();
+      this.store.showOnlySelectedClimbTrack();
       this.store.selectedClimbId();
       this.store.climbs();
 
@@ -104,7 +104,7 @@ export class Flight3d implements AfterViewInit, OnDestroy {
       const climbs = this.store.climbs();
       const selectedClimbId = this.store.selectedClimbId();
       const showOnlySelectedClimbIn3d =
-        this.store.showOnlySelectedClimbIn3d();
+        this.store.showOnlySelectedClimbTrack();
 
       if (
         !this.viewer ||
@@ -137,11 +137,11 @@ export class Flight3d implements AfterViewInit, OnDestroy {
     endIndex: number
   ): void {
 
-    if (this.store.showOnlySelectedClimbIn3d()) {
+    if (this.store.showOnlySelectedClimbTrack()) {
       this.clearSelectedClimbEntity();
       return;
     }
-    
+
     if (!this.viewer) {
       return;
     }
@@ -414,7 +414,7 @@ export class Flight3d implements AfterViewInit, OnDestroy {
     }
 
     const showOnlySelectedClimbIn3d =
-      this.store.showOnlySelectedClimbIn3d();
+      this.store.showOnlySelectedClimbTrack();
 
     const selectedClimbId = this.store.selectedClimbId();
 
@@ -474,32 +474,58 @@ export class Flight3d implements AfterViewInit, OnDestroy {
       Math.max(selectedClimb.startIndex, selectedClimb.endIndex)
     );
 
-    const positions: Cartesian3[] = [];
+    const entities: Entity[] = [];
+
+    let currentClass: number | null = null;
+    let currentPositions: Cartesian3[] = [];
 
     for (let i = start; i <= end; i += this.renderStep) {
       const position = this.buildPosition(track, i);
 
-      if (position) {
-        positions.push(position);
+      if (!position) {
+        continue;
       }
+
+      if (currentPositions.length === 0) {
+        currentPositions.push(position);
+        continue;
+      }
+
+      const varioMs = this.averageVarioMs(
+        track,
+        i,
+        this.settingsStore.varioChartResolutionInSec()
+      );
+
+      const nextClass = this.getVarioClass(varioMs);
+
+      if (currentClass === null) {
+        currentClass = nextClass;
+        currentPositions.push(position);
+        continue;
+      }
+
+      if (nextClass === currentClass) {
+        currentPositions.push(position);
+        continue;
+      }
+
+      if (currentPositions.length >= 2) {
+        entities.push(this.addTrackBlockEntity(currentPositions, currentClass));
+      }
+
+      currentClass = nextClass;
+      currentPositions = [
+        currentPositions[currentPositions.length - 1],
+        position,
+      ];
     }
 
-    if (positions.length < 2) {
-      return [];
+    if (currentClass !== null && currentPositions.length >= 2) {
+      entities.push(this.addTrackBlockEntity(currentPositions, currentClass));
     }
 
-    return [
-      this.viewer.entities.add({
-        name: 'Selected climb only track',
-        polyline: {
-          positions,
-          width: 4,
-          material: Color.YELLOW.withAlpha(1.0),
-          clampToGround: false,
-          arcType: ArcType.NONE,
-        },
-      }),
-    ];
+    return entities;
   }
 
   private clearTrackEntities(): void {

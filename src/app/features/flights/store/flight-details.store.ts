@@ -39,7 +39,7 @@ type FlightDetailsState = {
   zoomToSelectedClimbRequest: number;
   resetChartZoomRequest: number;
 
-  showOnlySelectedClimbIn3d: boolean;
+  showOnlySelectedClimbTrack: boolean;
 };
 
 const initialState: FlightDetailsState = {
@@ -59,7 +59,7 @@ const initialState: FlightDetailsState = {
   zoomToSelectedClimbRequest: 0,
   resetChartZoomRequest: 0,
 
-  showOnlySelectedClimbIn3d: false,
+  showOnlySelectedClimbTrack: false,
 };
 
 export const FlightDetailsStore = signalStore(
@@ -207,7 +207,7 @@ export const FlightDetailsStore = signalStore(
 
     return {
       setShowOnlySelectedClimbIn3d(value: boolean) {
-        patchState(store, { showOnlySelectedClimbIn3d: value });
+        patchState(store, { showOnlySelectedClimbTrack: value });
       },
 
       zoomToSelectedClimb(): void {
@@ -346,7 +346,7 @@ export const FlightDetailsStore = signalStore(
               loading: false,
               error: 'Flight not found.',
               resetChartZoomRequest: store.resetChartZoomRequest() + 1,
-              showOnlySelectedClimbIn3d: false,
+              showOnlySelectedClimbTrack: false,
             });
 
             return;
