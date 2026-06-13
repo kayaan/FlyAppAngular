@@ -23,4 +23,9 @@ export class FlightClimbsPanel {
     this.detailsStore.clearSelectedClimb();
     this.detailsStore.zoomToSelectedClimb();
   }
+
+  toggleShowOnlySelectedClimbIn3d(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.detailsStore.setShowOnlySelectedClimbIn3d(input.checked);
+  }
 }

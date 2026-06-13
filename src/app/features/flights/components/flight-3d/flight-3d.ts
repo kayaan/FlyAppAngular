@@ -53,22 +53,28 @@ export class Flight3d implements AfterViewInit, OnDestroy {
   private readonly varioClassCount = 12;
   private readonly maxVarioForColorMs = 4;
 
+
   private viewer: Viewer | null = null;
   private flightTrackEntities: Entity[] = [];
   private lastTrackReference: TrackArrays | null = null;
+  private selectedClimbEntity: Entity | null = null;
 
   private cursorEntity: Entity | null = null;
 
   private mouseMoveHandler: ScreenSpaceEventHandler | null = null;
 
+
   constructor() {
     effect(() => {
       const track = this.store.track();
 
-      // Intentionally read the resolution setting.
-      // When it changes, the 3D colors are recalculated with the same
-      // smoothing window as the chart.
+      // Re-render colors when resolution changes.
       this.settingsStore.varioChartResolutionInSec();
+
+      // Re-render 3D track when selected climb / only-mode changes.
+      this.store.showOnlySelectedClimbIn3d();
+      this.store.selectedClimbId();
+      this.store.climbs();
 
       if (!this.viewer) {
         return;
@@ -92,6 +98,104 @@ export class Flight3d implements AfterViewInit, OnDestroy {
 
       this.updateCursorEntity(track, cursorIndex);
     });
+
+    effect(() => {
+      const track = this.store.track();
+      const climbs = this.store.climbs();
+      const selectedClimbId = this.store.selectedClimbId();
+      const showOnlySelectedClimbIn3d =
+        this.store.showOnlySelectedClimbIn3d();
+
+      if (
+        !this.viewer ||
+        !track ||
+        selectedClimbId === null ||
+        showOnlySelectedClimbIn3d
+      ) {
+        this.clearSelectedClimbEntity();
+        return;
+      }
+
+      const selectedClimb = climbs.find((climb) => climb.id === selectedClimbId);
+
+      if (!selectedClimb) {
+        this.clearSelectedClimbEntity();
+        return;
+      }
+
+      this.renderSelectedClimbHighlight(
+        track,
+        selectedClimb.startIndex,
+        selectedClimb.endIndex
+      );
+    });
+  }
+
+  private renderSelectedClimbHighlight(
+    track: TrackArrays,
+    startIndex: number,
+    endIndex: number
+  ): void {
+
+    if (this.store.showOnlySelectedClimbIn3d()) {
+      this.clearSelectedClimbEntity();
+      return;
+    }
+    
+    if (!this.viewer) {
+      return;
+    }
+
+    this.clearSelectedClimbEntity();
+
+    const pointCount = Math.min(
+      track.latE7.length,
+      track.lonE7.length,
+      track.altGpsCm.length,
+      track.timeSec.length
+    );
+
+    if (pointCount < 2) {
+      return;
+    }
+
+    const start = Math.max(0, Math.min(startIndex, endIndex));
+    const end = Math.min(pointCount - 1, Math.max(startIndex, endIndex));
+
+    const positions: Cartesian3[] = [];
+
+    for (let i = start; i <= end; i += this.renderStep) {
+      const position = this.buildPosition(track, i);
+
+      if (position) {
+        positions.push(position);
+      }
+    }
+
+    if (positions.length < 2) {
+      return;
+    }
+
+    this.selectedClimbEntity = this.viewer.entities.add({
+      name: 'Selected climb highlight',
+      polyline: {
+        positions,
+        width: 6,
+        material: Color.YELLOW.withAlpha(0.95),
+        clampToGround: false,
+        arcType: ArcType.NONE,
+      },
+    });
+  }
+
+  private clearSelectedClimbEntity(): void {
+    if (!this.viewer || !this.selectedClimbEntity) {
+      this.selectedClimbEntity = null;
+      return;
+    }
+
+    this.viewer.entities.remove(this.selectedClimbEntity);
+    this.selectedClimbEntity = null;
   }
 
   async ngAfterViewInit(): Promise<void> {
@@ -156,6 +260,8 @@ export class Flight3d implements AfterViewInit, OnDestroy {
     this.viewer?.destroy();
     this.viewer = null;
     this.lastTrackReference = null;
+
+    this.clearSelectedClimbEntity();
   }
 
   private registerCursorPicking(): void {
@@ -191,62 +297,62 @@ export class Flight3d implements AfterViewInit, OnDestroy {
     }, ScreenSpaceEventType.MOUSE_MOVE);
   }
 
-private findNearestTrackIndexByScreenPosition(
-  track: TrackArrays,
-  mousePosition: Cartesian2
-): number | null {
-  if (!this.viewer) {
-    return null;
-  }
-
-  const pointCount = Math.min(
-    track.latE7.length,
-    track.lonE7.length,
-    track.altGpsCm.length,
-    track.timeSec.length
-  );
-
-  if (pointCount === 0) {
-    return null;
-  }
-
-  const maxPixelDistance = 18;
-
-  let bestIndex: number | null = null;
-  let bestDistance = Number.POSITIVE_INFINITY;
-
-  for (let i = 0; i < pointCount; i += this.renderStep) {
-    const worldPosition = this.buildPosition(track, i);
-
-    if (!worldPosition) {
-      continue;
+  private findNearestTrackIndexByScreenPosition(
+    track: TrackArrays,
+    mousePosition: Cartesian2
+  ): number | null {
+    if (!this.viewer) {
+      return null;
     }
 
-    const screenPosition = SceneTransforms.worldToWindowCoordinates(
-      this.viewer.scene,
-      worldPosition
+    const pointCount = Math.min(
+      track.latE7.length,
+      track.lonE7.length,
+      track.altGpsCm.length,
+      track.timeSec.length
     );
 
-    if (!screenPosition) {
-      continue;
+    if (pointCount === 0) {
+      return null;
     }
 
-    const dx = screenPosition.x - mousePosition.x;
-    const dy = screenPosition.y - mousePosition.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
+    const maxPixelDistance = 18;
 
-    if (distance < bestDistance) {
-      bestDistance = distance;
-      bestIndex = i;
+    let bestIndex: number | null = null;
+    let bestDistance = Number.POSITIVE_INFINITY;
+
+    for (let i = 0; i < pointCount; i += this.renderStep) {
+      const worldPosition = this.buildPosition(track, i);
+
+      if (!worldPosition) {
+        continue;
+      }
+
+      const screenPosition = SceneTransforms.worldToWindowCoordinates(
+        this.viewer.scene,
+        worldPosition
+      );
+
+      if (!screenPosition) {
+        continue;
+      }
+
+      const dx = screenPosition.x - mousePosition.x;
+      const dy = screenPosition.y - mousePosition.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestIndex = i;
+      }
     }
-  }
 
-  if (bestIndex === null || bestDistance > maxPixelDistance) {
-    return null;
-  }
+    if (bestIndex === null || bestDistance > maxPixelDistance) {
+      return null;
+    }
 
-  return bestIndex;
-}
+    return bestIndex;
+  }
 
   private updateCursorEntity(track: TrackArrays, index: number): void {
     if (!this.viewer) {
@@ -307,7 +413,19 @@ private findNearestTrackIndexByScreenPosition(
       return;
     }
 
-    this.flightTrackEntities = this.buildColoredTrackBlocks(track);
+    const showOnlySelectedClimbIn3d =
+      this.store.showOnlySelectedClimbIn3d();
+
+    const selectedClimbId = this.store.selectedClimbId();
+
+
+    this.clearSelectedClimbEntity();
+
+    if (showOnlySelectedClimbIn3d && selectedClimbId !== null) {
+      this.flightTrackEntities = this.buildSelectedClimbTrackBlocks(track);
+    } else {
+      this.flightTrackEntities = this.buildColoredTrackBlocks(track);
+    }
 
     if (this.flightTrackEntities.length === 0) {
       return;
@@ -318,6 +436,70 @@ private findNearestTrackIndexByScreenPosition(
         duration: 0.8,
       });
     }
+  }
+
+  private buildSelectedClimbTrackBlocks(track: TrackArrays): Entity[] {
+    if (!this.viewer) {
+      return [];
+    }
+
+    const selectedClimbId = this.store.selectedClimbId();
+
+    if (selectedClimbId === null) {
+      return this.buildColoredTrackBlocks(track);
+    }
+
+    const selectedClimb = this.store
+      .climbs()
+      .find((climb) => climb.id === selectedClimbId);
+
+    if (!selectedClimb) {
+      return this.buildColoredTrackBlocks(track);
+    }
+
+    const pointCount = Math.min(
+      track.latE7.length,
+      track.lonE7.length,
+      track.altGpsCm.length,
+      track.timeSec.length
+    );
+
+    const start = Math.max(
+      0,
+      Math.min(selectedClimb.startIndex, selectedClimb.endIndex)
+    );
+
+    const end = Math.min(
+      pointCount - 1,
+      Math.max(selectedClimb.startIndex, selectedClimb.endIndex)
+    );
+
+    const positions: Cartesian3[] = [];
+
+    for (let i = start; i <= end; i += this.renderStep) {
+      const position = this.buildPosition(track, i);
+
+      if (position) {
+        positions.push(position);
+      }
+    }
+
+    if (positions.length < 2) {
+      return [];
+    }
+
+    return [
+      this.viewer.entities.add({
+        name: 'Selected climb only track',
+        polyline: {
+          positions,
+          width: 4,
+          material: Color.YELLOW.withAlpha(1.0),
+          clampToGround: false,
+          arcType: ArcType.NONE,
+        },
+      }),
+    ];
   }
 
   private clearTrackEntities(): void {
@@ -411,7 +593,7 @@ private findNearestTrackIndexByScreenPosition(
       name: 'Flight track block',
       polyline: {
         positions,
-        width: 1.0,
+        width: 1.5,
         material: this.getColorForVarioClass(varioClass),
         clampToGround: false,
         arcType: ArcType.NONE,

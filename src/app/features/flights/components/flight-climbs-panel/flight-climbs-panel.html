@@ -11,6 +11,12 @@
       <span>Show on charts</span>
     </label>
 
+    <label class="show-selected-climb-toggle">
+      <input type="checkbox" [checked]="detailsStore.showOnlySelectedClimbIn3d()"
+        (change)="toggleShowOnlySelectedClimbIn3d($event)" />
+      <span>Show only selected climb</span>
+    </label>
+
     <div class="climb-navigation">
       <button type="button" class="climb-nav-button" (click)="detailsStore.selectPreviousClimb()"
         [disabled]="detailsStore.climbCount() === 0" title="Previous climb" aria-label="Previous climb">

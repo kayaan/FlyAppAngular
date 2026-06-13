@@ -38,6 +38,8 @@ type FlightDetailsState = {
 
   zoomToSelectedClimbRequest: number;
   resetChartZoomRequest: number;
+
+  showOnlySelectedClimbIn3d: boolean;
 };
 
 const initialState: FlightDetailsState = {
@@ -56,6 +58,8 @@ const initialState: FlightDetailsState = {
 
   zoomToSelectedClimbRequest: 0,
   resetChartZoomRequest: 0,
+
+  showOnlySelectedClimbIn3d: false,
 };
 
 export const FlightDetailsStore = signalStore(
@@ -110,18 +114,18 @@ export const FlightDetailsStore = signalStore(
         const selection: StatsSelection =
           selectedRange !== null
             ? {
-                type: 'range',
-                startIndex: selectedRange.startIndex,
-                endIndex: selectedRange.endIndex,
-              }
+              type: 'range',
+              startIndex: selectedRange.startIndex,
+              endIndex: selectedRange.endIndex,
+            }
             : selectedClimbId !== null
               ? {
-                  type: 'climb',
-                  climbId: selectedClimbId,
-                }
+                type: 'climb',
+                climbId: selectedClimbId,
+              }
               : {
-                  type: 'flight',
-                };
+                type: 'flight',
+              };
 
         return derivedStatsService.derive(
           store.track(),
@@ -202,6 +206,10 @@ export const FlightDetailsStore = signalStore(
     }
 
     return {
+      setShowOnlySelectedClimbIn3d(value: boolean) {
+        patchState(store, { showOnlySelectedClimbIn3d: value });
+      },
+
       zoomToSelectedClimb(): void {
         patchState(store, {
           zoomToSelectedClimbRequest: store.zoomToSelectedClimbRequest() + 1,
@@ -338,6 +346,7 @@ export const FlightDetailsStore = signalStore(
               loading: false,
               error: 'Flight not found.',
               resetChartZoomRequest: store.resetChartZoomRequest() + 1,
+              showOnlySelectedClimbIn3d: false,
             });
 
             return;
