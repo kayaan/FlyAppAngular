@@ -11,14 +11,18 @@ import {
 import {
   ArcType,
   Cartesian3,
+  Cartographic,
   Color,
   EllipsoidTerrainProvider,
   Entity,
   HeightReference,
   Ion,
   PointGraphics,
+  ScreenSpaceEventHandler,
+  ScreenSpaceEventType,
   Viewer,
   createWorldTerrainAsync,
+  Math as CesiumMath,
 } from 'cesium';
 
 import { FlightDetailsStore } from '../../store/flight-details.store';
@@ -53,6 +57,8 @@ export class Flight3d implements AfterViewInit, OnDestroy {
 
   private cursorEntity: Entity | null = null;
 
+  private mouseMoveHandler: ScreenSpaceEventHandler | null = null;
+
   constructor() {
     effect(() => {
       const track = this.store.track();
@@ -84,6 +90,149 @@ export class Flight3d implements AfterViewInit, OnDestroy {
 
       this.updateCursorEntity(track, cursorIndex);
     });
+  }
+
+  async ngAfterViewInit(): Promise<void> {
+    Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJlYzNkODk4Mi1lNzYwLTQzNGUtOTNlNC04MDMwOTBiYmI4ZDQiLCJpZCI6NDQzODEzLCJzdWIiOiJBeWRpbiBLYXlhIiwiaXNzIjoiaHR0cHM6Ly9hcGkuY2VzaXVtLmNvbSIsImF1ZCI6IlVudGl0bGVkIiwiaWF0IjoxNzgxMzA1MDc4fQ.IuzlHEZoO7BhDqRcMhOl_Eq76TMUYUn0qqnhHnOkuqY',
+
+      this.viewer = new Viewer(this.cesiumContainer.nativeElement, {
+        animation: false,
+        timeline: false,
+        baseLayerPicker: false,
+        geocoder: false,
+        homeButton: false,
+        sceneModePicker: false,
+        navigationHelpButton: false,
+        fullscreenButton: false,
+        infoBox: false,
+        selectionIndicator: false,
+        terrainProvider: new EllipsoidTerrainProvider(),
+      });
+
+    this.registerCursorPicking();
+
+    this.viewer.terrainProvider = await createWorldTerrainAsync({
+      requestVertexNormals: true,
+    });
+
+    // Keep imagery visible, but disable day/night darkening.
+    this.viewer.scene.globe.enableLighting = false;
+    this.viewer.scene.globe.showGroundAtmosphere = false;
+
+    // Keep the flight track visible even if terrain exaggeration would
+    // otherwise hide parts of it behind the terrain.
+    this.viewer.scene.globe.depthTestAgainstTerrain = false;
+
+    this.viewer.scene.verticalExaggeration = this.verticalExaggeration;
+    this.viewer.scene.verticalExaggerationRelativeHeight =
+      this.verticalExaggerationRelativeHeight;
+
+    if (this.viewer.scene.skyAtmosphere) {
+      this.viewer.scene.skyAtmosphere.show = false;
+    }
+
+    if (this.viewer.scene.sun) {
+      this.viewer.scene.sun.show = false;
+    }
+
+    if (this.viewer.scene.moon) {
+      this.viewer.scene.moon.show = false;
+    }
+
+    this.renderTrack(this.store.track(), true);
+    this.lastTrackReference = this.store.track();
+  }
+
+
+  ngOnDestroy(): void {
+    this.mouseMoveHandler?.destroy();
+    this.mouseMoveHandler = null;
+
+    this.clearCursorEntity();
+    this.clearTrackEntities();
+
+    this.viewer?.destroy();
+    this.viewer = null;
+    this.lastTrackReference = null;
+  }
+
+  private registerCursorPicking(): void {
+    if (!this.viewer) {
+      return;
+    }
+
+    this.mouseMoveHandler = new ScreenSpaceEventHandler(
+      this.viewer.scene.canvas
+    );
+
+    this.mouseMoveHandler.setInputAction((movement: any) => {
+      const track = this.store.track();
+
+      if (!this.viewer || !track) {
+        this.store.setCursorIndex(null);
+        return;
+      }
+
+      const cartesian = this.viewer.scene.pickPosition(movement.endPosition)
+        ?? this.viewer.camera.pickEllipsoid(
+          movement.endPosition,
+          this.viewer.scene.globe.ellipsoid
+        );
+
+      if (!cartesian) {
+        this.store.setCursorIndex(null);
+        return;
+      }
+
+      const cartographic = Cartographic.fromCartesian(cartesian);
+
+      const lat = CesiumMath.toDegrees(cartographic.latitude);
+      const lon = CesiumMath.toDegrees(cartographic.longitude);
+
+      const nearestIndex = this.findNearestTrackIndexByLatLon(track, lat, lon);
+
+      if (nearestIndex === null) {
+        this.store.setCursorIndex(null);
+        return;
+      }
+
+      if (this.store.cursorIndex() !== nearestIndex) {
+        this.store.setCursorIndex(nearestIndex);
+      }
+    }, ScreenSpaceEventType.MOUSE_MOVE);
+  }
+
+
+
+  private findNearestTrackIndexByLatLon(
+    track: TrackArrays,
+    lat: number,
+    lon: number
+  ): number | null {
+    const pointCount = Math.min(track.latE7.length, track.lonE7.length);
+
+    if (pointCount === 0) {
+      return null;
+    }
+
+    let bestIndex = 0;
+    let bestDistance = Number.POSITIVE_INFINITY;
+
+    for (let i = 0; i < pointCount; i += this.renderStep) {
+      const pointLat = track.latE7[i] / 10_000_000;
+      const pointLon = track.lonE7[i] / 10_000_000;
+
+      const distance =
+        (pointLat - lat) * (pointLat - lat) +
+        (pointLon - lon) * (pointLon - lon);
+
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestIndex = i;
+      }
+    }
+
+    return bestIndex;
   }
 
   private updateCursorEntity(track: TrackArrays, index: number): void {
@@ -133,63 +282,6 @@ export class Flight3d implements AfterViewInit, OnDestroy {
     this.cursorEntity = null;
   }
 
-  async ngAfterViewInit(): Promise<void> {
-    Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJlYzNkODk4Mi1lNzYwLTQzNGUtOTNlNC04MDMwOTBiYmI4ZDQiLCJpZCI6NDQzODEzLCJzdWIiOiJBeWRpbiBLYXlhIiwiaXNzIjoiaHR0cHM6Ly9hcGkuY2VzaXVtLmNvbSIsImF1ZCI6IlVudGl0bGVkIiwiaWF0IjoxNzgxMzA1MDc4fQ.IuzlHEZoO7BhDqRcMhOl_Eq76TMUYUn0qqnhHnOkuqY',
-
-      this.viewer = new Viewer(this.cesiumContainer.nativeElement, {
-        animation: false,
-        timeline: false,
-        baseLayerPicker: false,
-        geocoder: false,
-        homeButton: false,
-        sceneModePicker: false,
-        navigationHelpButton: false,
-        fullscreenButton: false,
-        infoBox: false,
-        selectionIndicator: false,
-        terrainProvider: new EllipsoidTerrainProvider(),
-      });
-
-    this.viewer.terrainProvider = await createWorldTerrainAsync({
-      requestVertexNormals: true,
-    });
-
-    // Keep imagery visible, but disable day/night darkening.
-    this.viewer.scene.globe.enableLighting = false;
-    this.viewer.scene.globe.showGroundAtmosphere = false;
-
-    // Keep the flight track visible even if terrain exaggeration would
-    // otherwise hide parts of it behind the terrain.
-    this.viewer.scene.globe.depthTestAgainstTerrain = false;
-
-    this.viewer.scene.verticalExaggeration = this.verticalExaggeration;
-    this.viewer.scene.verticalExaggerationRelativeHeight =
-      this.verticalExaggerationRelativeHeight;
-
-    if (this.viewer.scene.skyAtmosphere) {
-      this.viewer.scene.skyAtmosphere.show = false;
-    }
-
-    if (this.viewer.scene.sun) {
-      this.viewer.scene.sun.show = false;
-    }
-
-    if (this.viewer.scene.moon) {
-      this.viewer.scene.moon.show = false;
-    }
-
-    this.renderTrack(this.store.track(), true);
-    this.lastTrackReference = this.store.track();
-  }
-
-  ngOnDestroy(): void {
-    this.clearCursorEntity();
-    this.clearTrackEntities();
-
-    this.viewer?.destroy();
-    this.viewer = null;
-    this.lastTrackReference = null;
-  }
 
   private renderTrack(track: TrackArrays | null, shouldCenter: boolean): void {
     if (!this.viewer) {
