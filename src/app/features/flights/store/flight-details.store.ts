@@ -18,6 +18,7 @@ import { FlightSettingsStore } from './flight-settings.store';
 import { TrackColorService } from '../services/track-color.service';
 import { ClimbDetectorService } from '../services/climb-detector.service';
 import { DetectedClimb } from '../models/detected-climb.model';
+import { ReplayState } from '../models/replay-state.model';
 
 type FlightDetailsState = {
   flight: Flight | null;
@@ -40,6 +41,7 @@ type FlightDetailsState = {
   resetChartZoomRequest: number;
 
   showOnlySelectedClimbTrack: boolean;
+  replay: ReplayState;
 };
 
 const initialState: FlightDetailsState = {
@@ -60,6 +62,13 @@ const initialState: FlightDetailsState = {
   resetChartZoomRequest: 0,
 
   showOnlySelectedClimbTrack: false,
+
+  replay: {
+    active: false,
+    paused: false,
+    index: null,
+    speed: 1,
+  },
 };
 
 export const FlightDetailsStore = signalStore(
@@ -329,6 +338,12 @@ export const FlightDetailsStore = signalStore(
           selectedRange: null,
           cursorIndex: null,
           resetChartZoomRequest: store.resetChartZoomRequest() + 1,
+          replay: {
+            active: false,
+            paused: false,
+            index: null,
+            speed: 1,
+          },
         });
 
         try {
@@ -390,6 +405,81 @@ export const FlightDetailsStore = signalStore(
       clearError(): void {
         patchState(store, {
           error: null,
+        });
+      },
+
+
+      startReplay() {
+        const track = store.track();
+
+        if (!track || track.timeSec.length === 0) {
+          return;
+        }
+
+        patchState(store, {
+          replay: {
+            ...store.replay(),
+            active: true,
+            paused: false,
+            index: store.replay().index ?? 0,
+          },
+        });
+      },
+
+      pauseReplay() {
+        patchState(store, {
+          replay: {
+            ...store.replay(),
+            paused: true,
+          },
+        });
+      },
+
+      resumeReplay() {
+        patchState(store, {
+          replay: {
+            ...store.replay(),
+            active: true,
+            paused: false,
+          },
+        });
+      },
+
+      stopReplay() {
+        patchState(store, {
+          replay: {
+            ...store.replay(),
+            active: false,
+            paused: false,
+            index: null,
+          },
+        });
+      },
+
+      setReplayIndex(index: number) {
+        const track = store.track();
+
+        if (!track || track.timeSec.length === 0) {
+          return;
+        }
+
+        const maxIndex = track.timeSec.length - 1;
+        const safeIndex = Math.max(0, Math.min(index, maxIndex));
+
+        patchState(store, {
+          replay: {
+            ...store.replay(),
+            index: safeIndex,
+          },
+        });
+      },
+
+      setReplaySpeed(speed: number) {
+        patchState(store, {
+          replay: {
+            ...store.replay(),
+            speed,
+          },
         });
       },
     };

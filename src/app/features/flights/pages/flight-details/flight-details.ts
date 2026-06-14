@@ -15,13 +15,14 @@ import { debounceTime, Subject, takeUntil } from 'rxjs';
 import { FlightClimbsPanel } from '../../components/flight-climbs-panel/flight-climbs-panel';
 
 import { Flight3d } from '../../components/flight-3d/flight-3d';
+import { FlightReplayControls } from '../../components/flight-replay-controls/flight-replay-controls';
 
 const RESOLUTION_INPUT_DEBOUNCE_MS = 350;
 
 @Component({
   selector: 'app-flight-details',
   standalone: true,
-  imports: [CommonModule, RouterLink, FlightLineChart, FlightMap, FlightSummaryTags, FlightClimbsPanel, Flight3d],
+  imports: [CommonModule, RouterLink, FlightLineChart, FlightMap, FlightSummaryTags, FlightClimbsPanel, Flight3d, FlightReplayControls],
   templateUrl: './flight-details.html',
   styleUrl: './flight-details.scss',
   providers: [FlightDetailsStore],

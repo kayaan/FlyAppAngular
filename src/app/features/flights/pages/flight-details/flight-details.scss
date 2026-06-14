@@ -139,17 +139,24 @@ app-flight-summary-tags {
   box-shadow:
     0 1px 2px rgba(16, 24, 40, 0.04),
     0 16px 40px rgba(16, 24, 40, 0.06);
+}
 
-  header {
-    flex: 0 0 auto;
-    padding: 12px 16px;
-    border-bottom: 1px solid #eef2f7;
+.chart-card > header,
+.map-card > header {
+  flex: 0 0 auto;
 
-    h2 {
-      margin: 0;
-      font-size: 14px;
-      font-weight: 750;
-    }
+  padding: 12px 16px;
+  border-bottom: 1px solid #eef2f7;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+
+  h2 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 750;
   }
 }
 
@@ -173,22 +180,76 @@ app-flight-line-chart {
   min-height: 0;
 }
 
-/* Map */
+/* Map / 3D */
 
 .map-card {
   flex: 1 1 auto;
 
   display: flex;
   flex-direction: column;
+
+  overflow: hidden;
+}
+
+.view-mode-toggle {
+  position: static;
+
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+
+  padding: 4px;
+
+  border: 1px solid #d0d5dd;
+  border-radius: 999px;
+
+  background: #ffffff;
+  box-shadow: 0 4px 12px rgba(16, 24, 40, 0.10);
+}
+
+.view-mode-option {
+  cursor: pointer;
+
+  input {
+    display: none;
+  }
+
+  span {
+    min-width: 52px;
+    height: 30px;
+    padding: 0 12px;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 999px;
+
+    color: #475467;
+    font-size: 13px;
+    font-weight: 750;
+    line-height: 1;
+    user-select: none;
+  }
+
+  input:checked + span {
+    background: #101828;
+    color: #ffffff;
+  }
+}
+
+app-flight-replay-controls {
+  flex: 0 0 auto;
+  display: block;
 }
 
 .map-placeholder {
   flex: 1 1 auto;
+  min-width: 0;
   min-height: 0;
 
-  display: flex;
-  align-items: stretch;
-  justify-content: stretch;
+  position: relative;
+  overflow: hidden;
 
   color: #98a2b3;
   font-size: 15px;
@@ -198,7 +259,25 @@ app-flight-line-chart {
   background-size: 32px 32px;
 }
 
-app-flight-map {
+.view-mode-content {
+  position: absolute;
+  inset: 0;
+
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+
+  > app-flight-map,
+  > app-flight-3d {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+}
+
+app-flight-map,
+app-flight-3d {
   display: block;
   width: 100%;
   height: 100%;
@@ -397,90 +476,8 @@ app-flight-map {
   .right-panel {
     min-height: 520px;
   }
-}
 
-.map-placeholder {
-  position: relative;
-  min-width: 0;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.view-mode-toggle {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  z-index: 1000;
-
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-
-  padding: 3px;
-
-  border: 1px solid #d0d5dd;
-  border-radius: 999px;
-
-  background: rgba(255, 255, 255, 0.94);
-  box-shadow: 0 4px 12px rgba(16, 24, 40, 0.12);
-  backdrop-filter: blur(6px);
-}
-
-.view-mode-option {
-  cursor: pointer;
-
-  input {
-    display: none;
-  }
-
-  span {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-
-    min-width: 42px;
-    height: 24px;
-    padding: 0 8px;
-
-    border-radius: 999px;
-
-    color: #475467;
-    font-size: 11px;
-    font-weight: 700;
-    line-height: 1;
-    user-select: none;
-  }
-
-  input:checked + span {
-    background: #101828;
-    color: #ffffff;
-  }
-}
-
-.map-placeholder {
-  position: relative;
-
-  width: 100%;
-  height: 100%;
-  min-width: 0;
-  min-height: 0;
-
-  overflow: hidden;
-}
-
-.view-mode-content {
-  position: absolute;
-  inset: 0;
-
-  width: 100%;
-  height: 100%;
-  min-width: 0;
-  min-height: 0;
-
-  > app-flight-map,
-  > app-flight-3d {
-    display: block;
-    width: 100%;
-    height: 100%;
+  .map-card {
+    min-height: 520px;
   }
 }

@@ -1,0 +1,75 @@
+.replay-controls {
+  height: 42px;
+  padding: 6px 10px;
+
+  display: grid;
+  grid-template-columns: auto auto auto minmax(120px, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+
+  border-bottom: 1px solid #e4e7ec;
+  background: #ffffff;
+}
+
+.replay-button {
+  width: 30px;
+  height: 28px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  border: 1px solid #d0d5dd;
+  border-radius: 8px;
+
+  background: #ffffff;
+  color: #344054;
+
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    background: #f9fafb;
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  &.primary {
+    color: #ffffff;
+    border-color: #2563eb;
+    background: #2563eb;
+
+    &:hover:not(:disabled) {
+      background: #1d4ed8;
+    }
+  }
+}
+
+.replay-slider {
+  width: 100%;
+  min-width: 0;
+}
+
+.replay-index {
+  color: #667085;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.replay-speed {
+  height: 28px;
+  padding: 0 8px;
+
+  border: 1px solid #d0d5dd;
+  border-radius: 8px;
+
+  background: #ffffff;
+  color: #344054;
+
+  font-size: 12px;
+  font-weight: 600;
+}
