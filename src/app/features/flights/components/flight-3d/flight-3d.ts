@@ -11,7 +11,6 @@ import {
 import {
   ArcType,
   Cartesian3,
-  Cartographic,
   Color,
   EllipsoidTerrainProvider,
   Entity,
@@ -22,9 +21,10 @@ import {
   ScreenSpaceEventType,
   Viewer,
   createWorldTerrainAsync,
-  Math as CesiumMath,
   Cartesian2,
   SceneTransforms,
+  CallbackProperty,
+  Property,
 } from 'cesium';
 
 import { FlightDetailsStore } from '../../store/flight-details.store';
@@ -65,10 +65,19 @@ export class Flight3d implements AfterViewInit, OnDestroy {
 
   private mouseMoveHandler: ScreenSpaceEventHandler | null = null;
 
+  private replayTrackEntity: Entity | null = null;
+  private replayTrackPositions: Cartesian3[] = [];
+
+  private replayStartEntity: Entity | null = null;
+  private replayCurrentEntity: Entity | null = null;
 
   constructor() {
+
+
+
     effect(() => {
       const track = this.store.track();
+      const replay = this.store.replay();
 
       // Re-render colors when resolution changes.
       this.settingsStore.varioChartResolutionInSec();
@@ -82,6 +91,12 @@ export class Flight3d implements AfterViewInit, OnDestroy {
         return;
       }
 
+      if (replay.active) {
+        this.clearTrackEntities();
+        this.clearSelectedClimbEntity();
+        return;
+      }
+
       const shouldCenter = track !== this.lastTrackReference;
 
       this.renderTrack(track, shouldCenter);
@@ -92,6 +107,12 @@ export class Flight3d implements AfterViewInit, OnDestroy {
     effect(() => {
       const track = this.store.track();
       const cursorIndex = this.store.cursorIndex();
+      const replay = this.store.replay();
+
+      if (replay.active) {
+        this.clearCursorEntity();
+        return;
+      }
 
       if (!this.viewer || !track || cursorIndex === null) {
         this.clearCursorEntity();
@@ -131,6 +152,197 @@ export class Flight3d implements AfterViewInit, OnDestroy {
         selectedClimb.endIndex
       );
     });
+
+    effect(() => {
+      const track = this.store.track();
+      const replay = this.store.replay();
+
+      if (!this.viewer || !track || !replay.active || replay.index === null) {
+        this.clearReplayTrackEntity();
+        this.clearReplayStartEntity();
+        return;
+      }
+
+      this.updateReplayStartEntity(track);
+      this.updateReplayTrackEntity(track, replay.index);
+      this.updateReplayCurrentEntity(track, replay.index);
+    });
+  }
+
+  private updateReplayCurrentEntity(
+    track: TrackArrays,
+    replayIndex: number
+  ): void {
+    if (!this.viewer) {
+      return;
+    }
+
+    const pointCount = Math.min(
+      track.latE7.length,
+      track.lonE7.length,
+      track.altGpsCm.length,
+      track.timeSec.length
+    );
+
+    if (pointCount === 0) {
+      this.clearReplayCurrentEntity();
+      return;
+    }
+
+    const safeReplayIndex = Math.max(0, Math.min(replayIndex, pointCount - 1));
+    const position = this.buildPosition(track, safeReplayIndex);
+
+    if (!position) {
+      this.clearReplayCurrentEntity();
+      return;
+    }
+
+    if (!this.replayCurrentEntity) {
+      this.replayCurrentEntity = this.viewer.entities.add({
+        name: 'Replay current position',
+        position,
+        point: new PointGraphics({
+          pixelSize: 14,
+          color: Color.YELLOW,
+          outlineColor: Color.BLACK,
+          outlineWidth: 2,
+          heightReference: HeightReference.NONE,
+          disableDepthTestDistance: Number.POSITIVE_INFINITY,
+        }),
+      });
+
+      return;
+    }
+
+    this.replayCurrentEntity.position = position as any;
+  }
+
+  private clearReplayCurrentEntity(): void {
+    if (!this.viewer || !this.replayCurrentEntity) {
+      this.replayCurrentEntity = null;
+      return;
+    }
+
+    this.viewer.entities.remove(this.replayCurrentEntity);
+    this.replayCurrentEntity = null;
+  }
+
+  private clearReplayTrackEntity(): void {
+    this.replayTrackPositions = [];
+
+    if (!this.viewer || !this.replayTrackEntity) {
+      this.replayTrackEntity = null;
+      return;
+    }
+
+    this.viewer.entities.remove(this.replayTrackEntity);
+    this.replayTrackEntity = null;
+  }
+
+  private updateReplayStartEntity(track: TrackArrays): void {
+    if (!this.viewer) {
+      return;
+    }
+
+    if (track.latE7.length === 0) {
+      this.clearReplayStartEntity();
+      return;
+    }
+
+    const position = this.buildPosition(track, 0);
+
+    if (!position) {
+      this.clearReplayStartEntity();
+      return;
+    }
+
+    if (!this.replayStartEntity) {
+      this.replayStartEntity = this.viewer.entities.add({
+        name: 'Replay start position',
+        position,
+        point: new PointGraphics({
+          pixelSize: 15,
+          color: Color.LIME,
+          outlineColor: Color.BLACK,
+          outlineWidth: 2,
+          heightReference: HeightReference.NONE,
+          disableDepthTestDistance: Number.POSITIVE_INFINITY,
+        }),
+      });
+
+      return;
+    }
+
+    this.replayStartEntity.position = position as any;
+  }
+
+  private clearReplayStartEntity(): void {
+    if (!this.viewer || !this.replayStartEntity) {
+      this.replayStartEntity = null;
+      return;
+    }
+
+    this.viewer.entities.remove(this.replayStartEntity);
+    this.replayStartEntity = null;
+  }
+
+  private updateReplayTrackEntity(track: TrackArrays, replayIndex: number): void {
+    if (!this.viewer) {
+      return;
+    }
+
+    const pointCount = Math.min(
+      track.latE7.length,
+      track.lonE7.length,
+      track.altGpsCm.length,
+      track.timeSec.length
+    );
+
+    if (pointCount < 2) {
+      this.clearReplayTrackEntity();
+      return;
+    }
+
+    const safeReplayIndex = Math.max(0, Math.min(replayIndex, pointCount - 1));
+
+    const positions: Cartesian3[] = [];
+
+    for (let i = 0; i <= safeReplayIndex; i += this.renderStep) {
+      const position = this.buildPosition(track, i);
+
+      if (position) {
+        positions.push(position);
+      }
+    }
+
+    const lastPosition = this.buildPosition(track, safeReplayIndex);
+
+    if (lastPosition) {
+      positions.push(lastPosition);
+    }
+
+    if (positions.length < 2) {
+      this.replayTrackPositions = [];
+      return;
+    }
+
+    this.replayTrackPositions = positions;
+
+    if (!this.replayTrackEntity) {
+      this.replayTrackEntity = this.viewer.entities.add({
+        name: 'Replay track',
+        polyline: {
+          positions: new CallbackProperty(
+            () => this.replayTrackPositions,
+            false
+          ) as unknown as Property,
+          width: 2,
+          material: Color.ORANGE.withAlpha(0.95),
+          clampToGround: false,
+          arcType: ArcType.NONE,
+        },
+      });
+    }
   }
 
   private renderSelectedClimbHighlight(
@@ -259,13 +471,15 @@ export class Flight3d implements AfterViewInit, OnDestroy {
     this.mouseMoveHandler = null;
 
     this.clearCursorEntity();
+    this.clearReplayTrackEntity();
+    this.clearReplayStartEntity();
+    this.clearReplayCurrentEntity();
+    this.clearSelectedClimbEntity();
     this.clearTrackEntities();
 
     this.viewer?.destroy();
     this.viewer = null;
     this.lastTrackReference = null;
-
-    this.clearSelectedClimbEntity();
   }
 
   private registerCursorPicking(): void {
@@ -278,6 +492,10 @@ export class Flight3d implements AfterViewInit, OnDestroy {
     );
 
     this.mouseMoveHandler.setInputAction((movement: { endPosition: Cartesian2 }) => {
+      if (this.store.replay().active) {
+        return;
+      }
+
       const track = this.store.track();
 
       if (!this.viewer || !track) {
