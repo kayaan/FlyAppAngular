@@ -70,11 +70,9 @@ export class Flight3d implements AfterViewInit, OnDestroy {
 
   private replayStartEntity: Entity | null = null;
   private replayCurrentEntity: Entity | null = null;
+  private replayEndEntity: Entity | null = null;
 
   constructor() {
-
-
-
     effect(() => {
       const track = this.store.track();
       const replay = this.store.replay();
@@ -159,12 +157,14 @@ export class Flight3d implements AfterViewInit, OnDestroy {
 
       if (!this.viewer || !track || !replay.active || replay.index === null) {
         this.clearReplayTrackEntity();
+        this.clearReplayEndEntity();
         this.clearReplayStartEntity();
         this.clearReplayCurrentEntity();
         return;
       }
 
       this.updateReplayStartEntity(track);
+      this.updateReplayEndEntity(track);
       this.updateReplayTrackEntity(track, replay.index);
       this.updateReplayCurrentEntity(track, replay.index);
     });
@@ -474,6 +474,8 @@ export class Flight3d implements AfterViewInit, OnDestroy {
     this.clearCursorEntity();
     this.clearReplayTrackEntity();
     this.clearReplayStartEntity();
+    this.clearReplayEndEntity();
+    this.clearReplayEndEntity();
     this.clearReplayCurrentEntity();
     this.clearSelectedClimbEntity();
     this.clearTrackEntities();
@@ -481,6 +483,60 @@ export class Flight3d implements AfterViewInit, OnDestroy {
     this.viewer?.destroy();
     this.viewer = null;
     this.lastTrackReference = null;
+  }
+
+  private updateReplayEndEntity(track: TrackArrays): void {
+    if (!this.viewer) {
+      return;
+    }
+
+    const pointCount = Math.min(
+      track.latE7.length,
+      track.lonE7.length,
+      track.altGpsCm.length,
+      track.timeSec.length
+    );
+
+    if (pointCount === 0) {
+      this.clearReplayEndEntity();
+      return;
+    }
+
+    const position = this.buildPosition(track, pointCount - 1);
+
+    if (!position) {
+      this.clearReplayEndEntity();
+      return;
+    }
+
+    if (!this.replayEndEntity) {
+      this.replayEndEntity = this.viewer.entities.add({
+        name: 'Replay end position',
+        position,
+        point: new PointGraphics({
+          pixelSize: 15,
+          color: Color.RED,
+          outlineColor: Color.BLACK,
+          outlineWidth: 2,
+          heightReference: HeightReference.NONE,
+          disableDepthTestDistance: Number.POSITIVE_INFINITY,
+        }),
+      });
+
+      return;
+    }
+
+    this.replayEndEntity.position = position as any;
+  }
+
+  private clearReplayEndEntity(): void {
+    if (!this.viewer || !this.replayEndEntity) {
+      this.replayEndEntity = null;
+      return;
+    }
+
+    this.viewer.entities.remove(this.replayEndEntity);
+    this.replayEndEntity = null;
   }
 
   private registerCursorPicking(): void {
