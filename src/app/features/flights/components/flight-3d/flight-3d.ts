@@ -31,6 +31,8 @@ import { FlightDetailsStore } from '../../store/flight-details.store';
 import { FlightSettingsStore } from '../../store/flight-settings.store';
 import { TrackArrays } from '../../models/track-arrays.model';
 
+import { environment } from '../../../../../environments/environment';
+
 @Component({
   selector: 'app-flight-3d',
   standalone: true,
@@ -199,21 +201,23 @@ export class Flight3d implements AfterViewInit, OnDestroy {
   }
 
   async ngAfterViewInit(): Promise<void> {
-    Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJlYzNkODk4Mi1lNzYwLTQzNGUtOTNlNC04MDMwOTBiYmI4ZDQiLCJpZCI6NDQzODEzLCJzdWIiOiJBeWRpbiBLYXlhIiwiaXNzIjoiaHR0cHM6Ly9hcGkuY2VzaXVtLmNvbSIsImF1ZCI6IlVudGl0bGVkIiwiaWF0IjoxNzgxMzA1MDc4fQ.IuzlHEZoO7BhDqRcMhOl_Eq76TMUYUn0qqnhHnOkuqY',
+    Ion.defaultAccessToken = environment.cesiumToken;
 
-      this.viewer = new Viewer(this.cesiumContainer.nativeElement, {
-        animation: false,
-        timeline: false,
-        baseLayerPicker: false,
-        geocoder: false,
-        homeButton: false,
-        sceneModePicker: false,
-        navigationHelpButton: false,
-        fullscreenButton: false,
-        infoBox: false,
-        selectionIndicator: false,
-        terrainProvider: new EllipsoidTerrainProvider(),
-      });
+    console.warn(environment.cesiumToken);
+
+    this.viewer = new Viewer(this.cesiumContainer.nativeElement, {
+      animation: false,
+      timeline: false,
+      baseLayerPicker: false,
+      geocoder: false,
+      homeButton: false,
+      sceneModePicker: false,
+      navigationHelpButton: false,
+      fullscreenButton: false,
+      infoBox: false,
+      selectionIndicator: false,
+      terrainProvider: new EllipsoidTerrainProvider(),
+    });
 
     this.registerCursorPicking();
 

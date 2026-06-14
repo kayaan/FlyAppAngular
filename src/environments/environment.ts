@@ -1,0 +1,4 @@
+export const environment = {
+  production: false,
+  cesiumToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJkOTQyNzAwNC1mNzVhLTRjYjYtODAwNi1mMTQxNmQ1NWEzNTciLCJpZCI6NDQzODEzLCJzdWIiOiJBeWRpbiBLYXlhIiwiaXNzIjoiaHR0cHM6Ly9hcGkuY2VzaXVtLmNvbSIsImF1ZCI6InB1YmxpYyIsImlhdCI6MTc4MTQyNzUyMX0.mCR-SMPJKVl_940jAXoNvGWHGlZC4HjJuX6Ybcb63kA'
+};
