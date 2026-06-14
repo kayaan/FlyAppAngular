@@ -68,6 +68,7 @@ const initialState: FlightDetailsState = {
     paused: false,
     index: null,
     speed: 1,
+    direction: 1
   },
 };
 
@@ -330,6 +331,42 @@ export const FlightDetailsStore = signalStore(
         });
       },
 
+      playReplayForward() {
+        const track = store.track();
+
+        if (!track || track.timeSec.length === 0) {
+          return;
+        }
+
+        patchState(store, {
+          replay: {
+            ...store.replay(),
+            active: true,
+            paused: false,
+            direction: 1,
+            index: store.replay().index ?? 0,
+          },
+        });
+      },
+
+      playReplayBackward() {
+        const track = store.track();
+
+        if (!track || track.timeSec.length === 0) {
+          return;
+        }
+
+        patchState(store, {
+          replay: {
+            ...store.replay(),
+            active: true,
+            paused: false,
+            direction: -1,
+            index: store.replay().index ?? track.timeSec.length - 1,
+          },
+        });
+      },
+
       async loadFlight(flightId: number): Promise<void> {
         patchState(store, {
           loading: true,
@@ -343,6 +380,7 @@ export const FlightDetailsStore = signalStore(
             paused: false,
             index: null,
             speed: 1,
+            direction: 1
           },
         });
 
@@ -431,6 +469,7 @@ export const FlightDetailsStore = signalStore(
           replay: {
             ...store.replay(),
             paused: true,
+            active: true,
           },
         });
       },

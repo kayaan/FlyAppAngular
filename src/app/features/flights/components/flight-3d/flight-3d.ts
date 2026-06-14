@@ -160,6 +160,7 @@ export class Flight3d implements AfterViewInit, OnDestroy {
       if (!this.viewer || !track || !replay.active || replay.index === null) {
         this.clearReplayTrackEntity();
         this.clearReplayStartEntity();
+        this.clearReplayCurrentEntity();
         return;
       }
 

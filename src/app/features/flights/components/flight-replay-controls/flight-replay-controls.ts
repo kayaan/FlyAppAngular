@@ -24,6 +24,10 @@ export class FlightReplayControls implements OnDestroy {
     return String(this.store.replay().speed ?? 1);
   });
 
+  readonly replayDirection = computed(() => {
+    return this.store.replay().direction;
+  });
+  
   readonly maxIndex = computed(() => {
     const track = this.store.track();
     return track ? Math.max(0, track.timeSec.length - 1) : 0;
@@ -88,17 +92,32 @@ export class FlightReplayControls implements OnDestroy {
     }, REPLAY_TICK_MS);
   }
 
-  playOrResume(): void {
+  playForward(): void {
     const replay = this.store.replay();
 
     if (!replay.active) {
-      this.store.startReplay();
+      this.store.playReplayForward();
       this.startTimerFromCurrentIndex();
       return;
     }
 
-    if (replay.paused) {
-      this.store.resumeReplay();
+    if (replay.paused || replay.direction !== 1) {
+      this.store.playReplayForward();
+      this.startTimerFromCurrentIndex();
+    }
+  }
+
+  playBackward(): void {
+    const replay = this.store.replay();
+
+    if (!replay.active) {
+      this.store.playReplayBackward();
+      this.startTimerFromCurrentIndex();
+      return;
+    }
+
+    if (replay.paused || replay.direction !== -1) {
+      this.store.playReplayBackward();
       this.startTimerFromCurrentIndex();
     }
   }
@@ -130,8 +149,15 @@ export class FlightReplayControls implements OnDestroy {
     const currentIndex = replay.index ?? 0;
     const lastIndex = track.timeSec.length - 1;
 
-    if (currentIndex >= lastIndex) {
+    if (replay.direction === 1 && currentIndex >= lastIndex) {
       this.store.setReplayIndex(lastIndex);
+      this.stopTimer();
+      this.store.pauseReplay();
+      return;
+    }
+
+    if (replay.direction === -1 && currentIndex <= 0) {
+      this.store.setReplayIndex(0);
       this.stopTimer();
       this.store.pauseReplay();
       return;
@@ -141,11 +167,12 @@ export class FlightReplayControls implements OnDestroy {
     const deltaRealSec = (now - this.lastTickRealMs) / 1000;
     this.lastTickRealMs = now;
 
-    const deltaReplaySec = deltaRealSec * replay.speed;
+    const deltaReplaySec = deltaRealSec * replay.speed * replay.direction;
 
     const currentFlightSec = track.timeSec[currentIndex];
     const targetFlightSec = currentFlightSec + deltaReplaySec;
 
+    const firstFlightSec = track.timeSec[0];
     const lastFlightSec = track.timeSec[lastIndex];
 
     if (targetFlightSec >= lastFlightSec) {
@@ -155,10 +182,52 @@ export class FlightReplayControls implements OnDestroy {
       return;
     }
 
-    const targetIndex = this.findIndexByTime(track.timeSec, targetFlightSec);
+    if (targetFlightSec <= firstFlightSec) {
+      this.store.setReplayIndex(0);
+      this.stopTimer();
+      this.store.pauseReplay();
+      return;
+    }
+
+    const targetIndex =
+      replay.direction === 1
+        ? this.findIndexByTime(track.timeSec, targetFlightSec)
+        : this.findIndexByTimeReverse(track.timeSec, targetFlightSec);
+
     this.store.setReplayIndex(targetIndex);
   }
 
+  private findIndexByTimeReverse(
+    timeSec: Int32Array,
+    targetFlightSec: number
+  ): number {
+    if (timeSec.length === 0) {
+      return 0;
+    }
+
+    if (targetFlightSec <= timeSec[0]) {
+      return 0;
+    }
+
+    if (targetFlightSec >= timeSec[timeSec.length - 1]) {
+      return timeSec.length - 1;
+    }
+
+    let low = 0;
+    let high = timeSec.length - 1;
+
+    while (low < high) {
+      const mid = Math.ceil((low + high) / 2);
+
+      if (timeSec[mid] > targetFlightSec) {
+        high = mid - 1;
+      } else {
+        low = mid;
+      }
+    }
+
+    return low;
+  }
 
   private stopTimer(): void {
     if (this.replayTimerId === null) {
