@@ -27,7 +27,7 @@ export class FlightReplayControls implements OnDestroy {
   readonly replayDirection = computed(() => {
     return this.store.replay().direction;
   });
-  
+
   readonly maxIndex = computed(() => {
     const track = this.store.track();
     return track ? Math.max(0, track.timeSec.length - 1) : 0;
@@ -275,5 +275,6 @@ export class FlightReplayControls implements OnDestroy {
 
   ngOnDestroy(): void {
     this.stopTimer();
+    this.store.stopReplay();
   }
 }
