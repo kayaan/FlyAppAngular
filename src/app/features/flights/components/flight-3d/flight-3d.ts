@@ -475,7 +475,6 @@ export class Flight3d implements AfterViewInit, OnDestroy {
     this.clearReplayTrackEntity();
     this.clearReplayStartEntity();
     this.clearReplayEndEntity();
-    this.clearReplayEndEntity();
     this.clearReplayCurrentEntity();
     this.clearSelectedClimbEntity();
     this.clearTrackEntities();
