@@ -28,6 +28,7 @@
                 "glob": "**/*",
                 "input": "public"
               },
+              "src/staticwebapp.config.json",
               {
                 "glob": "**/*",
                 "input": "node_modules/cesium/Build/Cesium",
