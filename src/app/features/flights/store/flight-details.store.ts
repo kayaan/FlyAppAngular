@@ -173,8 +173,6 @@ export const FlightDetailsStore = signalStore(
     const trackMetricsService = inject(TrackMetricsService);
     const settings = inject(FlightSettingsStore);
 
-
-
     function selectClimbByIndex(index: number): void {
       const climbs = store.climbs();
 
@@ -190,6 +188,27 @@ export const FlightDetailsStore = signalStore(
 
       const safeIndex = Math.max(0, Math.min(index, climbs.length - 1));
       const climb = climbs[safeIndex];
+
+      const replay = store.replay();
+      const track = store.track();
+
+      if (replay.active && track) {
+        patchState(store, {
+          selectedClimbId: climb.id,
+          selectedRange: null,
+          cursorIndex: null,
+          replay: {
+            ...replay,
+            index: climb.startIndex,
+            range: {
+              startIndex: climb.startIndex,
+              endIndex: climb.endIndex,
+            },
+          },
+        });
+
+        return;
+      }
 
       patchState(store, {
         selectedClimbId: climb.id,
@@ -321,16 +340,33 @@ export const FlightDetailsStore = signalStore(
       },
 
       selectClimb(climbId: number): void {
-        const exists = store.climbs().some((climb) => climb.id === climbId);
-
-        if (!exists) {
-          return;
-        }
+        const climb = store.climbs().find((item) => item.id === climbId);
 
         patchState(store, {
           selectedClimbId: climbId,
           selectedRange: null,
           cursorIndex: null,
+        });
+
+        if (!climb) {
+          return;
+        }
+
+        const replay = store.replay();
+
+        if (!replay.active) {
+          return;
+        }
+
+        patchState(store, {
+          replay: {
+            ...replay,
+            index: climb.startIndex,
+            range: {
+              startIndex: climb.startIndex,
+              endIndex: climb.endIndex,
+            },
+          },
         });
       },
 

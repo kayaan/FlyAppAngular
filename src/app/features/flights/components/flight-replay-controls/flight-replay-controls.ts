@@ -224,6 +224,19 @@ export class FlightReplayControls implements OnDestroy {
     const firstFlightSec = track.timeSec[replayStartIndex];
     const lastFlightSec = track.timeSec[replayEndIndex];
 
+    // If the replay range changed while replay is active,
+    // the private floating replay time may still point to the old range.
+    // Reset it to the current store index in that case.
+    if (
+      this.replayFlightTimeSec === null ||
+      this.replayFlightTimeSec < firstFlightSec ||
+      this.replayFlightTimeSec > lastFlightSec
+    ) {
+      this.replayFlightTimeSec = track.timeSec[currentIndex];
+      this.lastTickRealMs = performance.now();
+      return;
+    }
+
     const targetFlightSec = this.replayFlightTimeSec + deltaReplaySec;
 
     if (targetFlightSec >= lastFlightSec) {

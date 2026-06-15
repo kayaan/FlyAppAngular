@@ -29,6 +29,8 @@ import {
   Viewer,
   ConstantProperty,
   ColorMaterialProperty,
+  HeadingPitchRange,
+  Matrix4,
 } from 'cesium';
 
 import { FlightDetailsStore } from '../../store/flight-details.store';
@@ -54,7 +56,7 @@ export class Flight3d implements AfterViewInit, OnDestroy {
   private readonly verticalExaggeration = 2.0;
   private readonly verticalExaggerationRelativeHeight = 0.0;
 
-  private readonly trackAltitudeOffsetM = 20;
+  private readonly trackAltitudeOffsetM = 70;
 
   private readonly renderStep = 3;
   private readonly varioClassCount = 12;
@@ -77,6 +79,8 @@ export class Flight3d implements AfterViewInit, OnDestroy {
   private replayEndEntity: Entity | null = null;
 
   private smoothedCameraHeadingRad: number | null = null;
+
+  private lastCameraFollowEnabled = false;
 
   constructor() {
     effect(() => {
@@ -170,6 +174,7 @@ export class Flight3d implements AfterViewInit, OnDestroy {
 
       if (!this.viewer || !track || !replayActive || replayIndex === null) {
         this.smoothedCameraHeadingRad = null;
+        this.lastCameraFollowEnabled = false;
         this.clearReplayTrackEntity();
         this.clearReplayEndEntity();
         this.clearReplayStartEntity();
@@ -177,13 +182,22 @@ export class Flight3d implements AfterViewInit, OnDestroy {
         return;
       }
 
+      // During replay, the selected climb is represented by the replay range.
+      // The yellow climb highlight would be a duplicate visual marker.
+      this.clearSelectedClimbEntity();
+
       this.updateReplayStartEntity(track, replayRange);
       this.updateReplayEndEntity(track, replayRange);
       this.updateReplayTrackEntity(track, replayIndex, replayRange);
       this.updateReplayCurrentEntity(track, replayIndex);
 
+      const cameraFollowJustEnabled =
+        cameraFollowEnabled && !this.lastCameraFollowEnabled;
+
+      this.lastCameraFollowEnabled = cameraFollowEnabled;
+
       if (cameraFollowEnabled) {
-        this.followReplayCamera(track, replayIndex);
+        this.followReplayCamera(track, replayIndex, cameraFollowJustEnabled);
       }
     });
   }
@@ -307,6 +321,7 @@ export class Flight3d implements AfterViewInit, OnDestroy {
     this.viewer = null;
     this.lastTrackReference = null;
     this.smoothedCameraHeadingRad = null;
+    this.lastCameraFollowEnabled = false;
   }
 
   formatNumber(value: number, digits: number): string {
@@ -572,8 +587,8 @@ export class Flight3d implements AfterViewInit, OnDestroy {
             () => this.replayTrackPositions,
             false
           ) as unknown as Property,
-          width: 2,
-          material: Color.ORANGE.withAlpha(0.95),
+          width: 4,
+          material: Color.fromCssColorString('#ff7a00').withAlpha(1.0),
           clampToGround: false,
           arcType: ArcType.NONE,
         },
@@ -593,7 +608,11 @@ export class Flight3d implements AfterViewInit, OnDestroy {
     this.replayTrackEntity = null;
   }
 
-  private followReplayCamera(track: TrackArrays, replayIndex: number): void {
+  private followReplayCamera(
+    track: TrackArrays,
+    replayIndex: number,
+    resetView: boolean
+  ): void {
     if (!this.viewer) {
       return;
     }
@@ -605,9 +624,6 @@ export class Flight3d implements AfterViewInit, OnDestroy {
     }
 
     const safeIndex = Math.max(0, Math.min(replayIndex, pointCount - 1));
-
-    const rawHeading = this.calculateTrackHeading(track, safeIndex);
-    const heading = this.smoothHeading(rawHeading, 0.025);
 
     const targetLat = track.latE7[safeIndex] / 10_000_000;
     const targetLon = track.lonE7[safeIndex] / 10_000_000;
@@ -621,25 +637,46 @@ export class Flight3d implements AfterViewInit, OnDestroy {
       return;
     }
 
-    const cameraDistanceM = 1800;
-    const cameraHeightOffsetM = 700;
-
-    const cameraPosition = this.calculateCameraPositionBehindTarget(
-      targetLat,
+    const targetPosition = Cartesian3.fromDegrees(
       targetLon,
-      targetAltM + cameraHeightOffsetM,
-      heading,
-      cameraDistanceM
+      targetLat,
+      targetAltM
     );
 
-    this.viewer.camera.setView({
-      destination: cameraPosition,
-      orientation: {
-        heading,
-        pitch: CesiumMath.toRadians(-24),
-        roll: 0,
-      },
-    });
+    const defaultHeading = this.calculateTrackHeading(track, safeIndex);
+
+    // Schräg von oben auf den aktuellen Replay-Punkt.
+    const defaultPitch = CesiumMath.toRadians(-55);
+
+    // Etwas weiter weg, damit man Umgebung + Track sieht.
+    const defaultRangeM = 2600;
+
+    const currentRangeM = Cartesian3.distance(
+      this.viewer.camera.positionWC,
+      targetPosition
+    );
+
+    const heading = resetView
+      ? defaultHeading
+      : this.viewer.camera.heading;
+
+    const pitch = resetView
+      ? defaultPitch
+      : this.viewer.camera.pitch;
+
+    const range =
+      resetView || !Number.isFinite(currentRangeM) || currentRangeM < 100
+        ? defaultRangeM
+        : currentRangeM;
+
+    this.viewer.camera.lookAt(
+      targetPosition,
+      new HeadingPitchRange(heading, pitch, range)
+    );
+
+    // Wichtig: Kamera nach lookAt wieder freigeben,
+    // sonst bleibt sie an das lokale Transform gebunden.
+    this.viewer.camera.lookAtTransform(Matrix4.IDENTITY);
   }
 
   private calculateTrackHeading(track: TrackArrays, index: number): number {
