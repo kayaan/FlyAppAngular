@@ -13,13 +13,23 @@ jobs:
         with:
           submodules: true
           lfs: false
-      - name: Build And Deploy
-        id: builddeploy
-        uses: Azure/static-web-apps-deploy@v1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_GREEN_MEADOW_0BB9C2503 }}
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          action: "upload"
-          app_location: "/" 
-          api_location: "" 
-          output_location: "dist/flight-app-angular/browser"
+          node-version: '20' # Verwendet die LTS-Version 20 (kompatibel mit modernen Angular-Versionen)
+          cache: 'npm'       # Aktiviert schnelles Caching für deine node_modules
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Build Angular App
+        run: npm run build -- --configuration=production
+
+      - name: Install SWA CLI & Deploy to Azure
+        env:
+          # Hier wird dein bestehendes GitHub Secret als Umgebungsvariable übergeben
+          SWA_CLI_DEPLOYMENT_TOKEN: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_GREEN_MEADOW_0BB9C2503 }}
+        run: |
+          npm install -g @azure/static-web-apps-cli
+          swa deploy ./dist/flight-app-angular/browser --env production
