@@ -1,72 +1,45 @@
 <div class="replay-controls">
   <div class="replay-actions">
-    <button
-      type="button"
-      class="replay-button"
-      title="Play backward"
-      [class.is-active]="replayActive() && !replayPaused() && replayDirection() === -1"
-      [disabled]="!hasTrack()"
-      (click)="playBackward()"
-    >
+    <button type="button" class="replay-button" title="Play backward"
+      [class.is-active]="replayActive() && !replayPaused() && replayDirection() === -1" [disabled]="!hasTrack()"
+      (click)="playBackward()">
       ◀
     </button>
 
-    <button
-      type="button"
-      class="replay-button"
-      title="Play forward"
-      [class.is-active]="replayActive() && !replayPaused() && replayDirection() === 1"
-      [disabled]="!hasTrack()"
-      (click)="playForward()"
-    >
+    <button type="button" class="replay-button" title="Play forward"
+      [class.is-active]="replayActive() && !replayPaused() && replayDirection() === 1" [disabled]="!hasTrack()"
+      (click)="playForward()">
       ▶
     </button>
 
-    <button
-      type="button"
-      class="replay-button"
-      title="Pause"
-      (click)="pause()"
-      [disabled]="!replayActive() || replayPaused()"
-    >
+    <button type="button" class="replay-button" title="Pause" (click)="pause()"
+      [disabled]="!replayActive() || replayPaused()">
       ❚❚
     </button>
 
-    <button
-      type="button"
-      class="replay-button"
-      title="Stop"
-      (click)="stop()"
-      [disabled]="!replayActive() && store.replay().index === null"
-    >
+    <button type="button" class="replay-button" title="Stop" (click)="stop()"
+      [disabled]="!replayActive() && store.replay().index === null">
       ■
     </button>
 
-    <select
-      class="replay-speed"
-      [value]="replaySpeedValue()"
-      (change)="onSpeedChange($event)"
-      [disabled]="!hasTrack()"
-      title="Replay speed"
-    >
+    <select class="replay-speed" [value]="replaySpeedValue()" (change)="onSpeedChange($event)" [disabled]="!hasTrack()"
+      title="Replay speed">
       @for (speed of speedOptions; track speed) {
-        <option [value]="speed">{{ speed }}x</option>
+      <option [value]="speed">{{ speed }}x</option>
       }
     </select>
+
+    <label class="replay-follow-toggle">
+      <input type="checkbox" [checked]="store.replay().cameraFollowEnabled"
+        (change)="toggleCameraFollow($event)" />
+      <span>Follow camera</span>
+    </label>
   </div>
 
   <div class="replay-slider-area">
-    <input
-      class="replay-slider"
-      type="range"
-      min="0"
-      [max]="maxIndex()"
-      [value]="replayIndex()"
-      (pointerdown)="onSliderPointerDown()"
-      (input)="onSliderInput()"
-      (change)="onSliderCommit($event)"
-      [disabled]="!hasTrack()"
-    />
+    <input class="replay-slider" type="range" min="0" [max]="maxIndex()" [value]="replayIndex()"
+      (pointerdown)="onSliderPointerDown()" (input)="onSliderInput()" (change)="onSliderCommit($event)"
+      [disabled]="!hasTrack()" />
 
     <span class="replay-index">
       {{ replayIndex() }} / {{ maxIndex() }}

@@ -95,3 +95,19 @@
   text-align: right;
   white-space: nowrap;
 }
+
+.replay-follow-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+
+  white-space: nowrap;
+
+  font-size: 12px;
+  font-weight: 600;
+  color: #344054;
+
+  input {
+    margin: 0;
+  }
+}

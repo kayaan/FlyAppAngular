@@ -26,6 +26,9 @@ import {
   SceneTransforms,
   CallbackProperty,
   Property,
+  HeadingPitchRange,
+  Math as CesiumMath,
+  Matrix4,
 } from 'cesium';
 
 import { FlightDetailsStore } from '../../store/flight-details.store';
@@ -43,6 +46,9 @@ import { environment } from '../../../../../environments/environment';
 export class Flight3d implements AfterViewInit, OnDestroy {
   @ViewChild('cesiumContainer', { static: true })
   private cesiumContainer!: ElementRef<HTMLDivElement>;
+
+
+  private smoothedCameraHeadingRad: number | null = null;
 
   private readonly store = inject(FlightDetailsStore);
   private readonly settingsStore = inject(FlightSettingsStore);
@@ -76,7 +82,7 @@ export class Flight3d implements AfterViewInit, OnDestroy {
   constructor() {
     effect(() => {
       const track = this.store.track();
-      const replay = this.store.replay();
+      const replayActive = this.store.replay.active();
 
       // Re-render colors when resolution changes.
       this.settingsStore.varioChartResolutionInSec();
@@ -90,25 +96,33 @@ export class Flight3d implements AfterViewInit, OnDestroy {
         return;
       }
 
-      if (replay.active) {
-        this.clearTrackEntities();
+      if (replayActive) {
+        for (const entity of this.flightTrackEntities) {
+          entity.show = false;
+        }
+
         this.clearSelectedClimbEntity();
         return;
       }
 
+      for (const entity of this.flightTrackEntities) {
+        entity.show = true;
+      }
+
       const shouldCenter = track !== this.lastTrackReference;
 
-      this.renderTrack(track, shouldCenter);
-
-      this.lastTrackReference = track;
+      if (track !== this.lastTrackReference || this.flightTrackEntities.length === 0) {
+        this.renderTrack(track, shouldCenter);
+        this.lastTrackReference = track;
+      }
     });
 
     effect(() => {
       const track = this.store.track();
       const cursorIndex = this.store.cursorIndex();
-      const replay = this.store.replay();
+      const replayActive = this.store.replay.active();
 
-      if (replay.active) {
+      if (replayActive) {
         this.clearCursorEntity();
         return;
       }
@@ -154,9 +168,12 @@ export class Flight3d implements AfterViewInit, OnDestroy {
 
     effect(() => {
       const track = this.store.track();
-      const replay = this.store.replay();
+      const replayActive = this.store.replay.active();
+      const replayIndex = this.store.replay.index();
+      const cameraFollowEnabled = this.store.replay.cameraFollowEnabled();
 
-      if (!this.viewer || !track || !replay.active || replay.index === null) {
+      if (!this.viewer || !track || !replayActive || replayIndex === null) {
+        this.smoothedCameraHeadingRad = null;
         this.clearReplayTrackEntity();
         this.clearReplayEndEntity();
         this.clearReplayStartEntity();
@@ -166,10 +183,173 @@ export class Flight3d implements AfterViewInit, OnDestroy {
 
       this.updateReplayStartEntity(track);
       this.updateReplayEndEntity(track);
-      this.updateReplayTrackEntity(track, replay.index);
-      this.updateReplayCurrentEntity(track, replay.index);
+      this.updateReplayTrackEntity(track, replayIndex);
+      this.updateReplayCurrentEntity(track, replayIndex);
+
+      if (cameraFollowEnabled) {
+        this.followReplayCamera(track, replayIndex);
+      }
+    });
+
+
+  }
+
+  private followReplayCamera(track: TrackArrays, replayIndex: number): void {
+    if (!this.viewer) {
+      return;
+    }
+
+    const pointCount = Math.min(
+      track.latE7.length,
+      track.lonE7.length,
+      track.altGpsCm.length,
+      track.timeSec.length
+    );
+
+    if (pointCount < 2) {
+      return;
+    }
+
+    const safeIndex = Math.max(0, Math.min(replayIndex, pointCount - 1));
+
+    const rawHeading = this.calculateTrackHeading(track, safeIndex);
+    const heading = this.smoothHeading(rawHeading, 0.025);
+
+    const targetLat = track.latE7[safeIndex] / 10_000_000;
+    const targetLon = track.lonE7[safeIndex] / 10_000_000;
+    const targetAltM = this.exaggerateHeight(track.altGpsCm[safeIndex] / 100);
+
+    if (
+      !Number.isFinite(targetLat) ||
+      !Number.isFinite(targetLon) ||
+      !Number.isFinite(targetAltM)
+    ) {
+      return;
+    }
+
+    const cameraDistanceM = 1800;
+    const cameraHeightOffsetM = 700;
+
+    const cameraPosition = this.calculateCameraPositionBehindTarget(
+      targetLat,
+      targetLon,
+      targetAltM + cameraHeightOffsetM,
+      heading,
+      cameraDistanceM
+    );
+
+    this.viewer.camera.setView({
+      destination: cameraPosition,
+      orientation: {
+        heading,
+        pitch: CesiumMath.toRadians(-24),
+        roll: 0,
+      },
     });
   }
+
+
+  private calculateTrackHeading(track: TrackArrays, index: number): number {
+    const pointCount = Math.min(track.latE7.length, track.lonE7.length);
+
+    const headingWindow = 80;
+
+    const fromIndex = Math.max(0, index - headingWindow);
+    const toIndex = Math.min(pointCount - 1, index + headingWindow);
+
+    if (fromIndex === toIndex) {
+      return this.smoothedCameraHeadingRad ?? this.viewer?.camera.heading ?? 0;
+    }
+
+    const fromLat = CesiumMath.toRadians(track.latE7[fromIndex] / 10_000_000);
+    const fromLon = CesiumMath.toRadians(track.lonE7[fromIndex] / 10_000_000);
+    const toLat = CesiumMath.toRadians(track.latE7[toIndex] / 10_000_000);
+    const toLon = CesiumMath.toRadians(track.lonE7[toIndex] / 10_000_000);
+
+    const dLon = toLon - fromLon;
+
+    const y = Math.sin(dLon) * Math.cos(toLat);
+    const x =
+      Math.cos(fromLat) * Math.sin(toLat) -
+      Math.sin(fromLat) * Math.cos(toLat) * Math.cos(dLon);
+
+    return Math.atan2(y, x);
+  }
+
+private smoothHeading(rawHeading: number, alpha: number): number {
+  if (this.smoothedCameraHeadingRad === null) {
+    this.smoothedCameraHeadingRad = rawHeading;
+    return rawHeading;
+  }
+
+  let delta = rawHeading - this.smoothedCameraHeadingRad;
+
+  while (delta > Math.PI) {
+    delta -= Math.PI * 2;
+  }
+
+  while (delta < -Math.PI) {
+    delta += Math.PI * 2;
+  }
+
+  const deadZoneRad = CesiumMath.toRadians(3);
+
+  if (Math.abs(delta) < deadZoneRad) {
+    return this.smoothedCameraHeadingRad;
+  }
+
+  const maxStepRad = CesiumMath.toRadians(1.2);
+
+  const smoothedStep = delta * alpha;
+  const limitedStep = Math.max(
+    -maxStepRad,
+    Math.min(maxStepRad, smoothedStep)
+  );
+
+  this.smoothedCameraHeadingRad += limitedStep;
+
+  return this.smoothedCameraHeadingRad;
+}
+
+  private calculateCameraPositionBehindTarget(
+    targetLatDeg: number,
+    targetLonDeg: number,
+    cameraAltM: number,
+    headingRad: number,
+    distanceM: number
+  ): Cartesian3 {
+    const earthRadiusM = 6_371_000;
+
+    const targetLatRad = CesiumMath.toRadians(targetLatDeg);
+    const targetLonRad = CesiumMath.toRadians(targetLonDeg);
+
+    const behindHeading = headingRad + Math.PI;
+    const angularDistance = distanceM / earthRadiusM;
+
+    const cameraLatRad = Math.asin(
+      Math.sin(targetLatRad) * Math.cos(angularDistance) +
+      Math.cos(targetLatRad) *
+      Math.sin(angularDistance) *
+      Math.cos(behindHeading)
+    );
+
+    const cameraLonRad =
+      targetLonRad +
+      Math.atan2(
+        Math.sin(behindHeading) *
+        Math.sin(angularDistance) *
+        Math.cos(targetLatRad),
+        Math.cos(angularDistance) -
+        Math.sin(targetLatRad) * Math.sin(cameraLatRad)
+      );
+
+    return Cartesian3.fromDegrees(
+      CesiumMath.toDegrees(cameraLonRad),
+      CesiumMath.toDegrees(cameraLatRad),
+      cameraAltM
+    );
+  }
+
 
   readonly replayInfo = computed(() => {
     const track = this.store.track();
@@ -608,7 +788,7 @@ export class Flight3d implements AfterViewInit, OnDestroy {
     );
 
     this.mouseMoveHandler.setInputAction((movement: { endPosition: Cartesian2 }) => {
-      if (this.store.replay().active) {
+      if (this.store.replay.active()) {
         return;
       }
 

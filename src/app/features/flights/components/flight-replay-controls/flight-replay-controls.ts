@@ -58,6 +58,11 @@ export class FlightReplayControls implements OnDestroy {
     this.isDraggingSlider = true;
   }
 
+
+  toggleCameraFollow(event: Event): void {
+    const checked = (event.target as HTMLInputElement).checked;
+    this.store.setReplayCameraFollowEnabled(checked);
+  }
   onSliderInput(): void {
     // intentionally empty:
     // store replay.index is updated only on slider commit/release

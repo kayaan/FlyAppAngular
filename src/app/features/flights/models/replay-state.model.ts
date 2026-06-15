@@ -6,4 +6,5 @@ export type ReplayState = {
   index: number | null;
   speed: number;
   direction: ReplayDirection;
+  cameraFollowEnabled: boolean;
 };

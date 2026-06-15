@@ -72,7 +72,8 @@ const initialState: FlightDetailsState = {
     paused: false,
     index: null,
     speed: 1,
-    direction: 1
+    direction: 1,
+    cameraFollowEnabled: false,
   },
 };
 
@@ -237,6 +238,15 @@ export const FlightDetailsStore = signalStore(
     }
 
     return {
+
+      setReplayCameraFollowEnabled(enabled: boolean): void {
+        patchState(store, (state) => ({
+          replay: {
+            ...state.replay,
+            cameraFollowEnabled: enabled,
+          },
+        }));
+      },
 
       recalculateTrackMetrics(): void {
         patchState(store, {
@@ -409,7 +419,8 @@ export const FlightDetailsStore = signalStore(
             paused: false,
             index: null,
             speed: 1,
-            direction: 1
+            direction: 1,
+            cameraFollowEnabled: false
           },
         });
 
