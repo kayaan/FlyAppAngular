@@ -145,9 +145,10 @@ export class FlightReplayControls implements OnDestroy {
 
   stop(): void {
     this.stopTimer();
+    this.replayFlightTimeSec = null;
     this.store.stopReplay();
   }
-
+  
   private tickReplay(): void {
     const track = this.store.track();
     const replay = this.store.replay();
