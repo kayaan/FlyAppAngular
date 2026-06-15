@@ -1,5 +1,11 @@
 export type ReplayDirection = 1 | -1;
 
+export type ReplayRange = {
+  startIndex: number;
+  endIndex: number;
+};
+
+
 export type ReplayState = {
   active: boolean;
   paused: boolean;
@@ -7,4 +13,5 @@ export type ReplayState = {
   speed: number;
   direction: ReplayDirection;
   cameraFollowEnabled: boolean;
+  range: ReplayRange | null;
 };

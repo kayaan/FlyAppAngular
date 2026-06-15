@@ -11,29 +11,28 @@ import {
 
 import {
   ArcType,
+  Cartesian2,
   Cartesian3,
+  CallbackProperty,
   Color,
+  createWorldTerrainAsync,
   EllipsoidTerrainProvider,
   Entity,
   HeightReference,
   Ion,
+  Math as CesiumMath,
   PointGraphics,
+  Property,
+  SceneTransforms,
   ScreenSpaceEventHandler,
   ScreenSpaceEventType,
   Viewer,
-  createWorldTerrainAsync,
-  Cartesian2,
-  SceneTransforms,
-  CallbackProperty,
-  Property,
-  HeadingPitchRange,
-  Math as CesiumMath,
-  Matrix4,
 } from 'cesium';
 
 import { FlightDetailsStore } from '../../store/flight-details.store';
 import { FlightSettingsStore } from '../../store/flight-settings.store';
 import { TrackArrays } from '../../models/track-arrays.model';
+import { ReplayRange } from '../../models/replay-state.model';
 
 import { environment } from '../../../../../environments/environment';
 
@@ -47,9 +46,6 @@ export class Flight3d implements AfterViewInit, OnDestroy {
   @ViewChild('cesiumContainer', { static: true })
   private cesiumContainer!: ElementRef<HTMLDivElement>;
 
-
-  private smoothedCameraHeadingRad: number | null = null;
-
   private readonly store = inject(FlightDetailsStore);
   private readonly settingsStore = inject(FlightSettingsStore);
 
@@ -61,7 +57,6 @@ export class Flight3d implements AfterViewInit, OnDestroy {
   private readonly renderStep = 3;
   private readonly varioClassCount = 12;
   private readonly maxVarioForColorMs = 4;
-
 
   private viewer: Viewer | null = null;
   private flightTrackEntities: Entity[] = [];
@@ -78,6 +73,8 @@ export class Flight3d implements AfterViewInit, OnDestroy {
   private replayStartEntity: Entity | null = null;
   private replayCurrentEntity: Entity | null = null;
   private replayEndEntity: Entity | null = null;
+
+  private smoothedCameraHeadingRad: number | null = null;
 
   constructor() {
     effect(() => {
@@ -170,6 +167,7 @@ export class Flight3d implements AfterViewInit, OnDestroy {
       const track = this.store.track();
       const replayActive = this.store.replay.active();
       const replayIndex = this.store.replay.index();
+      const replayRange = this.store.replay.range();
       const cameraFollowEnabled = this.store.replay.cameraFollowEnabled();
 
       if (!this.viewer || !track || !replayActive || replayIndex === null) {
@@ -181,175 +179,16 @@ export class Flight3d implements AfterViewInit, OnDestroy {
         return;
       }
 
-      this.updateReplayStartEntity(track);
-      this.updateReplayEndEntity(track);
-      this.updateReplayTrackEntity(track, replayIndex);
+      this.updateReplayStartEntity(track, replayRange);
+      this.updateReplayEndEntity(track, replayRange);
+      this.updateReplayTrackEntity(track, replayIndex, replayRange);
       this.updateReplayCurrentEntity(track, replayIndex);
 
       if (cameraFollowEnabled) {
         this.followReplayCamera(track, replayIndex);
       }
     });
-
-
   }
-
-  private followReplayCamera(track: TrackArrays, replayIndex: number): void {
-    if (!this.viewer) {
-      return;
-    }
-
-    const pointCount = Math.min(
-      track.latE7.length,
-      track.lonE7.length,
-      track.altGpsCm.length,
-      track.timeSec.length
-    );
-
-    if (pointCount < 2) {
-      return;
-    }
-
-    const safeIndex = Math.max(0, Math.min(replayIndex, pointCount - 1));
-
-    const rawHeading = this.calculateTrackHeading(track, safeIndex);
-    const heading = this.smoothHeading(rawHeading, 0.025);
-
-    const targetLat = track.latE7[safeIndex] / 10_000_000;
-    const targetLon = track.lonE7[safeIndex] / 10_000_000;
-    const targetAltM = this.exaggerateHeight(track.altGpsCm[safeIndex] / 100);
-
-    if (
-      !Number.isFinite(targetLat) ||
-      !Number.isFinite(targetLon) ||
-      !Number.isFinite(targetAltM)
-    ) {
-      return;
-    }
-
-    const cameraDistanceM = 1800;
-    const cameraHeightOffsetM = 700;
-
-    const cameraPosition = this.calculateCameraPositionBehindTarget(
-      targetLat,
-      targetLon,
-      targetAltM + cameraHeightOffsetM,
-      heading,
-      cameraDistanceM
-    );
-
-    this.viewer.camera.setView({
-      destination: cameraPosition,
-      orientation: {
-        heading,
-        pitch: CesiumMath.toRadians(-24),
-        roll: 0,
-      },
-    });
-  }
-
-
-  private calculateTrackHeading(track: TrackArrays, index: number): number {
-    const pointCount = Math.min(track.latE7.length, track.lonE7.length);
-
-    const headingWindow = 80;
-
-    const fromIndex = Math.max(0, index - headingWindow);
-    const toIndex = Math.min(pointCount - 1, index + headingWindow);
-
-    if (fromIndex === toIndex) {
-      return this.smoothedCameraHeadingRad ?? this.viewer?.camera.heading ?? 0;
-    }
-
-    const fromLat = CesiumMath.toRadians(track.latE7[fromIndex] / 10_000_000);
-    const fromLon = CesiumMath.toRadians(track.lonE7[fromIndex] / 10_000_000);
-    const toLat = CesiumMath.toRadians(track.latE7[toIndex] / 10_000_000);
-    const toLon = CesiumMath.toRadians(track.lonE7[toIndex] / 10_000_000);
-
-    const dLon = toLon - fromLon;
-
-    const y = Math.sin(dLon) * Math.cos(toLat);
-    const x =
-      Math.cos(fromLat) * Math.sin(toLat) -
-      Math.sin(fromLat) * Math.cos(toLat) * Math.cos(dLon);
-
-    return Math.atan2(y, x);
-  }
-
-private smoothHeading(rawHeading: number, alpha: number): number {
-  if (this.smoothedCameraHeadingRad === null) {
-    this.smoothedCameraHeadingRad = rawHeading;
-    return rawHeading;
-  }
-
-  let delta = rawHeading - this.smoothedCameraHeadingRad;
-
-  while (delta > Math.PI) {
-    delta -= Math.PI * 2;
-  }
-
-  while (delta < -Math.PI) {
-    delta += Math.PI * 2;
-  }
-
-  const deadZoneRad = CesiumMath.toRadians(3);
-
-  if (Math.abs(delta) < deadZoneRad) {
-    return this.smoothedCameraHeadingRad;
-  }
-
-  const maxStepRad = CesiumMath.toRadians(1.2);
-
-  const smoothedStep = delta * alpha;
-  const limitedStep = Math.max(
-    -maxStepRad,
-    Math.min(maxStepRad, smoothedStep)
-  );
-
-  this.smoothedCameraHeadingRad += limitedStep;
-
-  return this.smoothedCameraHeadingRad;
-}
-
-  private calculateCameraPositionBehindTarget(
-    targetLatDeg: number,
-    targetLonDeg: number,
-    cameraAltM: number,
-    headingRad: number,
-    distanceM: number
-  ): Cartesian3 {
-    const earthRadiusM = 6_371_000;
-
-    const targetLatRad = CesiumMath.toRadians(targetLatDeg);
-    const targetLonRad = CesiumMath.toRadians(targetLonDeg);
-
-    const behindHeading = headingRad + Math.PI;
-    const angularDistance = distanceM / earthRadiusM;
-
-    const cameraLatRad = Math.asin(
-      Math.sin(targetLatRad) * Math.cos(angularDistance) +
-      Math.cos(targetLatRad) *
-      Math.sin(angularDistance) *
-      Math.cos(behindHeading)
-    );
-
-    const cameraLonRad =
-      targetLonRad +
-      Math.atan2(
-        Math.sin(behindHeading) *
-        Math.sin(angularDistance) *
-        Math.cos(targetLatRad),
-        Math.cos(angularDistance) -
-        Math.sin(targetLatRad) * Math.sin(cameraLatRad)
-      );
-
-    return Cartesian3.fromDegrees(
-      CesiumMath.toDegrees(cameraLonRad),
-      CesiumMath.toDegrees(cameraLatRad),
-      cameraAltM
-    );
-  }
-
 
   readonly replayInfo = computed(() => {
     const track = this.store.track();
@@ -375,288 +214,8 @@ private smoothHeading(rawHeading: number, alpha: number): number {
     };
   });
 
-  private updateReplayCurrentEntity(
-    track: TrackArrays,
-    replayIndex: number
-  ): void {
-    if (!this.viewer) {
-      return;
-    }
-
-    const pointCount = Math.min(
-      track.latE7.length,
-      track.lonE7.length,
-      track.altGpsCm.length,
-      track.timeSec.length
-    );
-
-    if (pointCount === 0) {
-      this.clearReplayCurrentEntity();
-      return;
-    }
-
-    const safeReplayIndex = Math.max(0, Math.min(replayIndex, pointCount - 1));
-    const position = this.buildPosition(track, safeReplayIndex);
-
-    if (!position) {
-      this.clearReplayCurrentEntity();
-      return;
-    }
-
-    if (!this.replayCurrentEntity) {
-      this.replayCurrentEntity = this.viewer.entities.add({
-        name: 'Replay current position',
-        position,
-        point: new PointGraphics({
-          pixelSize: 14,
-          color: Color.YELLOW,
-          outlineColor: Color.BLACK,
-          outlineWidth: 2,
-          heightReference: HeightReference.NONE,
-          disableDepthTestDistance: Number.POSITIVE_INFINITY,
-        }),
-      });
-
-      return;
-    }
-
-    this.replayCurrentEntity.position = position as any;
-  }
-
-  private clearReplayCurrentEntity(): void {
-    if (!this.viewer || !this.replayCurrentEntity) {
-      this.replayCurrentEntity = null;
-      return;
-    }
-
-    this.viewer.entities.remove(this.replayCurrentEntity);
-    this.replayCurrentEntity = null;
-  }
-
-  private clearReplayTrackEntity(): void {
-    this.replayTrackPositions = [];
-
-    if (!this.viewer || !this.replayTrackEntity) {
-      this.replayTrackEntity = null;
-      return;
-    }
-
-    this.viewer.entities.remove(this.replayTrackEntity);
-    this.replayTrackEntity = null;
-  }
-
-  private updateReplayStartEntity(track: TrackArrays): void {
-    if (!this.viewer) {
-      return;
-    }
-
-    if (track.latE7.length === 0) {
-      this.clearReplayStartEntity();
-      return;
-    }
-
-    const position = this.buildPosition(track, 0);
-
-    if (!position) {
-      this.clearReplayStartEntity();
-      return;
-    }
-
-    if (!this.replayStartEntity) {
-      this.replayStartEntity = this.viewer.entities.add({
-        name: 'Replay start position',
-        position,
-        point: new PointGraphics({
-          pixelSize: 15,
-          color: Color.LIME,
-          outlineColor: Color.BLACK,
-          outlineWidth: 2,
-          heightReference: HeightReference.NONE,
-          disableDepthTestDistance: Number.POSITIVE_INFINITY,
-        }),
-      });
-
-      return;
-    }
-
-    this.replayStartEntity.position = position as any;
-  }
-
-  formatNumber(value: number, digits: number): string {
-    return value.toFixed(digits);
-  }
-
-  formatSignedNumber(value: number, digits: number): string {
-    const sign = value > 0 ? '+' : '';
-    return `${sign}${value.toFixed(digits)}`;
-  }
-  formatReplayTime(totalSeconds: number): string {
-    const safeSeconds = Math.max(0, Math.floor(totalSeconds));
-
-    const hours = Math.floor(safeSeconds / 3600);
-    const minutes = Math.floor((safeSeconds % 3600) / 60);
-    const seconds = safeSeconds % 60;
-
-    return [
-      hours.toString().padStart(2, '0'),
-      minutes.toString().padStart(2, '0'),
-      seconds.toString().padStart(2, '0'),
-    ].join(':');
-  }
-
-  formatAltitude(value: number): string {
-    return `${Math.round(value)} m`;
-  }
-
-  formatVario(value: number): string {
-    const sign = value > 0 ? '+' : '';
-    return `${sign}${value.toFixed(1)} m/s`;
-  }
-
-  formatSpeed(value: number): string {
-    return `${Math.round(value)} km/h`;
-  }
-
-  private clearReplayStartEntity(): void {
-    if (!this.viewer || !this.replayStartEntity) {
-      this.replayStartEntity = null;
-      return;
-    }
-
-    this.viewer.entities.remove(this.replayStartEntity);
-    this.replayStartEntity = null;
-  }
-
-  private updateReplayTrackEntity(track: TrackArrays, replayIndex: number): void {
-    if (!this.viewer) {
-      return;
-    }
-
-    const pointCount = Math.min(
-      track.latE7.length,
-      track.lonE7.length,
-      track.altGpsCm.length,
-      track.timeSec.length
-    );
-
-    if (pointCount < 2) {
-      this.clearReplayTrackEntity();
-      return;
-    }
-
-    const safeReplayIndex = Math.max(0, Math.min(replayIndex, pointCount - 1));
-
-    const positions: Cartesian3[] = [];
-
-    for (let i = 0; i <= safeReplayIndex; i += this.renderStep) {
-      const position = this.buildPosition(track, i);
-
-      if (position) {
-        positions.push(position);
-      }
-    }
-
-    const lastPosition = this.buildPosition(track, safeReplayIndex);
-
-    if (lastPosition) {
-      positions.push(lastPosition);
-    }
-
-    if (positions.length < 2) {
-      this.replayTrackPositions = [];
-      return;
-    }
-
-    this.replayTrackPositions = positions;
-
-    if (!this.replayTrackEntity) {
-      this.replayTrackEntity = this.viewer.entities.add({
-        name: 'Replay track',
-        polyline: {
-          positions: new CallbackProperty(
-            () => this.replayTrackPositions,
-            false
-          ) as unknown as Property,
-          width: 2,
-          material: Color.ORANGE.withAlpha(0.95),
-          clampToGround: false,
-          arcType: ArcType.NONE,
-        },
-      });
-    }
-  }
-
-  private renderSelectedClimbHighlight(
-    track: TrackArrays,
-    startIndex: number,
-    endIndex: number
-  ): void {
-
-    if (this.store.showOnlySelectedClimbTrack()) {
-      this.clearSelectedClimbEntity();
-      return;
-    }
-
-    if (!this.viewer) {
-      return;
-    }
-
-    this.clearSelectedClimbEntity();
-
-    const pointCount = Math.min(
-      track.latE7.length,
-      track.lonE7.length,
-      track.altGpsCm.length,
-      track.timeSec.length
-    );
-
-    if (pointCount < 2) {
-      return;
-    }
-
-    const start = Math.max(0, Math.min(startIndex, endIndex));
-    const end = Math.min(pointCount - 1, Math.max(startIndex, endIndex));
-
-    const positions: Cartesian3[] = [];
-
-    for (let i = start; i <= end; i += this.renderStep) {
-      const position = this.buildPosition(track, i);
-
-      if (position) {
-        positions.push(position);
-      }
-    }
-
-    if (positions.length < 2) {
-      return;
-    }
-
-    this.selectedClimbEntity = this.viewer.entities.add({
-      name: 'Selected climb highlight',
-      polyline: {
-        positions,
-        width: 6,
-        material: Color.YELLOW.withAlpha(0.95),
-        clampToGround: false,
-        arcType: ArcType.NONE,
-      },
-    });
-  }
-
-  private clearSelectedClimbEntity(): void {
-    if (!this.viewer || !this.selectedClimbEntity) {
-      this.selectedClimbEntity = null;
-      return;
-    }
-
-    this.viewer.entities.remove(this.selectedClimbEntity);
-    this.selectedClimbEntity = null;
-  }
-
   async ngAfterViewInit(): Promise<void> {
     Ion.defaultAccessToken = environment.cesiumToken;
-
-    console.warn(environment.cesiumToken);
 
     this.viewer = new Viewer(this.cesiumContainer.nativeElement, {
       animation: false,
@@ -706,7 +265,6 @@ private smoothHeading(rawHeading: number, alpha: number): number {
     this.lastTrackReference = this.store.track();
   }
 
-
   ngOnDestroy(): void {
     this.mouseMoveHandler?.destroy();
     this.mouseMoveHandler = null;
@@ -722,26 +280,168 @@ private smoothHeading(rawHeading: number, alpha: number): number {
     this.viewer?.destroy();
     this.viewer = null;
     this.lastTrackReference = null;
+    this.smoothedCameraHeadingRad = null;
   }
 
-  private updateReplayEndEntity(track: TrackArrays): void {
+  formatNumber(value: number, digits: number): string {
+    return value.toFixed(digits);
+  }
+
+  formatSignedNumber(value: number, digits: number): string {
+    const sign = value > 0 ? '+' : '';
+    return `${sign}${value.toFixed(digits)}`;
+  }
+
+  formatReplayTime(totalSeconds: number): string {
+    const safeSeconds = Math.max(0, Math.floor(totalSeconds));
+
+    const hours = Math.floor(safeSeconds / 3600);
+    const minutes = Math.floor((safeSeconds % 3600) / 60);
+    const seconds = safeSeconds % 60;
+
+    return [
+      hours.toString().padStart(2, '0'),
+      minutes.toString().padStart(2, '0'),
+      seconds.toString().padStart(2, '0'),
+    ].join(':');
+  }
+
+  formatAltitude(value: number): string {
+    return `${Math.round(value)} m`;
+  }
+
+  formatVario(value: number): string {
+    const sign = value > 0 ? '+' : '';
+    return `${sign}${value.toFixed(1)} m/s`;
+  }
+
+  formatSpeed(value: number): string {
+    return `${Math.round(value)} km/h`;
+  }
+
+  private updateReplayCurrentEntity(
+    track: TrackArrays,
+    replayIndex: number
+  ): void {
     if (!this.viewer) {
       return;
     }
 
-    const pointCount = Math.min(
-      track.latE7.length,
-      track.lonE7.length,
-      track.altGpsCm.length,
-      track.timeSec.length
-    );
+    const pointCount = this.getPointCount(track);
+
+    if (pointCount === 0) {
+      this.clearReplayCurrentEntity();
+      return;
+    }
+
+    const safeReplayIndex = Math.max(0, Math.min(replayIndex, pointCount - 1));
+    const position = this.buildPosition(track, safeReplayIndex);
+
+    if (!position) {
+      this.clearReplayCurrentEntity();
+      return;
+    }
+
+    if (!this.replayCurrentEntity) {
+      this.replayCurrentEntity = this.viewer.entities.add({
+        name: 'Replay current position',
+        position,
+        point: new PointGraphics({
+          pixelSize: 14,
+          color: Color.YELLOW,
+          outlineColor: Color.BLACK,
+          outlineWidth: 2,
+          heightReference: HeightReference.NONE,
+          disableDepthTestDistance: Number.POSITIVE_INFINITY,
+        }),
+      });
+
+      return;
+    }
+
+    this.replayCurrentEntity.position = position as any;
+  }
+
+  private clearReplayCurrentEntity(): void {
+    if (!this.viewer || !this.replayCurrentEntity) {
+      this.replayCurrentEntity = null;
+      return;
+    }
+
+    this.viewer.entities.remove(this.replayCurrentEntity);
+    this.replayCurrentEntity = null;
+  }
+
+  private updateReplayStartEntity(
+    track: TrackArrays,
+    replayRange: ReplayRange | null
+  ): void {
+    if (!this.viewer) {
+      return;
+    }
+
+    const pointCount = this.getPointCount(track);
+
+    if (pointCount === 0) {
+      this.clearReplayStartEntity();
+      return;
+    }
+
+    const range = this.normalizeReplayRange(replayRange, pointCount);
+    const position = this.buildPosition(track, range.startIndex);
+
+    if (!position) {
+      this.clearReplayStartEntity();
+      return;
+    }
+
+    if (!this.replayStartEntity) {
+      this.replayStartEntity = this.viewer.entities.add({
+        name: 'Replay start position',
+        position,
+        point: new PointGraphics({
+          pixelSize: 15,
+          color: Color.LIME,
+          outlineColor: Color.BLACK,
+          outlineWidth: 2,
+          heightReference: HeightReference.NONE,
+          disableDepthTestDistance: Number.POSITIVE_INFINITY,
+        }),
+      });
+
+      return;
+    }
+
+    this.replayStartEntity.position = position as any;
+  }
+
+  private clearReplayStartEntity(): void {
+    if (!this.viewer || !this.replayStartEntity) {
+      this.replayStartEntity = null;
+      return;
+    }
+
+    this.viewer.entities.remove(this.replayStartEntity);
+    this.replayStartEntity = null;
+  }
+
+  private updateReplayEndEntity(
+    track: TrackArrays,
+    replayRange: ReplayRange | null
+  ): void {
+    if (!this.viewer) {
+      return;
+    }
+
+    const pointCount = this.getPointCount(track);
 
     if (pointCount === 0) {
       this.clearReplayEndEntity();
       return;
     }
 
-    const position = this.buildPosition(track, pointCount - 1);
+    const range = this.normalizeReplayRange(replayRange, pointCount);
+    const position = this.buildPosition(track, range.endIndex);
 
     if (!position) {
       this.clearReplayEndEntity();
@@ -776,6 +476,292 @@ private smoothHeading(rawHeading: number, alpha: number): number {
 
     this.viewer.entities.remove(this.replayEndEntity);
     this.replayEndEntity = null;
+  }
+
+  private updateReplayTrackEntity(
+    track: TrackArrays,
+    replayIndex: number,
+    replayRange: ReplayRange | null
+  ): void {
+    if (!this.viewer) {
+      return;
+    }
+
+    const pointCount = this.getPointCount(track);
+
+    if (pointCount < 2) {
+      this.clearReplayTrackEntity();
+      return;
+    }
+
+    const range = this.normalizeReplayRange(replayRange, pointCount);
+
+    const safeReplayIndex = Math.max(
+      range.startIndex,
+      Math.min(replayIndex, range.endIndex)
+    );
+
+    const positions: Cartesian3[] = [];
+
+    for (let i = range.startIndex; i <= safeReplayIndex; i += this.renderStep) {
+      const position = this.buildPosition(track, i);
+
+      if (position) {
+        positions.push(position);
+      }
+    }
+
+    const lastPosition = this.buildPosition(track, safeReplayIndex);
+
+    if (lastPosition) {
+      positions.push(lastPosition);
+    }
+
+    if (positions.length < 2) {
+      this.replayTrackPositions = [];
+      return;
+    }
+
+    this.replayTrackPositions = positions;
+
+    if (!this.replayTrackEntity) {
+      this.replayTrackEntity = this.viewer.entities.add({
+        name: 'Replay track',
+        polyline: {
+          positions: new CallbackProperty(
+            () => this.replayTrackPositions,
+            false
+          ) as unknown as Property,
+          width: 2,
+          material: Color.ORANGE.withAlpha(0.95),
+          clampToGround: false,
+          arcType: ArcType.NONE,
+        },
+      });
+    }
+  }
+
+  private clearReplayTrackEntity(): void {
+    this.replayTrackPositions = [];
+
+    if (!this.viewer || !this.replayTrackEntity) {
+      this.replayTrackEntity = null;
+      return;
+    }
+
+    this.viewer.entities.remove(this.replayTrackEntity);
+    this.replayTrackEntity = null;
+  }
+
+  private followReplayCamera(track: TrackArrays, replayIndex: number): void {
+    if (!this.viewer) {
+      return;
+    }
+
+    const pointCount = this.getPointCount(track);
+
+    if (pointCount < 2) {
+      return;
+    }
+
+    const safeIndex = Math.max(0, Math.min(replayIndex, pointCount - 1));
+
+    const rawHeading = this.calculateTrackHeading(track, safeIndex);
+    const heading = this.smoothHeading(rawHeading, 0.025);
+
+    const targetLat = track.latE7[safeIndex] / 10_000_000;
+    const targetLon = track.lonE7[safeIndex] / 10_000_000;
+    const targetAltM = this.exaggerateHeight(track.altGpsCm[safeIndex] / 100);
+
+    if (
+      !Number.isFinite(targetLat) ||
+      !Number.isFinite(targetLon) ||
+      !Number.isFinite(targetAltM)
+    ) {
+      return;
+    }
+
+    const cameraDistanceM = 1800;
+    const cameraHeightOffsetM = 700;
+
+    const cameraPosition = this.calculateCameraPositionBehindTarget(
+      targetLat,
+      targetLon,
+      targetAltM + cameraHeightOffsetM,
+      heading,
+      cameraDistanceM
+    );
+
+    this.viewer.camera.setView({
+      destination: cameraPosition,
+      orientation: {
+        heading,
+        pitch: CesiumMath.toRadians(-24),
+        roll: 0,
+      },
+    });
+  }
+
+  private calculateTrackHeading(track: TrackArrays, index: number): number {
+    const pointCount = Math.min(track.latE7.length, track.lonE7.length);
+
+    const headingWindow = 80;
+
+    const fromIndex = Math.max(0, index - headingWindow);
+    const toIndex = Math.min(pointCount - 1, index + headingWindow);
+
+    if (fromIndex === toIndex) {
+      return this.smoothedCameraHeadingRad ?? this.viewer?.camera.heading ?? 0;
+    }
+
+    const fromLat = CesiumMath.toRadians(track.latE7[fromIndex] / 10_000_000);
+    const fromLon = CesiumMath.toRadians(track.lonE7[fromIndex] / 10_000_000);
+    const toLat = CesiumMath.toRadians(track.latE7[toIndex] / 10_000_000);
+    const toLon = CesiumMath.toRadians(track.lonE7[toIndex] / 10_000_000);
+
+    const dLon = toLon - fromLon;
+
+    const y = Math.sin(dLon) * Math.cos(toLat);
+    const x =
+      Math.cos(fromLat) * Math.sin(toLat) -
+      Math.sin(fromLat) * Math.cos(toLat) * Math.cos(dLon);
+
+    return Math.atan2(y, x);
+  }
+
+  private smoothHeading(rawHeading: number, alpha: number): number {
+    if (this.smoothedCameraHeadingRad === null) {
+      this.smoothedCameraHeadingRad = rawHeading;
+      return rawHeading;
+    }
+
+    let delta = rawHeading - this.smoothedCameraHeadingRad;
+
+    while (delta > Math.PI) {
+      delta -= Math.PI * 2;
+    }
+
+    while (delta < -Math.PI) {
+      delta += Math.PI * 2;
+    }
+
+    const deadZoneRad = CesiumMath.toRadians(3);
+
+    if (Math.abs(delta) < deadZoneRad) {
+      return this.smoothedCameraHeadingRad;
+    }
+
+    const maxStepRad = CesiumMath.toRadians(1.2);
+
+    const smoothedStep = delta * alpha;
+    const limitedStep = Math.max(
+      -maxStepRad,
+      Math.min(maxStepRad, smoothedStep)
+    );
+
+    this.smoothedCameraHeadingRad += limitedStep;
+
+    return this.smoothedCameraHeadingRad;
+  }
+
+  private calculateCameraPositionBehindTarget(
+    targetLatDeg: number,
+    targetLonDeg: number,
+    cameraAltM: number,
+    headingRad: number,
+    distanceM: number
+  ): Cartesian3 {
+    const earthRadiusM = 6_371_000;
+
+    const targetLatRad = CesiumMath.toRadians(targetLatDeg);
+    const targetLonRad = CesiumMath.toRadians(targetLonDeg);
+
+    const behindHeading = headingRad + Math.PI;
+    const angularDistance = distanceM / earthRadiusM;
+
+    const cameraLatRad = Math.asin(
+      Math.sin(targetLatRad) * Math.cos(angularDistance) +
+        Math.cos(targetLatRad) *
+          Math.sin(angularDistance) *
+          Math.cos(behindHeading)
+    );
+
+    const cameraLonRad =
+      targetLonRad +
+      Math.atan2(
+        Math.sin(behindHeading) *
+          Math.sin(angularDistance) *
+          Math.cos(targetLatRad),
+        Math.cos(angularDistance) -
+          Math.sin(targetLatRad) * Math.sin(cameraLatRad)
+      );
+
+    return Cartesian3.fromDegrees(
+      CesiumMath.toDegrees(cameraLonRad),
+      CesiumMath.toDegrees(cameraLatRad),
+      cameraAltM
+    );
+  }
+
+  private renderSelectedClimbHighlight(
+    track: TrackArrays,
+    startIndex: number,
+    endIndex: number
+  ): void {
+    if (this.store.showOnlySelectedClimbTrack()) {
+      this.clearSelectedClimbEntity();
+      return;
+    }
+
+    if (!this.viewer) {
+      return;
+    }
+
+    this.clearSelectedClimbEntity();
+
+    const pointCount = this.getPointCount(track);
+
+    if (pointCount < 2) {
+      return;
+    }
+
+    const start = Math.max(0, Math.min(startIndex, endIndex));
+    const end = Math.min(pointCount - 1, Math.max(startIndex, endIndex));
+
+    const positions: Cartesian3[] = [];
+
+    for (let i = start; i <= end; i += this.renderStep) {
+      const position = this.buildPosition(track, i);
+
+      if (position) {
+        positions.push(position);
+      }
+    }
+
+    if (positions.length < 2) {
+      return;
+    }
+
+    this.selectedClimbEntity = this.viewer.entities.add({
+      name: 'Selected climb highlight',
+      polyline: {
+        positions,
+        width: 6,
+        material: Color.YELLOW.withAlpha(0.95),
+        clampToGround: false,
+        arcType: ArcType.NONE,
+      },
+    });
+  }
+
+  private clearSelectedClimbEntity(): void {
+    if (!this.viewer || !this.selectedClimbEntity) {
+      this.selectedClimbEntity = null;
+      return;
+    }
+
+    this.viewer.entities.remove(this.selectedClimbEntity);
+    this.selectedClimbEntity = null;
   }
 
   private registerCursorPicking(): void {
@@ -823,12 +809,7 @@ private smoothHeading(rawHeading: number, alpha: number): number {
       return null;
     }
 
-    const pointCount = Math.min(
-      track.latE7.length,
-      track.lonE7.length,
-      track.altGpsCm.length,
-      track.timeSec.length
-    );
+    const pointCount = this.getPointCount(track);
 
     if (pointCount === 0) {
       return null;
@@ -919,7 +900,6 @@ private smoothHeading(rawHeading: number, alpha: number): number {
     this.cursorEntity = null;
   }
 
-
   private renderTrack(track: TrackArrays | null, shouldCenter: boolean): void {
     if (!this.viewer) {
       return;
@@ -935,7 +915,6 @@ private smoothHeading(rawHeading: number, alpha: number): number {
       this.store.showOnlySelectedClimbTrack();
 
     const selectedClimbId = this.store.selectedClimbId();
-
 
     this.clearSelectedClimbEntity();
 
@@ -975,12 +954,7 @@ private smoothHeading(rawHeading: number, alpha: number): number {
       return this.buildColoredTrackBlocks(track);
     }
 
-    const pointCount = Math.min(
-      track.latE7.length,
-      track.lonE7.length,
-      track.altGpsCm.length,
-      track.timeSec.length
-    );
+    const pointCount = this.getPointCount(track);
 
     const start = Math.max(
       0,
@@ -1066,12 +1040,7 @@ private smoothHeading(rawHeading: number, alpha: number): number {
 
     const entities: Entity[] = [];
 
-    const pointCount = Math.min(
-      track.latE7.length,
-      track.lonE7.length,
-      track.altGpsCm.length,
-      track.timeSec.length
-    );
+    const pointCount = this.getPointCount(track);
 
     let currentClass: number | null = null;
     let currentPositions: Cartesian3[] = [];
@@ -1207,7 +1176,7 @@ private smoothHeading(rawHeading: number, alpha: number): number {
 
   private getVarioClass(varioMs: number): number {
     if (!Number.isFinite(varioMs)) {
-      return 1; // fallback: hellgrün statt weiß
+      return 1;
     }
 
     const clamped = Math.max(
@@ -1229,8 +1198,8 @@ private smoothHeading(rawHeading: number, alpha: number): number {
   }
 
   private getColorForVarioClass(varioClass: number): Color {
-    const lightGreen = Color.fromCssColorString('#22d3ee'); // weak climb cyan
-    const darkGreen = Color.fromCssColorString('#0f766e');  // strong climb teal
+    const lightGreen = Color.fromCssColorString('#22d3ee');
+    const darkGreen = Color.fromCssColorString('#0f766e');
 
     const lightRed = Color.fromCssColorString('#ef4444');
     const darkRed = Color.fromCssColorString('#7f1d1d');
@@ -1261,7 +1230,38 @@ private smoothHeading(rawHeading: number, alpha: number): number {
       this.trackAltitudeOffsetM +
       this.verticalExaggerationRelativeHeight +
       (heightM - this.verticalExaggerationRelativeHeight) *
-      this.verticalExaggeration
+        this.verticalExaggeration
     );
+  }
+
+  private getPointCount(track: TrackArrays): number {
+    return Math.min(
+      track.latE7.length,
+      track.lonE7.length,
+      track.altGpsCm.length,
+      track.timeSec.length
+    );
+  }
+
+  private normalizeReplayRange(
+    replayRange: ReplayRange | null,
+    pointCount: number
+  ): ReplayRange {
+    const lastIndex = Math.max(0, pointCount - 1);
+
+    const startIndex = Math.max(
+      0,
+      Math.min(replayRange?.startIndex ?? 0, lastIndex)
+    );
+
+    const endIndex = Math.max(
+      startIndex,
+      Math.min(replayRange?.endIndex ?? lastIndex, lastIndex)
+    );
+
+    return {
+      startIndex,
+      endIndex,
+    };
   }
 }

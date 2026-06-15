@@ -18,7 +18,7 @@ import { FlightSettingsStore } from './flight-settings.store';
 import { TrackColorService } from '../services/track-color.service';
 import { ClimbDetectorService } from '../services/climb-detector.service';
 import { DetectedClimb } from '../models/detected-climb.model';
-import { ReplayState } from '../models/replay-state.model';
+import { ReplayRange, ReplayState } from '../models/replay-state.model';
 import { TrackMetrics } from '../models/track-metrics.model';
 import { TrackMetricsService } from '../services/track-metrics.service';
 
@@ -74,6 +74,7 @@ const initialState: FlightDetailsState = {
     speed: 1,
     direction: 1,
     cameraFollowEnabled: false,
+    range: null,
   },
 };
 
@@ -237,6 +238,39 @@ export const FlightDetailsStore = signalStore(
       );
     }
 
+    function resolveReplayRange(
+      track: TrackArrays | null,
+      climbs: Climb[],
+      selectedClimbId: number | null,
+      selectedRange: { startIndex: number; endIndex: number } | null
+    ): ReplayRange | null {
+      if (!track || track.timeSec.length === 0) {
+        return null;
+      }
+
+      const lastIndex = track.timeSec.length - 1;
+
+      if (selectedClimbId !== null) {
+        const climb = climbs.find((item) => item.id === selectedClimbId);
+
+        if (climb) {
+          return {
+            startIndex: Math.max(0, Math.min(climb.startIndex, climb.endIndex)),
+            endIndex: Math.min(lastIndex, Math.max(climb.startIndex, climb.endIndex)),
+          };
+        }
+      }
+
+      if (selectedRange) {
+        return {
+          startIndex: Math.max(0, Math.min(selectedRange.startIndex, selectedRange.endIndex)),
+          endIndex: Math.min(lastIndex, Math.max(selectedRange.startIndex, selectedRange.endIndex)),
+        };
+      }
+
+      return null;
+    }
+
     return {
 
       setReplayCameraFollowEnabled(enabled: boolean): void {
@@ -369,40 +403,78 @@ export const FlightDetailsStore = signalStore(
         });
       },
 
-      playReplayForward() {
+      playReplayForward(): void {
         const track = store.track();
 
         if (!track || track.timeSec.length === 0) {
           return;
         }
 
-        patchState(store, {
+        const range = resolveReplayRange(
+          track,
+          store.climbs(),
+          store.selectedClimbId(),
+          store.selectedRange()
+        );
+
+        const lastIndex = track.timeSec.length - 1;
+        const startIndex = range?.startIndex ?? 0;
+        const endIndex = range?.endIndex ?? lastIndex;
+
+        const currentIndex = store.replay().index;
+
+        patchState(store, (state) => ({
           replay: {
-            ...store.replay(),
+            ...state.replay,
             active: true,
             paused: false,
-            direction: 1,
-            index: store.replay().index ?? 0,
+            direction: 1 as const,
+            index:
+              currentIndex !== null &&
+                currentIndex >= startIndex &&
+                currentIndex <= endIndex
+                ? currentIndex
+                : startIndex,
+            range,
           },
-        });
+        }));
       },
 
-      playReplayBackward() {
+      playReplayBackward(): void {
         const track = store.track();
 
         if (!track || track.timeSec.length === 0) {
           return;
         }
 
-        patchState(store, {
+        const range = resolveReplayRange(
+          track,
+          store.climbs(),
+          store.selectedClimbId(),
+          store.selectedRange()
+        );
+
+        const lastIndex = track.timeSec.length - 1;
+        const startIndex = range?.startIndex ?? 0;
+        const endIndex = range?.endIndex ?? lastIndex;
+
+        const currentIndex = store.replay().index;
+
+        patchState(store, (state) => ({
           replay: {
-            ...store.replay(),
+            ...state.replay,
             active: true,
             paused: false,
-            direction: -1,
-            index: store.replay().index ?? track.timeSec.length - 1,
+            direction: -1 as const,
+            index:
+              currentIndex !== null &&
+                currentIndex >= startIndex &&
+                currentIndex <= endIndex
+                ? currentIndex
+                : endIndex,
+            range,
           },
-        });
+        }));
       },
 
       async loadFlight(flightId: number): Promise<void> {
@@ -420,7 +492,8 @@ export const FlightDetailsStore = signalStore(
             index: null,
             speed: 1,
             direction: 1,
-            cameraFollowEnabled: false
+            cameraFollowEnabled: false,
+            range: null,
           },
         });
 
@@ -536,6 +609,7 @@ export const FlightDetailsStore = signalStore(
             active: false,
             paused: false,
             index: null,
+            range: null
           },
         });
       },

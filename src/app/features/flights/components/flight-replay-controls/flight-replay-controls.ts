@@ -30,9 +30,15 @@ export class FlightReplayControls implements OnDestroy {
     return this.store.replay().direction;
   });
 
+  readonly minIndex = computed(() => {
+    return this.store.replay().range?.startIndex ?? 0;
+  });
+
   readonly maxIndex = computed(() => {
     const track = this.store.track();
-    return track ? Math.max(0, track.timeSec.length - 1) : 0;
+    const lastIndex = track ? Math.max(0, track.timeSec.length - 1) : 0;
+
+    return this.store.replay().range?.endIndex ?? lastIndex;
   });
 
   readonly replayIndex = computed(() => {
@@ -97,8 +103,17 @@ export class FlightReplayControls implements OnDestroy {
 
     this.stopTimer();
 
-    const replayIndex = this.store.replay().index ?? 0;
-    const safeIndex = Math.max(0, Math.min(replayIndex, track.timeSec.length - 1));
+    const replay = this.store.replay();
+
+    const replayStartIndex = replay.range?.startIndex ?? 0;
+    const replayEndIndex = replay.range?.endIndex ?? track.timeSec.length - 1;
+
+    const replayIndex = replay.index ?? replayStartIndex;
+
+    const safeIndex = Math.max(
+      replayStartIndex,
+      Math.min(replayIndex, replayEndIndex)
+    );
 
     this.replayFlightTimeSec = track.timeSec[safeIndex];
     this.lastTickRealMs = performance.now();
@@ -148,7 +163,7 @@ export class FlightReplayControls implements OnDestroy {
     this.replayFlightTimeSec = null;
     this.store.stopReplay();
   }
-  
+
   private tickReplay(): void {
     const track = this.store.track();
     const replay = this.store.replay();
@@ -163,18 +178,34 @@ export class FlightReplayControls implements OnDestroy {
       return;
     }
 
-    const currentIndex = replay.index ?? 0;
-    const lastIndex = track.timeSec.length - 1;
+    const lastTrackIndex = track.timeSec.length - 1;
 
-    if (replay.direction === 1 && currentIndex >= lastIndex) {
-      this.store.setReplayIndex(lastIndex);
+    const replayStartIndex = Math.max(
+      0,
+      Math.min(replay.range?.startIndex ?? 0, lastTrackIndex)
+    );
+
+    const replayEndIndex = Math.max(
+      replayStartIndex,
+      Math.min(replay.range?.endIndex ?? lastTrackIndex, lastTrackIndex)
+    );
+
+    const currentIndex = Math.max(
+      replayStartIndex,
+      Math.min(replay.index ?? replayStartIndex, replayEndIndex)
+    );
+
+    if (replay.direction === 1 && currentIndex >= replayEndIndex) {
+      this.replayFlightTimeSec = track.timeSec[replayEndIndex];
+      this.store.setReplayIndex(replayEndIndex);
       this.stopTimer();
       this.store.pauseReplay();
       return;
     }
 
-    if (replay.direction === -1 && currentIndex <= 0) {
-      this.store.setReplayIndex(0);
+    if (replay.direction === -1 && currentIndex <= replayStartIndex) {
+      this.replayFlightTimeSec = track.timeSec[replayStartIndex];
+      this.store.setReplayIndex(replayStartIndex);
       this.stopTimer();
       this.store.pauseReplay();
       return;
@@ -190,14 +221,14 @@ export class FlightReplayControls implements OnDestroy {
       this.replayFlightTimeSec = track.timeSec[currentIndex];
     }
 
-    const targetFlightSec = this.replayFlightTimeSec + deltaReplaySec;
+    const firstFlightSec = track.timeSec[replayStartIndex];
+    const lastFlightSec = track.timeSec[replayEndIndex];
 
-    const firstFlightSec = track.timeSec[0];
-    const lastFlightSec = track.timeSec[lastIndex];
+    const targetFlightSec = this.replayFlightTimeSec + deltaReplaySec;
 
     if (targetFlightSec >= lastFlightSec) {
       this.replayFlightTimeSec = lastFlightSec;
-      this.store.setReplayIndex(lastIndex);
+      this.store.setReplayIndex(replayEndIndex);
       this.stopTimer();
       this.store.pauseReplay();
       return;
@@ -205,7 +236,7 @@ export class FlightReplayControls implements OnDestroy {
 
     if (targetFlightSec <= firstFlightSec) {
       this.replayFlightTimeSec = firstFlightSec;
-      this.store.setReplayIndex(0);
+      this.store.setReplayIndex(replayStartIndex);
       this.stopTimer();
       this.store.pauseReplay();
       return;
@@ -218,7 +249,12 @@ export class FlightReplayControls implements OnDestroy {
         ? this.findIndexByTime(track.timeSec, targetFlightSec)
         : this.findIndexByTimeReverse(track.timeSec, targetFlightSec);
 
-    this.store.setReplayIndex(targetIndex);
+    const safeTargetIndex = Math.max(
+      replayStartIndex,
+      Math.min(targetIndex, replayEndIndex)
+    );
+
+    this.store.setReplayIndex(safeTargetIndex);
   }
 
   private findIndexByTimeReverse(

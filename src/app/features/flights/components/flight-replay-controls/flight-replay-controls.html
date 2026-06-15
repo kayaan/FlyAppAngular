@@ -37,7 +37,7 @@
   </div>
 
   <div class="replay-slider-area">
-    <input class="replay-slider" type="range" min="0" [max]="maxIndex()" [value]="replayIndex()"
+    <input class="replay-slider" type="range" [min]="minIndex()" [max]="maxIndex()" [value]="replayIndex()"
       (pointerdown)="onSliderPointerDown()" (input)="onSliderInput()" (change)="onSliderCommit($event)"
       [disabled]="!hasTrack()" />
 
