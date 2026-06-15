@@ -144,12 +144,27 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
 
       if (displayedIndex === null) {
         this.hideCursorLine();
-        this.chart.dispatchAction({ type: 'hideTip' });
+        this.hideTooltip();
         return;
       }
 
       this.showCursorAtIndex(displayedIndex);
     });
+  }
+
+  private hideTooltip(): void {
+    if (!this.chart) {
+      return;
+    }
+
+    this.chart.dispatchAction({ type: 'hideTip' });
+
+    // ECharts can keep axisPointer/tooltip visually alive after programmatic showTip.
+    // This forces the linked chart group to clear the axis pointer too.
+    this.chart.dispatchAction({
+      type: 'updateAxisPointer',
+      currTrigger: 'leave',
+    } as any);
   }
 
 
@@ -512,7 +527,7 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
       if (this.store.replay().active) {
         return;
       }
-      
+
       this.store.setCursorIndex(null);
     });
   }

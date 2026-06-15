@@ -615,6 +615,7 @@ export const FlightDetailsStore = signalStore(
 
       stopReplay() {
         patchState(store, {
+          cursorIndex: null,
           replay: {
             ...store.replay(),
             active: false,
