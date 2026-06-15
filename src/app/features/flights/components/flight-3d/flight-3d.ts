@@ -1,6 +1,7 @@
 import {
   AfterViewInit,
   Component,
+  computed,
   effect,
   ElementRef,
   inject,
@@ -170,6 +171,30 @@ export class Flight3d implements AfterViewInit, OnDestroy {
     });
   }
 
+  readonly replayInfo = computed(() => {
+    const track = this.store.track();
+    const metrics = this.store.trackMetrics();
+    const replay = this.store.replay();
+
+    if (!track || !metrics || !replay.active || replay.index === null) {
+      return null;
+    }
+
+    const index = Math.max(
+      0,
+      Math.min(replay.index, metrics.altitudeM.length - 1)
+    );
+
+    return {
+      index,
+      maxIndex: track.timeSec.length - 1,
+      relativeTimeSec: track.timeSec[index] - track.timeSec[0],
+      altitudeM: metrics.altitudeM[index],
+      varioMs: metrics.varioMs[index],
+      speedKmh: metrics.speedKmh[index],
+    };
+  });
+
   private updateReplayCurrentEntity(
     track: TrackArrays,
     replayIndex: number
@@ -275,6 +300,41 @@ export class Flight3d implements AfterViewInit, OnDestroy {
     }
 
     this.replayStartEntity.position = position as any;
+  }
+
+  formatNumber(value: number, digits: number): string {
+    return value.toFixed(digits);
+  }
+
+  formatSignedNumber(value: number, digits: number): string {
+    const sign = value > 0 ? '+' : '';
+    return `${sign}${value.toFixed(digits)}`;
+  }
+  formatReplayTime(totalSeconds: number): string {
+    const safeSeconds = Math.max(0, Math.floor(totalSeconds));
+
+    const hours = Math.floor(safeSeconds / 3600);
+    const minutes = Math.floor((safeSeconds % 3600) / 60);
+    const seconds = safeSeconds % 60;
+
+    return [
+      hours.toString().padStart(2, '0'),
+      minutes.toString().padStart(2, '0'),
+      seconds.toString().padStart(2, '0'),
+    ].join(':');
+  }
+
+  formatAltitude(value: number): string {
+    return `${Math.round(value)} m`;
+  }
+
+  formatVario(value: number): string {
+    const sign = value > 0 ? '+' : '';
+    return `${sign}${value.toFixed(1)} m/s`;
+  }
+
+  formatSpeed(value: number): string {
+    return `${Math.round(value)} km/h`;
   }
 
   private clearReplayStartEntity(): void {

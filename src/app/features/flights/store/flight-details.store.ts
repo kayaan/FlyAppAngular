@@ -19,10 +19,13 @@ import { TrackColorService } from '../services/track-color.service';
 import { ClimbDetectorService } from '../services/climb-detector.service';
 import { DetectedClimb } from '../models/detected-climb.model';
 import { ReplayState } from '../models/replay-state.model';
+import { TrackMetrics } from '../models/track-metrics.model';
+import { TrackMetricsService } from '../services/track-metrics.service';
 
 type FlightDetailsState = {
   flight: Flight | null;
   track: TrackArrays | null;
+  trackMetrics: TrackMetrics | null;
   climbs: Climb[];
   stats: FlightStats[];
 
@@ -47,6 +50,7 @@ type FlightDetailsState = {
 const initialState: FlightDetailsState = {
   flight: null,
   track: null,
+  trackMetrics: null,
   climbs: [],
   stats: [],
 
@@ -163,6 +167,10 @@ export const FlightDetailsStore = signalStore(
   withMethods((store) => {
     const storage = inject(FlightIndexedDbService);
     const climbDetector = inject(ClimbDetectorService);
+    const trackMetricsService = inject(TrackMetricsService);
+    const settings = inject(FlightSettingsStore);
+
+
 
     function selectClimbByIndex(index: number): void {
       const climbs = store.climbs();
@@ -215,7 +223,27 @@ export const FlightDetailsStore = signalStore(
       );
     }
 
+    function calculateTrackMetrics(track: TrackArrays | null): TrackMetrics | null {
+      if (!track) {
+        return null;
+      }
+
+      return trackMetricsService.build(
+        track,
+        settings.altitudeChartResolutionInSec(),
+        settings.varioChartResolutionInSec(),
+        settings.speedChartResolutionInSec()
+      );
+    }
+
     return {
+
+      recalculateTrackMetrics(): void {
+        patchState(store, {
+          trackMetrics: calculateTrackMetrics(store.track()),
+        });
+      },
+
       setShowOnlySelectedClimbIn3d(value: boolean) {
         patchState(store, { showOnlySelectedClimbTrack: value });
       },
@@ -374,6 +402,7 @@ export const FlightDetailsStore = signalStore(
           selectedClimbId: null,
           selectedRange: null,
           cursorIndex: null,
+          trackMetrics: null,
           resetChartZoomRequest: store.resetChartZoomRequest() + 1,
           replay: {
             active: false,
@@ -391,6 +420,7 @@ export const FlightDetailsStore = signalStore(
             patchState(store, {
               flight: null,
               track: null,
+              trackMetrics: null,
               climbs: [],
               stats: [],
               selectedClimbId: null,
@@ -408,9 +438,12 @@ export const FlightDetailsStore = signalStore(
           const track = details.track ?? null;
           const climbs = calculateClimbs(track, details.flight.id);
 
+          const trackMetrics = calculateTrackMetrics(track);
+
           patchState(store, {
             flight: details.flight,
             track,
+            trackMetrics,
             climbs,
             stats: details.stats,
             selectedClimbId: null,
@@ -424,6 +457,7 @@ export const FlightDetailsStore = signalStore(
           patchState(store, {
             flight: null,
             track: null,
+            trackMetrics: null,
             climbs: [],
             stats: [],
             selectedClimbId: null,

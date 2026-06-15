@@ -41,7 +41,6 @@ export class FlightDetails implements OnInit, OnDestroy {
   private readonly varioResolutionInput$: Subject<number> = new Subject<number>();
   private readonly speedResolutionInput$: Subject<number> = new Subject<number>();
 
-  private readonly resolutionDebounceMs = 500;
 
   viewMode: 'map' | '3d' = 'map';
 
@@ -57,6 +56,7 @@ export class FlightDetails implements OnInit, OnDestroy {
       )
       .subscribe((value) => {
         this.settingsStore.setAltitudeChartResolutionInSec(value);
+        this.store.recalculateTrackMetrics();
       });
 
     this.varioResolutionInput$
@@ -66,6 +66,7 @@ export class FlightDetails implements OnInit, OnDestroy {
       )
       .subscribe((value) => {
         this.settingsStore.setVarioChartResolutionInSec(value);
+        this.store.recalculateTrackMetrics();
       });
 
     this.speedResolutionInput$
@@ -75,6 +76,7 @@ export class FlightDetails implements OnInit, OnDestroy {
       )
       .subscribe((value) => {
         this.settingsStore.setSpeedChartResolutionInSec(value);
+        this.store.recalculateTrackMetrics();
       });
   }
 
@@ -135,197 +137,53 @@ export class FlightDetails implements OnInit, OnDestroy {
 
   readonly altitudeData = computed<FlightChartPoint[]>(() => {
     const track = this.store.track();
+    const metrics = this.store.trackMetrics();
 
-    if (!track) {
+    if (!track || !metrics) {
       return [];
     }
 
-    const resolutionSec = this.settingsStore.altitudeChartResolutionInSec();
-    const result: FlightChartPoint[] = [];
-
-    for (let i = 0; i < track.timeSec.length; i++) {
-      result.push({
-        index: i,
-        timeSec: track.timeSec[i],
-        value: this.averageAltitudeM(track, i, resolutionSec),
-      });
-    }
-
-    return result;
+    return this.toChartPoints(track.timeSec, metrics.altitudeM);
   });
 
   readonly varioData = computed<FlightChartPoint[]>(() => {
     const track = this.store.track();
+    const metrics = this.store.trackMetrics();
 
-    if (!track) {
+    if (!track || !metrics) {
       return [];
     }
 
-    const resolutionSec = this.settingsStore.varioChartResolutionInSec();
-    const result: FlightChartPoint[] = [];
-
-    for (let i = 0; i < track.timeSec.length; i++) {
-      result.push({
-        index: i,
-        timeSec: track.timeSec[i],
-        value: this.averageVarioMs(track, i, resolutionSec),
-      });
-    }
-
-    return result;
+    return this.toChartPoints(track.timeSec, metrics.varioMs);
   });
 
   readonly speedData = computed<FlightChartPoint[]>(() => {
     const track = this.store.track();
+    const metrics = this.store.trackMetrics();
 
-    if (!track) {
+    if (!track || !metrics) {
       return [];
     }
 
-    const resolutionSec = this.settingsStore.speedChartResolutionInSec();
+    return this.toChartPoints(track.timeSec, metrics.speedKmh);
+  });
+
+  private toChartPoints(
+    timeSec: Int32Array,
+    values: Float32Array
+  ): FlightChartPoint[] {
+    const pointCount = Math.min(timeSec.length, values.length);
     const result: FlightChartPoint[] = [];
 
-    for (let i = 0; i < track.timeSec.length; i++) {
+    for (let i = 0; i < pointCount; i++) {
       result.push({
         index: i,
-        timeSec: track.timeSec[i],
-        value: this.averageSpeedKmh(track, i, resolutionSec),
+        timeSec: timeSec[i],
+        value: values[i],
       });
     }
 
     return result;
-  });
-
-
-  private averageAltitudeM(
-    track: TrackArrays,
-    currentIndex: number,
-    resolutionSec: number
-  ): number {
-    const currentTimeSec = track.timeSec[currentIndex];
-    const fromTimeSec = currentTimeSec - resolutionSec;
-
-    let sum = 0;
-    let count = 0;
-
-    for (let i = currentIndex; i >= 0; i--) {
-      if (track.timeSec[i] < fromTimeSec) {
-        break;
-      }
-
-      sum += track.altGpsCm[i] / 100;
-      count++;
-    }
-
-    if (count === 0) {
-      return track.altGpsCm[currentIndex] / 100;
-    }
-
-    return sum / count;
-  }
-
-  private averageVarioMs(
-    track: TrackArrays,
-    currentIndex: number,
-    resolutionSec: number
-  ): number {
-    if (currentIndex === 0) {
-      return 0;
-    }
-
-    const previousIndex = this.findPreviousIndexByResolution(
-      track.timeSec,
-      currentIndex,
-      resolutionSec
-    );
-
-    const dtSec = track.timeSec[currentIndex] - track.timeSec[previousIndex];
-
-    if (dtSec <= 0) {
-      return 0;
-    }
-
-    const altitudeDiffM =
-      (track.altGpsCm[currentIndex] - track.altGpsCm[previousIndex]) / 100;
-
-    return altitudeDiffM / dtSec;
-  }
-
-  private averageSpeedKmh(
-    track: TrackArrays,
-    currentIndex: number,
-    resolutionSec: number
-  ): number {
-    if (currentIndex === 0) {
-      return 0;
-    }
-
-    const previousIndex = this.findPreviousIndexByResolution(
-      track.timeSec,
-      currentIndex,
-      resolutionSec
-    );
-
-    const dtSec = track.timeSec[currentIndex] - track.timeSec[previousIndex];
-
-    if (dtSec <= 0) {
-      return 0;
-    }
-
-    let distanceM = 0;
-
-    for (let i = previousIndex + 1; i <= currentIndex; i++) {
-      distanceM += this.distanceMeters(
-        track.latE7[i - 1] / 10_000_000,
-        track.lonE7[i - 1] / 10_000_000,
-        track.latE7[i] / 10_000_000,
-        track.lonE7[i] / 10_000_000
-      );
-    }
-
-    return (distanceM / dtSec) * 3.6;
-  }
-
-  private findPreviousIndexByResolution(
-    timeSec: Int32Array,
-    currentIndex: number,
-    resolutionSec: number
-  ): number {
-    const safeResolutionSec = Math.max(1, Math.round(resolutionSec));
-    const targetTimeSec = timeSec[currentIndex] - safeResolutionSec;
-
-    for (let i = currentIndex - 1; i >= 0; i--) {
-      if (timeSec[i] <= targetTimeSec) {
-        return i;
-      }
-    }
-
-    return 0;
-  }
-
-  private distanceMeters(
-    lat1: number,
-    lon1: number,
-    lat2: number,
-    lon2: number
-  ): number {
-    const earthRadiusM = 6_371_000;
-
-    const phi1 = this.toRad(lat1);
-    const phi2 = this.toRad(lat2);
-    const deltaPhi = this.toRad(lat2 - lat1);
-    const deltaLambda = this.toRad(lon2 - lon1);
-
-    const a =
-      Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
-      Math.cos(phi1) *
-      Math.cos(phi2) *
-      Math.sin(deltaLambda / 2) *
-      Math.sin(deltaLambda / 2);
-
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-    return earthRadiusM * c;
   }
 
   private toRad(value: number): number {
@@ -385,8 +243,4 @@ export class FlightDetails implements OnInit, OnDestroy {
 
     this.store.clear();
   }
-}
-
-function takeUntilDestroyed(destroyRef: DestroyRef): import("rxjs").OperatorFunction<number, unknown> {
-  throw new Error('Function not implemented.');
 }
