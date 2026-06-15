@@ -3,3 +3,66 @@
   height: 100%;
   min-height: 150px;
 }
+
+:host ::ng-deep .chart-tooltip {
+  min-width: 132px;
+  padding: 8px 10px;
+
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 10px;
+
+  background: rgba(15, 23, 42, 0.9);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.24);
+
+  color: #ffffff;
+  font-family:
+    Inter,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}
+
+:host ::ng-deep .chart-tooltip-value {
+  width: 100%;
+  text-align: right;
+
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.15;
+
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+:host ::ng-deep .chart-tooltip-time {
+  margin-top: 4px;
+  width: 100%;
+  text-align: right;
+
+  color: rgba(255, 255, 255, 0.72);
+
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+:host ::ng-deep .chart-tooltip-value.altitude {
+  color: #38bdf8;
+}
+
+:host ::ng-deep .chart-tooltip-value.vario-positive {
+  color: #22c55e;
+}
+
+:host ::ng-deep .chart-tooltip-value.vario-negative {
+  color: #ef4444;
+}
+
+:host ::ng-deep .chart-tooltip-value.speed {
+  color: #f59e0b;
+}
