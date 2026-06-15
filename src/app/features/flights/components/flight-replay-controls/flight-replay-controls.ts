@@ -13,6 +13,8 @@ const REPLAY_TICK_MS = 100;
 export class FlightReplayControls implements OnDestroy {
   readonly store = inject(FlightDetailsStore);
 
+  private replayFlightTimeSec: number | null = null;
+
   private replayTimerId: number | null = null;
   private lastTickRealMs = 0;
 
@@ -67,6 +69,7 @@ export class FlightReplayControls implements OnDestroy {
     // intentionally empty:
     // store replay.index is updated only on slider commit/release
   }
+
   onSliderCommit(event: Event): void {
     const input = event.target as HTMLInputElement;
     const index = Number(input.value);
@@ -75,11 +78,15 @@ export class FlightReplayControls implements OnDestroy {
 
     this.store.setReplayIndex(index);
 
+    const track = this.store.track();
+    if (track && index >= 0 && index < track.timeSec.length) {
+      this.replayFlightTimeSec = track.timeSec[index];
+    }
+
     if (this.store.replay().active && !this.store.replay().paused) {
       this.lastTickRealMs = performance.now();
     }
   }
-
 
   private startTimerFromCurrentIndex(): void {
     const track = this.store.track();
@@ -90,6 +97,10 @@ export class FlightReplayControls implements OnDestroy {
 
     this.stopTimer();
 
+    const replayIndex = this.store.replay().index ?? 0;
+    const safeIndex = Math.max(0, Math.min(replayIndex, track.timeSec.length - 1));
+
+    this.replayFlightTimeSec = track.timeSec[safeIndex];
     this.lastTickRealMs = performance.now();
 
     this.replayTimerId = window.setInterval(() => {
@@ -174,13 +185,17 @@ export class FlightReplayControls implements OnDestroy {
 
     const deltaReplaySec = deltaRealSec * replay.speed * replay.direction;
 
-    const currentFlightSec = track.timeSec[currentIndex];
-    const targetFlightSec = currentFlightSec + deltaReplaySec;
+    if (this.replayFlightTimeSec === null) {
+      this.replayFlightTimeSec = track.timeSec[currentIndex];
+    }
+
+    const targetFlightSec = this.replayFlightTimeSec + deltaReplaySec;
 
     const firstFlightSec = track.timeSec[0];
     const lastFlightSec = track.timeSec[lastIndex];
 
     if (targetFlightSec >= lastFlightSec) {
+      this.replayFlightTimeSec = lastFlightSec;
       this.store.setReplayIndex(lastIndex);
       this.stopTimer();
       this.store.pauseReplay();
@@ -188,11 +203,14 @@ export class FlightReplayControls implements OnDestroy {
     }
 
     if (targetFlightSec <= firstFlightSec) {
+      this.replayFlightTimeSec = firstFlightSec;
       this.store.setReplayIndex(0);
       this.stopTimer();
       this.store.pauseReplay();
       return;
     }
+
+    this.replayFlightTimeSec = targetFlightSec;
 
     const targetIndex =
       replay.direction === 1
