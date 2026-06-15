@@ -42,7 +42,7 @@ export class FlightDetails implements OnInit, OnDestroy {
   private readonly speedResolutionInput$: Subject<number> = new Subject<number>();
 
 
-  viewMode: 'map' | '3d' = 'map';
+  viewMode: 'map' | '3d' = '3d';
 
   setViewMode(mode: 'map' | '3d'): void {
     this.viewMode = mode;
