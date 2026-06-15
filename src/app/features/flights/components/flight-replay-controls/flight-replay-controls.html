@@ -29,9 +29,27 @@
       }
     </select>
 
+    <label class="replay-control-group">
+      <span>Trail</span>
+      <select [value]="replayTrailDurationValue()" (change)="onTrailDurationChange($event)">
+        <option value="full">Full</option>
+        <option value="60">60s</option>
+        <option value="120">120s</option>
+        <option value="300">300s</option>
+        <option value="custom">Custom</option>
+      </select>
+    </label>
+
+    @if (showCustomTrailDuration()) {
+    <label class="replay-control-group replay-custom-trail">
+      <span>Seconds</span>
+      <input type="number" min="1" step="1" [value]="customTrailDurationSec()"
+        (change)="onCustomTrailDurationChange($event)" />
+    </label>
+    }
+
     <label class="replay-follow-toggle">
-      <input type="checkbox" [checked]="store.replay().cameraFollowEnabled"
-        (change)="toggleCameraFollow($event)" />
+      <input type="checkbox" [checked]="store.replay().cameraFollowEnabled" (change)="toggleCameraFollow($event)" />
       <span>Follow camera</span>
     </label>
   </div>

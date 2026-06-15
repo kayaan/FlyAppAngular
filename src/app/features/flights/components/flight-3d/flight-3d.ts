@@ -501,9 +501,23 @@ export class Flight3d implements AfterViewInit, OnDestroy {
       Math.min(replayIndex, range.endIndex)
     );
 
+    const trailDurationSec = this.store.replay().replayTrailDurationSec;
+
+    let trailStartIndex = range.startIndex;
+
+    if (trailDurationSec !== null) {
+      const currentFlightSec = track.timeSec[safeReplayIndex];
+      const minTrailTimeSec = currentFlightSec - trailDurationSec;
+
+      trailStartIndex = Math.max(
+        range.startIndex,
+        this.findIndexAtOrAfterTime(track.timeSec, minTrailTimeSec)
+      );
+    }
+
     const positions: Cartesian3[] = [];
 
-    for (let i = range.startIndex; i <= safeReplayIndex; i += this.renderStep) {
+    for (let i = trailStartIndex; i <= safeReplayIndex; i += this.renderStep) {
       const position = this.buildPosition(track, i);
 
       if (position) {
@@ -681,19 +695,19 @@ export class Flight3d implements AfterViewInit, OnDestroy {
 
     const cameraLatRad = Math.asin(
       Math.sin(targetLatRad) * Math.cos(angularDistance) +
-        Math.cos(targetLatRad) *
-          Math.sin(angularDistance) *
-          Math.cos(behindHeading)
+      Math.cos(targetLatRad) *
+      Math.sin(angularDistance) *
+      Math.cos(behindHeading)
     );
 
     const cameraLonRad =
       targetLonRad +
       Math.atan2(
         Math.sin(behindHeading) *
-          Math.sin(angularDistance) *
-          Math.cos(targetLatRad),
+        Math.sin(angularDistance) *
+        Math.cos(targetLatRad),
         Math.cos(angularDistance) -
-          Math.sin(targetLatRad) * Math.sin(cameraLatRad)
+        Math.sin(targetLatRad) * Math.sin(cameraLatRad)
       );
 
     return Cartesian3.fromDegrees(
@@ -1230,7 +1244,7 @@ export class Flight3d implements AfterViewInit, OnDestroy {
       this.trackAltitudeOffsetM +
       this.verticalExaggerationRelativeHeight +
       (heightM - this.verticalExaggerationRelativeHeight) *
-        this.verticalExaggeration
+      this.verticalExaggeration
     );
   }
 
@@ -1241,6 +1255,38 @@ export class Flight3d implements AfterViewInit, OnDestroy {
       track.altGpsCm.length,
       track.timeSec.length
     );
+  }
+
+  private findIndexAtOrAfterTime(
+    timeSec: Int32Array,
+    targetTimeSec: number
+  ): number {
+    if (timeSec.length === 0) {
+      return 0;
+    }
+
+    if (targetTimeSec <= timeSec[0]) {
+      return 0;
+    }
+
+    if (targetTimeSec >= timeSec[timeSec.length - 1]) {
+      return timeSec.length - 1;
+    }
+
+    let low = 0;
+    let high = timeSec.length - 1;
+
+    while (low < high) {
+      const mid = Math.floor((low + high) / 2);
+
+      if (timeSec[mid] < targetTimeSec) {
+        low = mid + 1;
+      } else {
+        high = mid;
+      }
+    }
+
+    return low;
   }
 
   private normalizeReplayRange(

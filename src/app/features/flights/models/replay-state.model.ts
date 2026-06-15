@@ -14,4 +14,5 @@ export type ReplayState = {
   direction: ReplayDirection;
   cameraFollowEnabled: boolean;
   range: ReplayRange | null;
+  replayTrailDurationSec: number | null;
 };

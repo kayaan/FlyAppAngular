@@ -298,6 +298,58 @@ export class FlightReplayControls implements OnDestroy {
     this.replayTimerId = null;
   }
 
+  readonly replayTrailDurationValue = computed(() => {
+    const durationSec = this.store.replay().replayTrailDurationSec;
+
+    if (durationSec === null) {
+      return 'full';
+    }
+
+    if (durationSec === 60 || durationSec === 120 || durationSec === 300) {
+      return String(durationSec);
+    }
+
+    return 'custom';
+  });
+
+  readonly showCustomTrailDuration = computed(() => {
+    return this.replayTrailDurationValue() === 'custom';
+  });
+
+  readonly customTrailDurationSec = computed(() => {
+    return this.store.replay().replayTrailDurationSec ?? 60;
+  });
+
+  onTrailDurationChange(event: Event): void {
+    const value = (event.target as HTMLSelectElement).value;
+
+    if (value === 'full') {
+      this.store.setReplayTrailDurationSec(null);
+      return;
+    }
+
+    if (value === 'custom') {
+      const current = this.store.replay().replayTrailDurationSec;
+
+      if (current === null || current === 60 || current === 120 || current === 300) {
+        this.store.setReplayTrailDurationSec(180);
+      }
+
+      return;
+    }
+
+    this.store.setReplayTrailDurationSec(Number(value));
+  }
+
+  onCustomTrailDurationChange(event: Event): void {
+    const value = Number((event.target as HTMLInputElement).value);
+
+    if (!Number.isFinite(value) || value <= 0) {
+      return;
+    }
+
+    this.store.setReplayTrailDurationSec(value);
+  }
   onSpeedChange(event: Event): void {
     const select = event.target as HTMLSelectElement;
 
