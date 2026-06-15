@@ -54,7 +54,7 @@ export class Flight3d implements AfterViewInit, OnDestroy {
   private readonly verticalExaggeration = 2.0;
   private readonly verticalExaggerationRelativeHeight = 0.0;
 
-  private readonly trackAltitudeOffsetM = 100;
+  private readonly trackAltitudeOffsetM = 20;
 
   private readonly renderStep = 3;
   private readonly varioClassCount = 12;
@@ -269,7 +269,7 @@ export class Flight3d implements AfterViewInit, OnDestroy {
 
     // Keep the flight track visible even if terrain exaggeration would
     // otherwise hide parts of it behind the terrain.
-    this.viewer.scene.globe.depthTestAgainstTerrain = false;
+    this.viewer.scene.globe.depthTestAgainstTerrain = true;
 
     this.viewer.scene.verticalExaggeration = this.verticalExaggeration;
     this.viewer.scene.verticalExaggerationRelativeHeight =
