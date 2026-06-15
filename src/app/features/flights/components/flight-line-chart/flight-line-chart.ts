@@ -113,10 +113,10 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
     if (changes['data'] || changes['title'] || changes['unit']) {
       this.updateChart();
 
-      const cursorIndex = this.store.cursorIndex();
+      const displayedIndex = this.getDisplayedTrackIndex();
 
-      if (cursorIndex !== null) {
-        this.showCursorAtIndex(cursorIndex);
+      if (displayedIndex !== null) {
+        this.showCursorAtIndex(displayedIndex);
       }
     }
   }
@@ -130,21 +130,28 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
 
   private setupCursorEffect(): void {
     effect(() => {
+      const replay = this.store.replay();
       const cursorIndex = this.store.cursorIndex();
 
       if (!this.chart) {
         return;
       }
 
-      if (cursorIndex === null) {
+      const displayedIndex =
+        replay.active && replay.index !== null
+          ? replay.index
+          : cursorIndex;
+
+      if (displayedIndex === null) {
         this.hideCursorLine();
         this.chart.dispatchAction({ type: 'hideTip' });
         return;
       }
 
-      this.showCursorAtIndex(cursorIndex);
+      this.showCursorAtIndex(displayedIndex);
     });
   }
+
 
   private setupZoomToSelectedClimbEffect(): void {
     effect(() => {
@@ -221,7 +228,7 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
             label: {
               show: false,
             },
-            data: this.buildMarkLineData(this.store.cursorIndex()),
+            data: this.buildMarkLineData(this.getDisplayedTrackIndex()),
           },
         },
       ],
@@ -444,7 +451,21 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
     ].join(':');
   }
 
+  private getDisplayedTrackIndex(): number | null {
+    const replay = this.store.replay();
+
+    if (replay.active && replay.index !== null) {
+      return replay.index;
+    }
+
+    return this.store.cursorIndex();
+  }
+
   private registerChartHoverEvents(): void {
+    if (this.store.replay().active) {
+      return;
+    }
+
     if (!this.chart) {
       return;
     }
@@ -488,6 +509,10 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
     });
 
     this.chartContainer.nativeElement.addEventListener('mouseleave', () => {
+      if (this.store.replay().active) {
+        return;
+      }
+      
       this.store.setCursorIndex(null);
     });
   }
