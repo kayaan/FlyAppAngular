@@ -27,6 +27,8 @@ import {
   ScreenSpaceEventHandler,
   ScreenSpaceEventType,
   Viewer,
+  ConstantProperty,
+  ColorMaterialProperty,
 } from 'cesium';
 
 import { FlightDetailsStore } from '../../store/flight-details.store';
@@ -94,17 +96,13 @@ export class Flight3d implements AfterViewInit, OnDestroy {
       }
 
       if (replayActive) {
-        for (const entity of this.flightTrackEntities) {
-          entity.show = false;
-        }
-
+        this.setFlightTrackGhostMode(true);
         this.clearSelectedClimbEntity();
         return;
       }
 
-      for (const entity of this.flightTrackEntities) {
-        entity.show = true;
-      }
+      this.setFlightTrackGhostMode(false);
+
 
       const shouldCenter = track !== this.lastTrackReference;
 
@@ -188,6 +186,34 @@ export class Flight3d implements AfterViewInit, OnDestroy {
         this.followReplayCamera(track, replayIndex);
       }
     });
+  }
+
+  private setFlightTrackGhostMode(enabled: boolean): void {
+    for (const entity of this.flightTrackEntities) {
+      entity.show = true;
+
+      const polyline = entity.polyline;
+
+      if (!polyline) {
+        continue;
+      }
+
+      polyline.width = new ConstantProperty(enabled ? 1.0 : 1.5);
+
+      const varioClass = entity.properties?.getValue()?.['varioClass'] as
+        | number
+        | undefined;
+
+      if (typeof varioClass !== 'number') {
+        continue;
+      }
+
+      const color = enabled
+        ? this.getColorForVarioClass(varioClass).withAlpha(0.35)
+        : this.getColorForVarioClass(varioClass);
+
+      polyline.material = new ColorMaterialProperty(color);
+    }
   }
 
   readonly replayInfo = computed(() => {
@@ -942,6 +968,8 @@ export class Flight3d implements AfterViewInit, OnDestroy {
       return;
     }
 
+    this.setFlightTrackGhostMode(this.store.replay.active());
+
     if (shouldCenter) {
       this.viewer.flyTo(this.flightTrackEntities, {
         duration: 0.8,
@@ -1118,10 +1146,13 @@ export class Flight3d implements AfterViewInit, OnDestroy {
 
     return this.viewer.entities.add({
       name: 'Flight track block',
+      properties: {
+        varioClass,
+      },
       polyline: {
         positions,
         width: 1.5,
-        material: this.getColorForVarioClass(varioClass),
+        material: new ColorMaterialProperty(this.getColorForVarioClass(varioClass)),
         clampToGround: false,
         arcType: ArcType.NONE,
       },
