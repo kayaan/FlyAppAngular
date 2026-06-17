@@ -22,7 +22,7 @@ The application runs in the browser, stores imported flights locally using Index
 
 ## Tech Stack
 
-* Angular
+* Angular 21
 * TypeScript
 * Angular Signals
 * NgRx SignalStore
