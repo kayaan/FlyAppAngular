@@ -1,5 +1,6 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
+import { AuthStore } from '../../../features/auth/store/auth.store';
 
 @Component({
   selector: 'app-shell',
@@ -8,4 +9,11 @@ import { RouterOutlet } from '@angular/router';
   templateUrl: './app-shell.html',
   styleUrl: './app-shell.scss',
 })
-export class AppShell {}
+export class AppShell {
+
+  readonly authStore = inject(AuthStore);
+
+  constructor() {
+    this.authStore.loadMe();
+  }
+}

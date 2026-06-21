@@ -1,7 +1,77 @@
 .app-shell {
-  min-height: 100vh;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #f6f7f9;
+  overflow: hidden;
+}
+
+.app-header {
+  flex: 0 0 48px;
+  height: 48px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #ffffff;
+  border-bottom: 1px solid #d9dde3;
+}
+
+.app-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1f2933;
+}
+
+.auth-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.auth-status,
+.auth-user {
+  font-size: 13px;
+  color: #4b5563;
+}
+
+.auth-user {
+  max-width: 260px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.auth-button {
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.auth-button.primary {
+  border: 1px solid #2563eb;
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.auth-button.primary:hover {
+  background: #1d4ed8;
+}
+
+.auth-button.secondary {
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #334155;
+}
+
+.auth-button.secondary:hover {
+  background: #f1f5f9;
 }
 
 .app-content {
-  min-height: 100vh;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
 }
