@@ -4,11 +4,11 @@
 
     @if (store.flight(); as flight) {
     <div class="title-line">
-      <strong>{{ formatDate(flight.date) }}</strong>
+      <strong>{{ formatDate(flight.flightDate) }}</strong>
       <span>·</span>
-      <span>{{ flight.pilotName || 'Unknown pilot' }}</span>
+      <span>{{ flight.pilot || 'Unknown pilot' }}</span>
       <span>·</span>
-      <span>{{ flight.gliderType || 'Unknown glider' }}</span>
+      <span>{{ flight.glider || 'Unknown glider' }}</span>
     </div>
     }
 

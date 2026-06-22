@@ -1,19 +1,16 @@
-import { Injectable, inject } from '@angular/core';
-
-import { FlightImportService } from './flight-import.service';
-import { FlightIndexedDbService } from '../data-access/flight-indexeddb.service';
+import { inject, Injectable } from '@angular/core';
 
 import {
   NewFlight,
   NewFlightStats,
 } from '../data-access/flight-storage.interface';
+import { FlightIndexedDbService } from '../data-access/flight-indexeddb.service';
+import { FlightImportService } from './flight-import.service';
 
-export interface SaveFlightResult {
-  flightId: number;
-  fileName: string;
-  fileHash: string;
+export type SaveFlightResult = {
+  flightId: string | null;
   duplicate: boolean;
-}
+};
 
 @Injectable({
   providedIn: 'root',
@@ -22,79 +19,59 @@ export class FlightSaveService {
   private readonly flightImportService = inject(FlightImportService);
   private readonly storage = inject(FlightIndexedDbService);
 
-  /**
-   * Imports, analyzes and saves one IGC file.
-   *
-   * The save operation itself is done in one IndexedDB transaction.
-   */
   async saveFile(file: File): Promise<SaveFlightResult> {
     const analysis = await this.flightImportService.analyzeFile(file);
 
-    const alreadyExists = await this.storage.existsByFileHash(analysis.fileHash);
+    const exists = await this.storage.existsFlight(analysis.id);
 
-    if (alreadyExists) {
+    if (exists) {
       return {
-        flightId: 0,
-        fileName: analysis.fileName,
-        fileHash: analysis.fileHash,
+        flightId: null,
         duplicate: true,
       };
     }
 
     const nowUtc = new Date().toISOString();
 
-    const newFlight: NewFlight = {
+    const flight: NewFlight = {
+      id: analysis.id,
       fileName: analysis.fileName,
-      fileHash: analysis.fileHash,
-
-      pilotName: analysis.meta.pilot,
-      gliderType: analysis.meta.glider,
-      date: analysis.meta.date,
-
+      flightDate: analysis.meta.date ?? null,
+      pilot: analysis.meta.pilot ?? null,
+      glider: analysis.meta.glider ?? null,
       importedAtUtc: nowUtc,
     };
 
-    const stats: NewFlightStats[] = [
-      {
-        scopeType: 'flight',
-        scopeId: null,
-        statsVersion: 1,
+    const stats: NewFlightStats = {
+      id: analysis.id,
 
-        startIndex: analysis.stats.startIndex,
-        endIndex: analysis.stats.endIndex,
-        fixCount: analysis.stats.fixCount,
+      startIndex: analysis.stats.startIndex,
+      endIndex: analysis.stats.endIndex,
+      fixCount: analysis.stats.fixCount,
 
-        startTimeSec: analysis.stats.startTimeSec,
-        endTimeSec: analysis.stats.endTimeSec,
-        durationSec: analysis.stats.durationSec,
+      startTimeSec: analysis.stats.startTimeSec,
+      endTimeSec: analysis.stats.endTimeSec,
+      durationSec: analysis.stats.durationSec,
 
-        distanceM: analysis.stats.distanceM,
+      distanceM: analysis.stats.distanceM,
 
-        minAltGpsM: analysis.stats.minAltGpsM,
-        maxAltGpsM: analysis.stats.maxAltGpsM,
-        gainGpsM: analysis.stats.gainGpsM,
+      minAltGpsM: analysis.stats.minAltGpsM,
+      maxAltGpsM: analysis.stats.maxAltGpsM,
+      gainGpsM: analysis.stats.gainGpsM,
 
-        minAltBaroM: analysis.stats.minAltBaroM,
-        maxAltBaroM: analysis.stats.maxAltBaroM,
-        gainBaroM: analysis.stats.gainBaroM,
-
-        avgSpeedKmh: analysis.stats.avgSpeedKmh,
-        maxSpeedKmh: analysis.stats.maxSpeedKmh,
-
-        calculatedAtUtc: nowUtc,
-      },
-    ];
+      minAltBaroM: analysis.stats.minAltBaroM,
+      maxAltBaroM: analysis.stats.maxAltBaroM,
+      gainBaroM: analysis.stats.gainBaroM,
+    };
 
     const flightId = await this.storage.saveCompleteImport({
-      flight: newFlight,
+      flight,
       track: analysis.track,
       stats,
     });
 
     return {
       flightId,
-      fileName: analysis.fileName,
-      fileHash: analysis.fileHash,
       duplicate: false,
     };
   }

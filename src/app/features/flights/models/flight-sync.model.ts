@@ -1,6 +1,5 @@
-import { BackendFlight } from './backend-flight.model';
 import { Flight } from './flight.model';
-import { FlightStats } from './flight-stats.model';
+import { BackendFlight } from './backend-flight.model';
 
 export type FlightSyncStatus =
   | 'synced'
@@ -11,12 +10,8 @@ export type FlightSyncStatus =
   | 'error';
 
 export interface FlightListItem {
-  id: string; // SHA-256 of original IGC bytes
-
+  fileHash: string;
   localFlight: Flight | null;
   backendFlight: BackendFlight | null;
-
-  localStats: FlightStats | null;
-
   syncStatus: FlightSyncStatus;
 }

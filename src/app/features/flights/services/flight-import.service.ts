@@ -2,12 +2,10 @@ import { Injectable, inject } from '@angular/core';
 
 import { IgcParserService } from './igc-parser.service';
 import { FlightStatsCalculatorService } from './flight-stats-calculator.service';
-import { ClimbDetectorService } from './climb-detector.service';
 import { FileHashService } from './file-hash.service';
 
 import { TrackArrays } from '../models/track-arrays.model';
 import { CalculatedFlightStats } from '../models/calculated-flight-stats.model';
-import { DetectedClimb } from '../models/detected-climb.model';
 
 export interface FlightImportMeta {
   pilot?: string;
@@ -16,8 +14,9 @@ export interface FlightImportMeta {
 }
 
 export interface FlightImportAnalysisResult {
+  id: string; // SHA-256 of original IGC bytes
+
   fileName: string;
-  fileHash: string;
 
   meta: FlightImportMeta;
 
@@ -33,19 +32,8 @@ export class FlightImportService {
   private readonly statsCalculator = inject(FlightStatsCalculatorService);
   private readonly fileHashService = inject(FileHashService);
 
-  /**
-   * Imports and analyzes one IGC file.
-   *
-   * This service does not save anything.
-   * It only:
-   * - calculates the file hash
-   * - reads the IGC text
-   * - parses track + metadata
-   * - calculates flight stats
-   * - detects climbs
-   */
   async analyzeFile(file: File): Promise<FlightImportAnalysisResult> {
-    const fileHash = await this.fileHashService.calculateFileHash(file);
+    const id = await this.fileHashService.calculateFileHash(file);
     const igcText = await file.text();
 
     const parsed = this.igcParser.parse(igcText);
@@ -53,8 +41,8 @@ export class FlightImportService {
     const stats = this.statsCalculator.calculate(parsed.track);
 
     return {
+      id,
       fileName: file.name,
-      fileHash,
 
       meta: parsed.meta,
 

@@ -16,7 +16,4 @@ export interface CalculatedFlightStats {
   minAltBaroM: number;
   maxAltBaroM: number;
   gainBaroM: number;
-
-  avgSpeedKmh: number;
-  maxSpeedKmh: number;
 }

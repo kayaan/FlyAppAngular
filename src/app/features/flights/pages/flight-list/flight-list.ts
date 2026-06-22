@@ -1,11 +1,13 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { Component, OnInit, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
+
 import { FlightsStore } from '../../store/flights.store';
 
 @Component({
   selector: 'app-flight-list',
   standalone: true,
-  imports: [RouterLink],
+  imports: [CommonModule, RouterLink],
   templateUrl: './flight-list.html',
   styleUrl: './flight-list.scss',
 })
@@ -13,7 +15,7 @@ export class FlightList implements OnInit {
   readonly store = inject(FlightsStore);
 
   ngOnInit(): void {
-    this.store.loadFlights();
+    void this.store.loadFlights();
   }
 
   onFilesSelected(event: Event): void {
@@ -23,22 +25,33 @@ export class FlightList implements OnInit {
       return;
     }
 
-    this.store.importFiles(input.files);
+    void this.store.importFiles(input.files);
+
     input.value = '';
   }
 
-  formatDate(value: string | undefined | null): string {
-    if (!value) return '—';
+  formatDate(value: string | null | undefined): string {
+    if (!value) {
+      return '—';
+    }
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+      return value;
+    }
 
     return new Intl.DateTimeFormat('de-DE', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
-    }).format(new Date(value));
+    }).format(date);
   }
 
-  formatTime(timeSec: number | undefined | null): string {
-    if (timeSec == null) return '—';
+  formatTime(timeSec: number | null | undefined): string {
+    if (timeSec == null) {
+      return '—';
+    }
 
     const hours = Math.floor(timeSec / 3600);
     const minutes = Math.floor((timeSec % 3600) / 60);
@@ -48,8 +61,10 @@ export class FlightList implements OnInit {
       .padStart(2, '0')}`;
   }
 
-  formatDuration(durationSec: number | undefined | null): string {
-    if (durationSec == null) return '—';
+  formatDuration(durationSec: number | null | undefined): string {
+    if (durationSec == null) {
+      return '—';
+    }
 
     const hours = Math.floor(durationSec / 3600);
     const minutes = Math.floor((durationSec % 3600) / 60);
@@ -61,14 +76,18 @@ export class FlightList implements OnInit {
     return `${minutes}m`;
   }
 
-  formatDistance(distanceM: number | undefined | null): string {
-    if (distanceM == null) return '—';
+  formatDistance(distanceM: number | null | undefined): string {
+    if (distanceM == null) {
+      return '—';
+    }
 
     return `${(distanceM / 1000).toFixed(1)} km`;
   }
 
-  formatHeight(heightM: number | undefined | null): string {
-    if (heightM == null) return '—';
+  formatHeight(heightM: number | null | undefined): string {
+    if (heightM == null) {
+      return '—';
+    }
 
     return `${Math.round(heightM)} m`;
   }

@@ -2,356 +2,204 @@ import { Injectable } from '@angular/core';
 import { DBSchema, IDBPDatabase, openDB } from 'idb';
 
 import { Flight } from '../models/flight.model';
-import { TrackArrays } from '../models/track-arrays.model';
-import { Climb } from '../models/climb.model';
 import { FlightStats } from '../models/flight-stats.model';
+import { TrackArrays } from '../models/track-arrays.model';
 
 import {
-    FlightDetails,
-    FlightStorage,
-    NewClimb,
-    NewFlight,
-    NewFlightImport,
-    NewFlightStats,
+  FlightDetails,
+  FlightStorage,
+  LocalFlightListItem,
+  NewFlight,
+  NewFlightImport,
+  NewFlightStats,
 } from './flight-storage.interface';
-import { FlightListItem } from '../models/flight-list-item.model';
 
 interface FlightDbSchema extends DBSchema {
-    flights: {
-        key: number;
-        value: Flight;
-        indexes: {
-            'by-file-hash': string;
-        };
-    };
+  flights: {
+    key: string;
+    value: Flight;
+  };
 
-    tracks: {
-        key: number;
-        value: {
-            flightId: number;
-            track: TrackArrays;
-        };
+  tracks: {
+    key: string;
+    value: {
+      id: string;
+      track: TrackArrays;
     };
+  };
 
-    climbs: {
-        key: number;
-        value: Climb;
-        indexes: {
-            'by-flight-id': number;
-        };
-    };
-
-    stats: {
-        key: number;
-        value: FlightStats;
-        indexes: {
-            'by-flight-id': number;
-        };
-    };
+  stats: {
+    key: string;
+    value: FlightStats;
+  };
 }
 
 @Injectable({
-    providedIn: 'root',
+  providedIn: 'root',
 })
 export class FlightIndexedDbService implements FlightStorage {
-    private readonly dbName = 'flight-app-db';
-    private readonly dbVersion = 1;
+  private readonly dbName = 'flight-app-db';
+  private readonly dbVersion = 1;
 
-    private dbPromise: Promise<IDBPDatabase<FlightDbSchema>> | null = null;
+  private dbPromise: Promise<IDBPDatabase<FlightDbSchema>> | null = null;
 
-    /**
-     * Opens the IndexedDB database.
-     *
-     * The database is created on first use.
-     */
-    private getDb(): Promise<IDBPDatabase<FlightDbSchema>> {
-        if (!this.dbPromise) {
-            this.dbPromise = openDB<FlightDbSchema>(this.dbName, this.dbVersion, {
-                upgrade(db) {
-                    const flightStore = db.createObjectStore('flights', {
-                        keyPath: 'id',
-                        autoIncrement: true,
-                    });
+  private getDb(): Promise<IDBPDatabase<FlightDbSchema>> {
+    if (!this.dbPromise) {
+      this.dbPromise = openDB<FlightDbSchema>(this.dbName, this.dbVersion, {
+        upgrade(db) {
+          db.createObjectStore('flights', {
+            keyPath: 'id',
+          });
 
-                    flightStore.createIndex('by-file-hash', 'fileHash', {
-                        unique: true,
-                    });
+          db.createObjectStore('tracks', {
+            keyPath: 'id',
+          });
 
-                    // One track belongs to exactly one flight.
-                    // Therefore flightId is the primary key here.
-                    db.createObjectStore('tracks', {
-                        keyPath: 'flightId',
-                    });
-
-                    const climbStore = db.createObjectStore('climbs', {
-                        keyPath: 'id',
-                        autoIncrement: true,
-                    });
-
-                    climbStore.createIndex('by-flight-id', 'flightId');
-
-                    const statsStore = db.createObjectStore('stats', {
-                        keyPath: 'id',
-                        autoIncrement: true,
-                    });
-
-                    statsStore.createIndex('by-flight-id', 'flightId');
-                },
-            });
-        }
-
-        return this.dbPromise;
+          db.createObjectStore('stats', {
+            keyPath: 'id',
+          });
+        },
+      });
     }
 
-    async getFlightListItems(): Promise<FlightListItem[]> {
-        const db = await this.getDb();
+    return this.dbPromise;
+  }
 
-        const flights = await db.getAll('flights');
-        const stats = await db.getAll('stats');
+  async getFlightListItems(): Promise<LocalFlightListItem[]> {
+    const db = await this.getDb();
 
-        const flightStatsByFlightId = new Map<number, FlightStats>();
+    const flights = await db.getAll('flights');
 
-        for (const stat of stats) {
-            if (stat.scopeType === 'flight') {
-                flightStatsByFlightId.set(stat.flightId, stat);
-            }
-        }
+    const items: LocalFlightListItem[] = [];
 
-        return flights
-            .map((flight) => ({
-                flight,
-                stats: flightStatsByFlightId.get(flight.id) ?? null,
-            }))
-            .sort((a, b) => {
-                const dateA = a.flight.date ?? a.flight.importedAtUtc;
-                const dateB = b.flight.date ?? b.flight.importedAtUtc;
-                return dateB.localeCompare(dateA);
-            });
+    for (const flight of flights) {
+      const stats = await db.get('stats', flight.id);
+
+      items.push({
+        flight,
+        stats: stats ?? null,
+      });
     }
 
-    /**
-     * Loads all imported flights.
-     */
-    async getFlights(): Promise<Flight[]> {
-        const db = await this.getDb();
-        return db.getAll('flights');
+    console.warn(items);
+
+    return items.sort((a, b) => {
+      const dateA = a.flight.flightDate ?? a.flight.importedAtUtc;
+      const dateB = b.flight.flightDate ?? b.flight.importedAtUtc;
+
+      return dateB.localeCompare(dateA);
+    });
+  }
+
+  async getFlights(): Promise<Flight[]> {
+    const db = await this.getDb();
+
+    return db.getAll('flights');
+  }
+
+  async getFlight(flightId: string): Promise<Flight | undefined> {
+    const db = await this.getDb();
+
+    return db.get('flights', flightId);
+  }
+
+  async getFlightDetails(flightId: string): Promise<FlightDetails | undefined> {
+    const flight = await this.getFlight(flightId);
+
+    if (!flight) {
+      return undefined;
     }
 
-    /**
-     * Loads one flight by id.
-     */
-    async getFlight(flightId: number): Promise<Flight | undefined> {
-        const db = await this.getDb();
-        return db.get('flights', flightId);
-    }
+    const [track, stats] = await Promise.all([
+      this.getTrack(flightId),
+      this.getStats(flightId),
+    ]);
 
-    /**
-     * Loads the full flight details.
-     */
-    async getFlightDetails(flightId: number): Promise<FlightDetails | undefined> {
-        const flight = await this.getFlight(flightId);
+    return {
+      flight,
+      track,
+      stats,
+    };
+  }
 
-        if (!flight) {
-            return undefined;
-        }
+  async existsFlight(flightId: string): Promise<boolean> {
+    const db = await this.getDb();
 
-        const [track, climbs, stats] = await Promise.all([
-            this.getTrack(flightId),
-            this.getClimbs(flightId),
-            this.getStats(flightId),
-        ]);
+    return (await db.get('flights', flightId)) !== undefined;
+  }
 
-        return {
-            flight,
-            track,
-            stats,
-        };
-    }
+  async saveFlight(flight: NewFlight): Promise<string> {
+    const db = await this.getDb();
 
-    /**
-     * Checks whether a file with the same hash already exists.
-     */
-    async existsByFileHash(fileHash: string): Promise<boolean> {
-        const db = await this.getDb();
+    await db.add('flights', flight);
 
-        const existingFlight = await db.getFromIndex(
-            'flights',
-            'by-file-hash',
-            fileHash
-        );
+    return flight.id;
+  }
 
-        return existingFlight !== undefined;
-    }
+  async saveTrack(flightId: string, track: TrackArrays): Promise<void> {
+    const db = await this.getDb();
 
-    /**
-     * Saves one new flight.
-     *
-     * The id is generated by IndexedDB autoIncrement.
-     */
-    async saveFlight(flight: NewFlight): Promise<number> {
-        const db = await this.getDb();
+    await db.put('tracks', {
+      id: flightId,
+      track,
+    });
+  }
 
-        const id = await db.add('flights', flight as Flight);
+  async saveStats(stats: NewFlightStats): Promise<string> {
+    const db = await this.getDb();
 
-        return Number(id);
-    }
+    await db.put('stats', stats);
 
-    /**
-     * Saves the track arrays for one flight.
-     */
-    async saveTrack(flightId: number, track: TrackArrays): Promise<void> {
-        const db = await this.getDb();
+    return stats.id;
+  }
 
-        await db.put('tracks', {
-            flightId,
-            track,
-        });
-    }
+  async saveCompleteImport(importData: NewFlightImport): Promise<string> {
+    const db = await this.getDb();
 
-    /**
-     * Saves multiple climbs for one flight.
-     *
-     * The ids are generated by IndexedDB autoIncrement.
-     */
-    async saveClimbs(flightId: number, climbs: NewClimb[]): Promise<number[]> {
-        const db = await this.getDb();
-        const tx = db.transaction('climbs', 'readwrite');
+    const tx = db.transaction(['flights', 'tracks', 'stats'], 'readwrite');
 
-        const ids: number[] = [];
+    const flightId = importData.flight.id;
 
-        for (const climb of climbs) {
-            const id = await tx.store.add({
-                ...climb,
-                flightId,
-            } as Climb);
+    await tx.objectStore('flights').add(importData.flight);
 
-            ids.push(Number(id));
-        }
+    await tx.objectStore('tracks').put({
+      id: flightId,
+      track: importData.track,
+    });
 
-        await tx.done;
+    await tx.objectStore('stats').put({
+      ...importData.stats,
+      id: flightId,
+    });
 
-        return ids;
-    }
+    await tx.done;
 
-    /**
- * Saves multiple stats records for one flight.
- *
- * The ids are generated by IndexedDB autoIncrement.
- */
-    async saveStats(
-        flightId: number,
-        stats: NewFlightStats[]
-    ): Promise<number[]> {
-        const db = await this.getDb();
-        const tx = db.transaction('stats', 'readwrite');
+    return flightId;
+  }
 
-        const ids: number[] = [];
+  async getTrack(flightId: string): Promise<TrackArrays | undefined> {
+    const db = await this.getDb();
 
-        for (const item of stats) {
-            const id = await tx.store.add({
-                ...item,
-                flightId,
-            } as FlightStats);
+    const record = await db.get('tracks', flightId);
 
-            ids.push(Number(id));
-        }
+    return record?.track;
+  }
 
-        await tx.done;
+  async getStats(flightId: string): Promise<FlightStats | undefined> {
+    const db = await this.getDb();
 
-        return ids;
-    }
+    return db.get('stats', flightId);
+  }
 
-    /**
-     * Loads the track arrays for one flight.
-     */
-    async getTrack(flightId: number): Promise<TrackArrays | undefined> {
-        const db = await this.getDb();
+  async deleteFlight(flightId: string): Promise<void> {
+    const db = await this.getDb();
 
-        const record = await db.get('tracks', flightId);
+    const tx = db.transaction(['flights', 'tracks', 'stats'], 'readwrite');
 
-        return record?.track;
-    }
+    await tx.objectStore('flights').delete(flightId);
+    await tx.objectStore('tracks').delete(flightId);
+    await tx.objectStore('stats').delete(flightId);
 
-    /**
-     * Loads all climbs for one flight.
-     */
-    async getClimbs(flightId: number): Promise<Climb[]> {
-        const db = await this.getDb();
-
-        return db.getAllFromIndex('climbs', 'by-flight-id', flightId);
-    }
-
-    /**
-     * Loads all stats for one flight.
-     */
-    async getStats(flightId: number): Promise<FlightStats[]> {
-        const db = await this.getDb();
-
-        return db.getAllFromIndex('stats', 'by-flight-id', flightId);
-    }
-
-    /**
-     * Deletes one flight and all related records.
-     */
-    async deleteFlight(flightId: number): Promise<void> {
-        const db = await this.getDb();
-
-        const tx = db.transaction(
-            ['flights', 'tracks', 'climbs', 'stats'],
-            'readwrite'
-        );
-
-        await tx.objectStore('flights').delete(flightId);
-        await tx.objectStore('tracks').delete(flightId);
-
-        const climbKeys = await tx
-            .objectStore('climbs')
-            .index('by-flight-id')
-            .getAllKeys(flightId);
-
-        for (const key of climbKeys) {
-            await tx.objectStore('climbs').delete(key);
-        }
-
-        const statsKeys = await tx
-            .objectStore('stats')
-            .index('by-flight-id')
-            .getAllKeys(flightId);
-
-        for (const key of statsKeys) {
-            await tx.objectStore('stats').delete(key);
-        }
-
-        await tx.done;
-    }
-
-
-    async saveCompleteImport(importData: NewFlightImport): Promise<number> {
-        const db = await this.getDb();
-
-        const tx = db.transaction(
-            ['flights', 'tracks', 'climbs', 'stats'],
-            'readwrite'
-        );
-
-        const flightId = Number(
-            await tx.objectStore('flights').add(importData.flight as Flight)
-        );
-
-        await tx.objectStore('tracks').put({
-            flightId,
-            track: importData.track,
-        });
-
-        for (const stats of importData.stats) {
-            await tx.objectStore('stats').add({
-                ...stats,
-                flightId,
-            } as FlightStats);
-        }
-
-        await tx.done;
-
-        return flightId;
-    }
+    await tx.done;
+  }
 }

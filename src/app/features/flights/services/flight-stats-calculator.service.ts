@@ -91,9 +91,6 @@ export class FlightStatsCalculatorService {
       minAltBaroM: minAltBaroCm / 100,
       maxAltBaroM: maxAltBaroCm / 100,
       gainBaroM: (maxAltBaroCm - minAltBaroCm) / 100,
-
-      avgSpeedKmh,
-      maxSpeedKmh,
     };
   }
 
@@ -118,10 +115,7 @@ export class FlightStatsCalculatorService {
 
       minAltBaroM: 0,
       maxAltBaroM: 0,
-      gainBaroM: 0,
-
-      avgSpeedKmh: 0,
-      maxSpeedKmh: 0,
+      gainBaroM: 0
     };
   }
 

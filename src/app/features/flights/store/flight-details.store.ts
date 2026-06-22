@@ -27,7 +27,7 @@ type FlightDetailsState = {
   track: TrackArrays | null;
   trackMetrics: TrackMetrics | null;
   climbs: Climb[];
-  stats: FlightStats[];
+  stats: FlightStats | null;
 
   selectedClimbId: number | null;
   selectedRange: {
@@ -52,7 +52,7 @@ const initialState: FlightDetailsState = {
   track: null,
   trackMetrics: null,
   climbs: [],
-  stats: [],
+  stats: null,
 
   selectedClimbId: null,
   selectedRange: null,
@@ -131,18 +131,18 @@ export const FlightDetailsStore = signalStore(
         const selection: StatsSelection =
           selectedRange !== null
             ? {
-              type: 'range',
-              startIndex: selectedRange.startIndex,
-              endIndex: selectedRange.endIndex,
-            }
+                type: 'range',
+                startIndex: selectedRange.startIndex,
+                endIndex: selectedRange.endIndex,
+              }
             : selectedClimbId !== null
               ? {
-                type: 'climb',
-                climbId: selectedClimbId,
-              }
+                  type: 'climb',
+                  climbId: selectedClimbId,
+                }
               : {
-                type: 'flight',
-              };
+                  type: 'flight',
+                };
 
         return derivedStatsService.derive(
           store.track(),
@@ -219,7 +219,7 @@ export const FlightDetailsStore = signalStore(
 
     function calculateClimbs(
       track: TrackArrays | null,
-      flightId: number
+      flightId: string
     ): Climb[] {
       if (!track) {
         return [];
@@ -245,7 +245,9 @@ export const FlightDetailsStore = signalStore(
       );
     }
 
-    function calculateTrackMetrics(track: TrackArrays | null): TrackMetrics | null {
+    function calculateTrackMetrics(
+      track: TrackArrays | null
+    ): TrackMetrics | null {
       if (!track) {
         return null;
       }
@@ -276,15 +278,24 @@ export const FlightDetailsStore = signalStore(
         if (climb) {
           return {
             startIndex: Math.max(0, Math.min(climb.startIndex, climb.endIndex)),
-            endIndex: Math.min(lastIndex, Math.max(climb.startIndex, climb.endIndex)),
+            endIndex: Math.min(
+              lastIndex,
+              Math.max(climb.startIndex, climb.endIndex)
+            ),
           };
         }
       }
 
       if (selectedRange) {
         return {
-          startIndex: Math.max(0, Math.min(selectedRange.startIndex, selectedRange.endIndex)),
-          endIndex: Math.min(lastIndex, Math.max(selectedRange.startIndex, selectedRange.endIndex)),
+          startIndex: Math.max(
+            0,
+            Math.min(selectedRange.startIndex, selectedRange.endIndex)
+          ),
+          endIndex: Math.min(
+            lastIndex,
+            Math.max(selectedRange.startIndex, selectedRange.endIndex)
+          ),
         };
       }
 
@@ -317,7 +328,7 @@ export const FlightDetailsStore = signalStore(
         });
       },
 
-      setShowOnlySelectedClimbIn3d(value: boolean) {
+      setShowOnlySelectedClimbIn3d(value: boolean): void {
         patchState(store, { showOnlySelectedClimbTrack: value });
       },
 
@@ -477,8 +488,8 @@ export const FlightDetailsStore = signalStore(
             direction: 1 as const,
             index:
               currentIndex !== null &&
-                currentIndex >= startIndex &&
-                currentIndex <= endIndex
+              currentIndex >= startIndex &&
+              currentIndex <= endIndex
                 ? currentIndex
                 : startIndex,
             range,
@@ -514,8 +525,8 @@ export const FlightDetailsStore = signalStore(
             direction: -1 as const,
             index:
               currentIndex !== null &&
-                currentIndex >= startIndex &&
-                currentIndex <= endIndex
+              currentIndex >= startIndex &&
+              currentIndex <= endIndex
                 ? currentIndex
                 : endIndex,
             range,
@@ -523,7 +534,7 @@ export const FlightDetailsStore = signalStore(
         }));
       },
 
-      async loadFlight(flightId: number): Promise<void> {
+      async loadFlight(flightId: string): Promise<void> {
         patchState(store, {
           loading: true,
           error: null,
@@ -553,7 +564,7 @@ export const FlightDetailsStore = signalStore(
               track: null,
               trackMetrics: null,
               climbs: [],
-              stats: [],
+              stats: null,
               selectedClimbId: null,
               selectedRange: null,
               cursorIndex: null,
@@ -568,7 +579,6 @@ export const FlightDetailsStore = signalStore(
 
           const track = details.track ?? null;
           const climbs = calculateClimbs(track, details.flight.id);
-
           const trackMetrics = calculateTrackMetrics(track);
 
           patchState(store, {
@@ -576,7 +586,7 @@ export const FlightDetailsStore = signalStore(
             track,
             trackMetrics,
             climbs,
-            stats: details.stats,
+            stats: details.stats ?? null,
             selectedClimbId: null,
             selectedRange: null,
             cursorIndex: null,
@@ -590,7 +600,7 @@ export const FlightDetailsStore = signalStore(
             track: null,
             trackMetrics: null,
             climbs: [],
-            stats: [],
+            stats: null,
             selectedClimbId: null,
             selectedRange: null,
             cursorIndex: null,
@@ -611,8 +621,7 @@ export const FlightDetailsStore = signalStore(
         });
       },
 
-
-      startReplay() {
+      startReplay(): void {
         const track = store.track();
 
         if (!track || track.timeSec.length === 0) {
@@ -629,7 +638,7 @@ export const FlightDetailsStore = signalStore(
         });
       },
 
-      pauseReplay() {
+      pauseReplay(): void {
         patchState(store, {
           replay: {
             ...store.replay(),
@@ -639,7 +648,7 @@ export const FlightDetailsStore = signalStore(
         });
       },
 
-      resumeReplay() {
+      resumeReplay(): void {
         patchState(store, {
           replay: {
             ...store.replay(),
@@ -649,7 +658,7 @@ export const FlightDetailsStore = signalStore(
         });
       },
 
-      stopReplay() {
+      stopReplay(): void {
         patchState(store, {
           cursorIndex: null,
           replay: {
@@ -657,12 +666,12 @@ export const FlightDetailsStore = signalStore(
             active: false,
             paused: false,
             index: null,
-            range: null
+            range: null,
           },
         });
       },
 
-      setReplayIndex(index: number) {
+      setReplayIndex(index: number): void {
         const track = store.track();
 
         if (!track || track.timeSec.length === 0) {
@@ -680,7 +689,7 @@ export const FlightDetailsStore = signalStore(
         });
       },
 
-      setReplaySpeed(speed: number) {
+      setReplaySpeed(speed: number): void {
         patchState(store, {
           replay: {
             ...store.replay(),

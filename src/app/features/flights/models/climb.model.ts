@@ -1,6 +1,6 @@
 export interface Climb {
   id: number;
-  flightId: number;
+  flightId: string;
 
   startIndex: number;
   endIndex: number;
@@ -14,3 +14,4 @@ export interface Climb {
   avgClimbMs: number;
   maxClimbMs: number;
 }
+

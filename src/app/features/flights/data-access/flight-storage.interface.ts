@@ -1,51 +1,44 @@
 import { Flight } from '../models/flight.model';
-import { TrackArrays } from '../models/track-arrays.model';
-import { Climb } from '../models/climb.model';
 import { FlightStats } from '../models/flight-stats.model';
-import { FlightListItem } from '../models/flight-list-item.model';
+import { TrackArrays } from '../models/track-arrays.model';
 
-export type NewFlight = Omit<Flight, 'id'>;
-export type NewClimb = Omit<Climb, 'id' | 'flightId'>;
-export type NewFlightStats = Omit<FlightStats, 'id' | 'flightId'>;
+export type NewFlight = Flight;
+export type NewFlightStats = FlightStats;
+
+export interface LocalFlightListItem {
+  flight: Flight;
+  stats: FlightStats | null;
+}
 
 export interface NewFlightImport {
   flight: NewFlight;
   track: TrackArrays;
-  stats: NewFlightStats[];
+  stats: NewFlightStats;
 }
 
 export interface FlightDetails {
   flight: Flight;
   track: TrackArrays | undefined;
-  stats: FlightStats[];
+  stats: FlightStats | undefined;
 }
 
 export interface FlightStorage {
+  getFlightListItems(): Promise<LocalFlightListItem[]>;
+
   getFlights(): Promise<Flight[]>;
+  getFlight(flightId: string): Promise<Flight | undefined>;
+  getFlightDetails(flightId: string): Promise<FlightDetails | undefined>;
 
-  getFlightListItems(): Promise<FlightListItem[]>;
+  existsFlight(flightId: string): Promise<boolean>;
 
-  getFlight(flightId: number): Promise<Flight | undefined>;
+  saveFlight(flight: NewFlight): Promise<string>;
+  saveTrack(flightId: string, track: TrackArrays): Promise<void>;
+  saveStats(stats: FlightStats): Promise<string>;
 
-  getFlightDetails(flightId: number): Promise<FlightDetails | undefined>;
+  saveCompleteImport(importData: NewFlightImport): Promise<string>;
 
-  existsByFileHash(fileHash: string): Promise<boolean>;
+  getTrack(flightId: string): Promise<TrackArrays | undefined>;
+  getStats(flightId: string): Promise<FlightStats | undefined>;
 
-  saveFlight(flight: NewFlight): Promise<number>;
-
-  saveTrack(flightId: number, track: TrackArrays): Promise<void>;
-
-  saveClimbs(flightId: number, climbs: NewClimb[]): Promise<number[]>;
-
-  saveStats(flightId: number, stats: NewFlightStats[]): Promise<number[]>;
-
-  saveCompleteImport(importData: NewFlightImport): Promise<number>;
-
-  getTrack(flightId: number): Promise<TrackArrays | undefined>;
-
-  getClimbs(flightId: number): Promise<Climb[]>;
-
-  getStats(flightId: number): Promise<FlightStats[]>;
-
-  deleteFlight(flightId: number): Promise<void>;
+  deleteFlight(flightId: string): Promise<void>;
 }

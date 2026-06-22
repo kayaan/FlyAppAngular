@@ -1,12 +1,10 @@
 export interface Flight {
-  id: number;
+  id: string; // SHA-256 of original IGC bytes
 
   fileName: string;
-  fileHash: string;
-
-  pilotName?: string;
-  gliderType?: string;
-  date?: string;
+  flightDate?: string | null;
+  pilot?: string | null;
+  glider?: string | null;
 
   importedAtUtc: string;
 }

@@ -1,7 +1,7 @@
 .flight-list-page {
-  padding: 32px;
   max-width: 1400px;
   margin: 0 auto;
+  padding: 32px;
 
   font-family:
     Inter,
@@ -36,185 +36,42 @@
   gap: 12px;
 }
 
-.primary-button {
+.primary-button,
+.secondary-button {
   border: none;
   border-radius: 10px;
   padding: 10px 16px;
-  background: #2563eb;
-  color: white;
   font-weight: 600;
   cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    transform 0.1s ease;
+
+  &:active {
+    transform: scale(0.97);
+  }
+}
+
+.primary-button {
+  background: #2563eb;
+  color: white;
 
   &:hover {
     background: #1d4ed8;
   }
 }
 
-.table-card {
-  overflow-x: auto;
-  border: 1px solid #e5e7eb;
-  border-radius: 14px;
-  background: white;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
-}
-
-.flight-table {
-  width: 100%;
-  border-collapse: collapse;
-  min-width: 1050px;
-
-  th,
-  td {
-    padding: 14px 16px;
-    border-bottom: 1px solid #eef2f7;
-    text-align: left;
-    vertical-align: middle;
-    white-space: nowrap;
-  }
-
-  th {
-    background: #f8fafc;
-    color: #475467;
-    font-size: 12px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
-
-  tbody tr {
-    transition: background 0.15s ease;
-
-    &:hover {
-      background: #f9fafb;
-    }
-  }
-
-  tbody tr:last-child td {
-    border-bottom: none;
-  }
-
-  .numeric {
-    text-align: right;
-    font-variant-numeric: tabular-nums;
-  }
-}
-
-.date-cell {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-
-  strong {
-    color: #111827;
-    font-weight: 650;
-  }
-
-  span {
-    max-width: 260px;
-    overflow: hidden;
-    color: #667085;
-    font-size: 12px;
-    text-overflow: ellipsis;
-  }
-}
-
-.actions-col {
-  width: 110px;
-  text-align: right;
-}
-
-.row-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-.icon-button {
-  display: inline-flex;
-  width: 34px;
-  height: 34px;
-  align-items: center;
-  justify-content: center;
+.secondary-button {
   border: 1px solid #d0d5dd;
-  border-radius: 9px;
   background: white;
   color: #344054;
-  text-decoration: none;
-  cursor: pointer;
 
   &:hover {
     background: #f2f4f7;
     border-color: #98a2b3;
-  }
-
-  &.danger {
-    color: #b42318;
-
-    &:hover {
-      background: #fef3f2;
-      border-color: #fda29b;
-    }
-  }
-}
-
-.icon {
-  font-size: 16px;
-  line-height: 1;
-}
-
-.error-box,
-.loading-box,
-.empty-box {
-  border-radius: 14px;
-  padding: 18px 20px;
-  margin-bottom: 20px;
-  background: #f8fafc;
-  border: 1px solid #e5e7eb;
-}
-
-.error-box {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  background: #fef3f2;
-  border-color: #fecdca;
-  color: #b42318;
-
-  button {
-    border: none;
-    background: transparent;
-    color: #b42318;
-    font-weight: 600;
-    cursor: pointer;
-  }
-}
-
-.empty-box {
-  text-align: center;
-  padding: 48px 24px;
-
-  h2 {
-    margin: 0 0 8px;
-  }
-
-  p {
-    margin: 0;
-    color: #667085;
-  }
-}
-
-@media (max-width: 800px) {
-  .flight-list-page {
-    padding: 20px;
-  }
-
-  .page-header {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .primary-button {
-    width: 100%;
+    color: #101828;
   }
 }
 
@@ -303,14 +160,52 @@
   font-weight: 600;
 }
 
+.sync-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+
+  &.synced {
+    background: #ecfdf3;
+    color: #027a48;
+  }
+
+  &.localOnly {
+    background: #eff8ff;
+    color: #175cd3;
+  }
+
+  &.remoteOnly {
+    background: #fff7ed;
+    color: #c2410c;
+  }
+
+  &.uploading,
+  &.downloading {
+    background: #f2f4f7;
+    color: #475467;
+  }
+
+  &.error {
+    background: #fef3f2;
+    color: #b42318;
+  }
+}
+
 .actions-col {
-  width: 100px;
+  width: 150px;
   text-align: right;
 }
 
 .row-actions {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
   gap: 8px;
 }
 
@@ -355,5 +250,61 @@
       border-color: #fda29b;
       color: #912018;
     }
+  }
+}
+
+.error-box,
+.loading-box,
+.empty-box {
+  border-radius: 14px;
+  padding: 18px 20px;
+  margin-bottom: 20px;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+}
+
+.error-box {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  background: #fef3f2;
+  border-color: #fecdca;
+  color: #b42318;
+
+  button {
+    border: none;
+    background: transparent;
+    color: #b42318;
+    font-weight: 600;
+    cursor: pointer;
+  }
+}
+
+.empty-box {
+  text-align: center;
+  padding: 48px 24px;
+
+  h2 {
+    margin: 0 0 8px;
+  }
+
+  p {
+    margin: 0;
+    color: #667085;
+  }
+}
+
+@media (max-width: 800px) {
+  .flight-list-page {
+    padding: 20px;
+  }
+
+  .page-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .primary-button {
+    width: 100%;
   }
 }

@@ -1,19 +1,25 @@
-import { Component, DestroyRef, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import {
+  Component,
+  OnDestroy,
+  OnInit,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { debounceTime, Subject, takeUntil } from 'rxjs';
 
 import { FlightDetailsStore } from '../../store/flight-details.store';
+import { FlightSettingsStore } from '../../store/flight-settings.store';
+
 import { FlightMap } from '../../components/flight-map/flight-map';
 import {
   FlightChartPoint,
   FlightLineChart,
 } from '../../components/flight-line-chart/flight-line-chart';
 import { FlightSummaryTags } from '../../components/flight-summary-tags/flight-summary-tags';
-import { FlightSettingsStore } from '../../store/flight-settings.store';
-import { TrackArrays } from '../../models/track-arrays.model';
-import { debounceTime, Subject, takeUntil } from 'rxjs';
 import { FlightClimbsPanel } from '../../components/flight-climbs-panel/flight-climbs-panel';
-
 import { Flight3d } from '../../components/flight-3d/flight-3d';
 import { FlightReplayControls } from '../../components/flight-replay-controls/flight-replay-controls';
 
@@ -22,7 +28,16 @@ const RESOLUTION_INPUT_DEBOUNCE_MS = 350;
 @Component({
   selector: 'app-flight-details',
   standalone: true,
-  imports: [CommonModule, RouterLink, FlightLineChart, FlightMap, FlightSummaryTags, FlightClimbsPanel, Flight3d, FlightReplayControls],
+  imports: [
+    CommonModule,
+    RouterLink,
+    FlightLineChart,
+    FlightMap,
+    FlightSummaryTags,
+    FlightClimbsPanel,
+    Flight3d,
+    FlightReplayControls,
+  ],
   templateUrl: './flight-details.html',
   styleUrl: './flight-details.scss',
   providers: [FlightDetailsStore],
@@ -37,16 +52,50 @@ export class FlightDetails implements OnInit, OnDestroy {
 
   private readonly destroy$ = new Subject<void>();
 
-  private readonly altitudeResolutionInput$: Subject<number> = new Subject<number>();
-  private readonly varioResolutionInput$: Subject<number> = new Subject<number>();
-  private readonly speedResolutionInput$: Subject<number> = new Subject<number>();
-
+  private readonly altitudeResolutionInput$ = new Subject<number>();
+  private readonly varioResolutionInput$ = new Subject<number>();
+  private readonly speedResolutionInput$ = new Subject<number>();
 
   viewMode: 'map' | '3d' = '3d';
 
-  setViewMode(mode: 'map' | '3d'): void {
-    this.viewMode = mode;
-  }
+  readonly flightStats = computed(() => this.store.stats());
+
+  readonly trackPointCount = computed(
+    () => this.store.track()?.timeSec.length ?? 0
+  );
+
+  readonly altitudeData = computed<FlightChartPoint[]>(() => {
+    const track = this.store.track();
+    const metrics = this.store.trackMetrics();
+
+    if (!track || !metrics) {
+      return [];
+    }
+
+    return this.toChartPoints(track.timeSec, metrics.altitudeM);
+  });
+
+  readonly varioData = computed<FlightChartPoint[]>(() => {
+    const track = this.store.track();
+    const metrics = this.store.trackMetrics();
+
+    if (!track || !metrics) {
+      return [];
+    }
+
+    return this.toChartPoints(track.timeSec, metrics.varioMs);
+  });
+
+  readonly speedData = computed<FlightChartPoint[]>(() => {
+    const track = this.store.track();
+    const metrics = this.store.trackMetrics();
+
+    if (!track || !metrics) {
+      return [];
+    }
+
+    return this.toChartPoints(track.timeSec, metrics.speedKmh);
+  });
 
   constructor() {
     this.altitudeResolutionInput$
@@ -80,21 +129,18 @@ export class FlightDetails implements OnInit, OnDestroy {
       });
   }
 
-  readonly flightStats = computed(() =>
-    this.store.stats().find((item) => item.scopeType === 'flight') ?? null
-  );
-
-  readonly trackPointCount = computed(() => this.store.track()?.timeSec.length ?? 0);
-
   ngOnInit(): void {
-    const idParam = this.route.snapshot.paramMap.get('id');
-    const flightId = Number(idParam);
+    const flightId = this.route.snapshot.paramMap.get('id');
 
-    if (!Number.isFinite(flightId) || flightId <= 0) {
+    if (!flightId) {
       return;
     }
 
     void this.store.loadFlight(flightId);
+  }
+
+  setViewMode(mode: 'map' | '3d'): void {
+    this.viewMode = mode;
   }
 
   openSettingsDrawer(): void {
@@ -135,39 +181,6 @@ export class FlightDetails implements OnInit, OnDestroy {
     this.speedResolutionInput$.next(value);
   }
 
-  readonly altitudeData = computed<FlightChartPoint[]>(() => {
-    const track = this.store.track();
-    const metrics = this.store.trackMetrics();
-
-    if (!track || !metrics) {
-      return [];
-    }
-
-    return this.toChartPoints(track.timeSec, metrics.altitudeM);
-  });
-
-  readonly varioData = computed<FlightChartPoint[]>(() => {
-    const track = this.store.track();
-    const metrics = this.store.trackMetrics();
-
-    if (!track || !metrics) {
-      return [];
-    }
-
-    return this.toChartPoints(track.timeSec, metrics.varioMs);
-  });
-
-  readonly speedData = computed<FlightChartPoint[]>(() => {
-    const track = this.store.track();
-    const metrics = this.store.trackMetrics();
-
-    if (!track || !metrics) {
-      return [];
-    }
-
-    return this.toChartPoints(track.timeSec, metrics.speedKmh);
-  });
-
   private toChartPoints(
     timeSec: Int32Array,
     values: Float32Array
@@ -186,12 +199,10 @@ export class FlightDetails implements OnInit, OnDestroy {
     return result;
   }
 
-  private toRad(value: number): number {
-    return (value * Math.PI) / 180;
-  }
-
   formatDate(value: string | undefined | null): string {
-    if (!value) return '—';
+    if (!value) {
+      return '—';
+    }
 
     const date = new Date(value);
 
@@ -207,7 +218,9 @@ export class FlightDetails implements OnInit, OnDestroy {
   }
 
   formatDuration(durationSec: number | undefined | null): string {
-    if (durationSec == null) return '—';
+    if (durationSec == null) {
+      return '—';
+    }
 
     const hours = Math.floor(durationSec / 3600);
     const minutes = Math.floor((durationSec % 3600) / 60);
@@ -220,19 +233,25 @@ export class FlightDetails implements OnInit, OnDestroy {
   }
 
   formatDistance(distanceM: number | undefined | null): string {
-    if (distanceM == null) return '—';
+    if (distanceM == null) {
+      return '—';
+    }
 
     return `${(distanceM / 1000).toFixed(1)} km`;
   }
 
   formatHeight(heightM: number | undefined | null): string {
-    if (heightM == null) return '—';
+    if (heightM == null) {
+      return '—';
+    }
 
     return `${Math.round(heightM)} m`;
   }
 
   formatSpeed(speedKmh: number | undefined | null): string {
-    if (speedKmh == null) return '—';
+    if (speedKmh == null) {
+      return '—';
+    }
 
     return `${Math.round(speedKmh)} km/h`;
   }
