@@ -8,15 +8,13 @@ import {
 } from '@ngrx/signals';
 import { firstValueFrom } from 'rxjs';
 
-import { BackendFlight } from '../models/backend-flight.model';
-import { FlightSaveService } from '../services/flight-save.service';
-import { FlightListMergeService } from '../services/flight-list-merge.service';
-import { BackendFlightsApiService } from '../services/backend-flights-api.service';
 import { FlightIndexedDbService } from '../data-access/flight-indexeddb.service';
 import { LocalFlightListItem } from '../data-access/flight-storage.interface';
-import { Flight } from '../models/flight.model';
-import { ImportBackendFlightRequest } from '../models/backend-flight-import.model';
-import { FlightStats } from '../models/flight-stats.model';
+import { BackendFlight } from '../models/backend-flight.model';
+import { BackendFlightsApiService } from '../services/backend-flights-api.service';
+import { FlightBackendSyncService } from '../services/flight-backend-sync.service';
+import { FlightListMergeService } from '../services/flight-list-merge.service';
+import { FlightSaveService } from '../services/flight-save.service';
 
 type FlightsState = {
   localFlightListItems: LocalFlightListItem[];
@@ -61,6 +59,7 @@ export const FlightsStore = signalStore(
     const storage = inject(FlightIndexedDbService);
     const flightSaveService = inject(FlightSaveService);
     const backendFlightsApi = inject(BackendFlightsApiService);
+    const backendSync = inject(FlightBackendSyncService);
 
     return {
       async loadFlights(): Promise<void> {
@@ -73,9 +72,6 @@ export const FlightsStore = signalStore(
 
         try {
           const localFlightListItems = await storage.getFlightListItems();
-
-          console.error(localFlightListItems)
-
 
           patchState(store, {
             localFlightListItems,
@@ -126,6 +122,31 @@ export const FlightsStore = signalStore(
             localFlightListItems: [],
             loading: false,
             error: 'Could not load local flights.',
+          });
+        }
+      },
+
+      async loadBackendFlights(): Promise<void> {
+        patchState(store, {
+          backendFlightsLoading: true,
+          backendFlightsError: null,
+        });
+
+        try {
+          const backendFlights = await firstValueFrom(
+            backendFlightsApi.getFlights()
+          );
+
+          patchState(store, {
+            backendFlights,
+            backendFlightsLoading: false,
+            backendFlightsError: null,
+          });
+        } catch {
+          patchState(store, {
+            backendFlights: [],
+            backendFlightsLoading: false,
+            backendFlightsError: null,
           });
         }
       },
@@ -181,6 +202,40 @@ export const FlightsStore = signalStore(
         }
       },
 
+      async syncUploadFlight(flightId: string): Promise<void> {
+        patchState(store, {
+          loading: true,
+          error: null,
+          backendFlightsError: null,
+        });
+
+        try {
+          await backendSync.uploadFlight(flightId);
+
+          const localFlightListItems = await storage.getFlightListItems();
+          const backendFlights = await firstValueFrom(
+            backendFlightsApi.getFlights()
+          );
+
+          patchState(store, {
+            localFlightListItems,
+            backendFlights,
+            loading: false,
+            backendFlightsLoading: false,
+            backendFlightsError: null,
+          });
+        } catch (error) {
+          patchState(store, {
+            loading: false,
+            backendFlightsLoading: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Flight sync upload failed.',
+          });
+        }
+      },
+
       async deleteFlight(flightId: string): Promise<void> {
         patchState(store, {
           loading: true,
@@ -204,52 +259,6 @@ export const FlightsStore = signalStore(
         }
       },
 
-      async loadBackendFlights(): Promise<void> {
-        patchState(store, {
-          backendFlightsLoading: true,
-          backendFlightsError: null,
-        });
-
-        try {
-          const backendFlights = await firstValueFrom(
-            backendFlightsApi.getFlights()
-          );
-
-          patchState(store, {
-            backendFlights,
-            backendFlightsLoading: false,
-            backendFlightsError: null,
-          });
-        } catch {
-          patchState(store, {
-            backendFlights: [],
-            backendFlightsLoading: false,
-            backendFlightsError: null,
-          });
-        }
-      },
-
-      async syncFlightToBackend(file: File, localFlight: Flight): Promise<void> {
-        const details = await storage.getFlightDetails(localFlight.id);
-        const backendStats = toBackendImportStats(details?.stats);
-
-        const request: ImportBackendFlightRequest = {
-          id: localFlight.id,
-          fileName: localFlight.fileName,
-          flightDate: localFlight.flightDate ?? null,
-          pilot: localFlight.pilot ?? null,
-          glider: localFlight.glider ?? null,
-          importedAtUtc: localFlight.importedAtUtc,
-          stats: backendStats,
-        };
-
-        await firstValueFrom(
-          backendFlightsApi.importFlight(request, file)
-        );
-
-        await this.loadBackendFlights();
-      },
-
       clearError(): void {
         patchState(store, {
           error: null,
@@ -262,35 +271,5 @@ export const FlightsStore = signalStore(
         });
       },
     };
-  }),
-
-
+  })
 );
-
-function toBackendImportStats(stats: FlightStats | null | undefined): FlightStats | null {
-  if (!stats) {
-    return null;
-  }
-
-  return {
-    id: stats.id,
-
-    startIndex: stats.startIndex,
-    endIndex: stats.endIndex,
-    fixCount: stats.fixCount,
-
-    startTimeSec: stats.startTimeSec,
-    endTimeSec: stats.endTimeSec,
-    durationSec: stats.durationSec,
-
-    distanceM: stats.distanceM,
-
-    minAltGpsM: stats.minAltGpsM,
-    maxAltGpsM: stats.maxAltGpsM,
-    gainGpsM: stats.gainGpsM,
-
-    minAltBaroM: stats.minAltBaroM,
-    maxAltBaroM: stats.maxAltBaroM,
-    gainBaroM: stats.gainBaroM,
-  };
-}

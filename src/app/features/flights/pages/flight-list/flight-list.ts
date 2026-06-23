@@ -1,15 +1,7 @@
 import { CommonModule } from '@angular/common';
-import {
-  Component,
-  ElementRef,
-  OnInit,
-  inject,
-  signal,
-  viewChild,
-} from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
-import { Flight } from '../../models/flight.model';
 import { FlightsStore } from '../../store/flights.store';
 
 @Component({
@@ -22,14 +14,8 @@ import { FlightsStore } from '../../store/flights.store';
 export class FlightList implements OnInit {
   readonly store = inject(FlightsStore);
 
-  private readonly backendSyncFileInput =
-    viewChild<ElementRef<HTMLInputElement>>('backendSyncFileInput');
-
-  private readonly selectedBackendSyncFlight = signal<Flight | null>(null);
-
   ngOnInit(): void {
     void this.store.loadFlights();
-    void this.store.loadBackendFlights();
   }
 
   onFilesSelected(event: Event): void {
@@ -42,35 +28,6 @@ export class FlightList implements OnInit {
     void this.store.importFiles(input.files);
 
     input.value = '';
-  }
-
-  selectFileForBackendSync(flight: Flight): void {
-    this.selectedBackendSyncFlight.set(flight);
-
-    const input = this.backendSyncFileInput()?.nativeElement;
-    if (!input) {
-      return;
-    }
-
-    input.value = '';
-    input.click();
-  }
-
-  onBackendSyncFileSelected(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    const file = input.files?.[0] ?? null;
-    const flight = this.selectedBackendSyncFlight();
-
-    if (!file || !flight) {
-      input.value = '';
-      this.selectedBackendSyncFlight.set(null);
-      return;
-    }
-
-    void this.store.syncFlightToBackend(file, flight);
-
-    input.value = '';
-    this.selectedBackendSyncFlight.set(null);
   }
 
   formatDate(value: string | null | undefined): string {

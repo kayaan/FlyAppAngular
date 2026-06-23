@@ -3,6 +3,7 @@ import { DBSchema, IDBPDatabase, openDB } from 'idb';
 
 import { Flight } from '../models/flight.model';
 import { FlightStats } from '../models/flight-stats.model';
+import { IgcFile } from '../models/igc-file.model';
 import { TrackArrays } from '../models/track-arrays.model';
 
 import {
@@ -32,6 +33,11 @@ interface FlightDbSchema extends DBSchema {
     key: string;
     value: FlightStats;
   };
+
+  igcFiles: {
+    key: string;
+    value: IgcFile;
+  };
 }
 
 @Injectable({
@@ -58,6 +64,10 @@ export class FlightIndexedDbService implements FlightStorage {
           db.createObjectStore('stats', {
             keyPath: 'id',
           });
+
+          db.createObjectStore('igcFiles', {
+            keyPath: 'id',
+          });
         },
       });
     }
@@ -80,8 +90,6 @@ export class FlightIndexedDbService implements FlightStorage {
         stats: stats ?? null,
       });
     }
-
-    console.warn(items);
 
     return items.sort((a, b) => {
       const dateA = a.flight.flightDate ?? a.flight.importedAtUtc;
@@ -110,15 +118,17 @@ export class FlightIndexedDbService implements FlightStorage {
       return undefined;
     }
 
-    const [track, stats] = await Promise.all([
+    const [track, stats, igcFile] = await Promise.all([
       this.getTrack(flightId),
       this.getStats(flightId),
+      this.getIgcFile(flightId),
     ]);
 
     return {
       flight,
       track,
       stats,
+      igcFile,
     };
   }
 
@@ -153,10 +163,19 @@ export class FlightIndexedDbService implements FlightStorage {
     return stats.id;
   }
 
+  async saveIgcFile(igcFile: IgcFile): Promise<void> {
+    const db = await this.getDb();
+
+    await db.put('igcFiles', igcFile);
+  }
+
   async saveCompleteImport(importData: NewFlightImport): Promise<string> {
     const db = await this.getDb();
 
-    const tx = db.transaction(['flights', 'tracks', 'stats'], 'readwrite');
+    const tx = db.transaction(
+      ['flights', 'tracks', 'stats', 'igcFiles'],
+      'readwrite'
+    );
 
     const flightId = importData.flight.id;
 
@@ -169,6 +188,11 @@ export class FlightIndexedDbService implements FlightStorage {
 
     await tx.objectStore('stats').put({
       ...importData.stats,
+      id: flightId,
+    });
+
+    await tx.objectStore('igcFiles').put({
+      ...importData.igcFile,
       id: flightId,
     });
 
@@ -191,14 +215,24 @@ export class FlightIndexedDbService implements FlightStorage {
     return db.get('stats', flightId);
   }
 
+  async getIgcFile(flightId: string): Promise<IgcFile | undefined> {
+    const db = await this.getDb();
+
+    return db.get('igcFiles', flightId);
+  }
+
   async deleteFlight(flightId: string): Promise<void> {
     const db = await this.getDb();
 
-    const tx = db.transaction(['flights', 'tracks', 'stats'], 'readwrite');
+    const tx = db.transaction(
+      ['flights', 'tracks', 'stats', 'igcFiles'],
+      'readwrite'
+    );
 
     await tx.objectStore('flights').delete(flightId);
     await tx.objectStore('tracks').delete(flightId);
     await tx.objectStore('stats').delete(flightId);
+    await tx.objectStore('igcFiles').delete(flightId);
 
     await tx.done;
   }

@@ -6,6 +6,7 @@ import {
 } from '../data-access/flight-storage.interface';
 import { FlightIndexedDbService } from '../data-access/flight-indexeddb.service';
 import { FlightImportService } from './flight-import.service';
+import { IgcFile } from '../models/igc-file.model';
 
 export type SaveFlightResult = {
   flightId: string | null;
@@ -20,6 +21,7 @@ export class FlightSaveService {
   private readonly storage = inject(FlightIndexedDbService);
 
   async saveFile(file: File): Promise<SaveFlightResult> {
+    const igcText = await file.text();
     const analysis = await this.flightImportService.analyzeFile(file);
 
     const exists = await this.storage.existsFlight(analysis.id);
@@ -64,10 +66,19 @@ export class FlightSaveService {
       gainBaroM: analysis.stats.gainBaroM,
     };
 
+    const igcFile: IgcFile = {
+      id: analysis.id,
+      fileName: file.name,
+      content: igcText,
+      sizeBytes: file.size,
+      createdAtUtc: nowUtc,
+    };
+
     const flightId = await this.storage.saveCompleteImport({
       flight,
       track: analysis.track,
       stats,
+      igcFile,
     });
 
     return {

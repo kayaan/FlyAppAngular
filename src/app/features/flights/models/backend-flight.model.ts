@@ -4,7 +4,6 @@ export type FlightVisibility = 'PRIVATE' | 'UNLISTED' | 'PUBLIC';
 
 export interface BackendFlight {
   id: string;        // SHA-256 hash
-  fileHash: string;  // Alias vom Backend, ebenfalls id
   fileName: string;
   flightDate: string | null;
   pilot: string | null;

@@ -1,6 +1,7 @@
 import { Flight } from '../models/flight.model';
 import { FlightStats } from '../models/flight-stats.model';
 import { TrackArrays } from '../models/track-arrays.model';
+import { IgcFile } from '../models/igc-file.model';
 
 export type NewFlight = Flight;
 export type NewFlightStats = FlightStats;
@@ -14,12 +15,14 @@ export interface NewFlightImport {
   flight: NewFlight;
   track: TrackArrays;
   stats: NewFlightStats;
+  igcFile: IgcFile;
 }
 
 export interface FlightDetails {
   flight: Flight;
   track: TrackArrays | undefined;
   stats: FlightStats | undefined;
+  igcFile: IgcFile | undefined;
 }
 
 export interface FlightStorage {
@@ -33,12 +36,14 @@ export interface FlightStorage {
 
   saveFlight(flight: NewFlight): Promise<string>;
   saveTrack(flightId: string, track: TrackArrays): Promise<void>;
-  saveStats(stats: FlightStats): Promise<string>;
+  saveStats(stats: NewFlightStats): Promise<string>;
+  saveIgcFile(igcFile: IgcFile): Promise<void>;
 
   saveCompleteImport(importData: NewFlightImport): Promise<string>;
 
   getTrack(flightId: string): Promise<TrackArrays | undefined>;
   getStats(flightId: string): Promise<FlightStats | undefined>;
+  getIgcFile(flightId: string): Promise<IgcFile | undefined>;
 
   deleteFlight(flightId: string): Promise<void>;
 }
