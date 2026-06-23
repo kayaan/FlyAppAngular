@@ -1,13 +1,55 @@
-export type BackendFlightVisibility = 'PRIVATE' | 'UNLISTED' | 'PUBLIC';
+import { CalculatedFlightStats } from "./calculated-flight-stats.model";
+
+export type FlightVisibility = 'PRIVATE' | 'UNLISTED' | 'PUBLIC';
 
 export interface BackendFlight {
-  id: string; // SHA-256 of original IGC bytes
+  id: string;        // SHA-256 hash
+  fileHash: string;  // Alias vom Backend, ebenfalls id
   fileName: string;
   flightDate: string | null;
   pilot: string | null;
   glider: string | null;
-  visibility: BackendFlightVisibility;
+  visibility: FlightVisibility;
   importedAtUtc: string;
   createdAtUtc: string;
   updatedAtUtc: string;
+}
+
+export interface CreateBackendFlightRequest {
+  id: string; // SHA-256 hash
+  fileName: string;
+  flightDate: string | null;
+  pilot: string | null;
+  glider: string | null;
+  importedAtUtc: string;
+}
+
+export interface ImportBackendFlightStatsRequest {
+  startIndex: number;
+  endIndex: number;
+  fixCount: number;
+
+  startTimeSec: number;
+  endTimeSec: number;
+  durationSec: number;
+
+  distanceM: number;
+
+  minAltGpsM: number;
+  maxAltGpsM: number;
+  gainGpsM: number;
+
+  minAltBaroM: number;
+  maxAltBaroM: number;
+  gainBaroM: number;
+}
+
+export interface ImportBackendFlightRequest {
+  id: string;
+  fileName: string;
+  flightDate: string | null;
+  pilot: string | null;
+  glider: string | null;
+  importedAtUtc: string;
+  stats: ImportBackendFlightStatsRequest | null;
 }

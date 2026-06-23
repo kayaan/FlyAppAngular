@@ -14,6 +14,9 @@ import { FlightListMergeService } from '../services/flight-list-merge.service';
 import { BackendFlightsApiService } from '../services/backend-flights-api.service';
 import { FlightIndexedDbService } from '../data-access/flight-indexeddb.service';
 import { LocalFlightListItem } from '../data-access/flight-storage.interface';
+import { Flight } from '../models/flight.model';
+import { ImportBackendFlightRequest } from '../models/backend-flight-import.model';
+import { FlightStats } from '../models/flight-stats.model';
 
 type FlightsState = {
   localFlightListItems: LocalFlightListItem[];
@@ -226,6 +229,27 @@ export const FlightsStore = signalStore(
         }
       },
 
+      async syncFlightToBackend(file: File, localFlight: Flight): Promise<void> {
+        const details = await storage.getFlightDetails(localFlight.id);
+        const backendStats = toBackendImportStats(details?.stats);
+
+        const request: ImportBackendFlightRequest = {
+          id: localFlight.id,
+          fileName: localFlight.fileName,
+          flightDate: localFlight.flightDate ?? null,
+          pilot: localFlight.pilot ?? null,
+          glider: localFlight.glider ?? null,
+          importedAtUtc: localFlight.importedAtUtc,
+          stats: backendStats,
+        };
+
+        await firstValueFrom(
+          backendFlightsApi.importFlight(request, file)
+        );
+
+        await this.loadBackendFlights();
+      },
+
       clearError(): void {
         patchState(store, {
           error: null,
@@ -238,5 +262,35 @@ export const FlightsStore = signalStore(
         });
       },
     };
-  })
+  }),
+
+
 );
+
+function toBackendImportStats(stats: FlightStats | null | undefined): FlightStats | null {
+  if (!stats) {
+    return null;
+  }
+
+  return {
+    id: stats.id,
+
+    startIndex: stats.startIndex,
+    endIndex: stats.endIndex,
+    fixCount: stats.fixCount,
+
+    startTimeSec: stats.startTimeSec,
+    endTimeSec: stats.endTimeSec,
+    durationSec: stats.durationSec,
+
+    distanceM: stats.distanceM,
+
+    minAltGpsM: stats.minAltGpsM,
+    maxAltGpsM: stats.maxAltGpsM,
+    gainGpsM: stats.gainGpsM,
+
+    minAltBaroM: stats.minAltBaroM,
+    maxAltBaroM: stats.maxAltBaroM,
+    gainBaroM: stats.gainBaroM,
+  };
+}
