@@ -26,6 +26,11 @@ type FlightsState = {
 
   backendFlightsLoading: boolean;
   backendFlightsError: string | null;
+
+  uploadingFlightId: string | null;
+  downloadingFlightId: string | null;
+  syncErrorByFlightId: Record<string, string>;
+
 };
 
 const initialState: FlightsState = {
@@ -38,6 +43,10 @@ const initialState: FlightsState = {
 
   backendFlightsLoading: false,
   backendFlightsError: null,
+
+  uploadingFlightId: null,
+  downloadingFlightId: null,
+  syncErrorByFlightId: {},
 };
 
 export const FlightsStore = signalStore(
@@ -60,6 +69,24 @@ export const FlightsStore = signalStore(
     const flightSaveService = inject(FlightSaveService);
     const backendFlightsApi = inject(BackendFlightsApiService);
     const backendSync = inject(FlightBackendSyncService);
+
+    function clearSyncError(flightId: string): void {
+      const current = store.syncErrorByFlightId();
+      const { [flightId]: _, ...rest } = current;
+
+      patchState(store, {
+        syncErrorByFlightId: rest,
+      });
+    }
+
+    function setSyncError(flightId: string, message: string): void {
+      patchState(store, {
+        syncErrorByFlightId: {
+          ...store.syncErrorByFlightId(),
+          [flightId]: message,
+        },
+      });
+    }
 
     return {
       async loadFlights(): Promise<void> {
@@ -204,44 +231,36 @@ export const FlightsStore = signalStore(
 
       async syncUploadFlight(flightId: string): Promise<void> {
         patchState(store, {
-          loading: true,
-          error: null,
-          backendFlightsError: null,
+          uploadingFlightId: flightId,
         });
+
+        clearSyncError(flightId);
 
         try {
           await backendSync.uploadFlight(flightId);
 
-          const localFlightListItems = await storage.getFlightListItems();
-          const backendFlights = await firstValueFrom(
-            backendFlightsApi.getFlights()
-          );
+          await this.loadBackendFlights();
 
           patchState(store, {
-            localFlightListItems,
-            backendFlights,
-            loading: false,
-            backendFlightsLoading: false,
-            backendFlightsError: null,
+            uploadingFlightId: null,
           });
         } catch (error) {
+          console.error('Failed to upload flight to backend', error);
+
+          setSyncError(flightId, 'Upload failed.');
+
           patchState(store, {
-            loading: false,
-            backendFlightsLoading: false,
-            error:
-              error instanceof Error
-                ? error.message
-                : 'Flight sync upload failed.',
+            uploadingFlightId: null,
           });
         }
       },
 
-
       async syncDownloadFlight(flightId: string): Promise<void> {
         patchState(store, {
-          loading: true,
-          error: null,
+          downloadingFlightId: flightId,
         });
+
+        clearSyncError(flightId);
 
         try {
           await backendSync.downloadFlight(flightId);
@@ -250,17 +269,17 @@ export const FlightsStore = signalStore(
 
           patchState(store, {
             localFlightListItems,
-            loading: false,
-            error: null,
+            downloadingFlightId: null,
           });
 
           await this.loadBackendFlights();
         } catch (error) {
           console.error('Failed to download flight from backend', error);
 
+          setSyncError(flightId, 'Download failed.');
+
           patchState(store, {
-            loading: false,
-            error: 'Could not download flight from backend.',
+            downloadingFlightId: null,
           });
         }
       },
