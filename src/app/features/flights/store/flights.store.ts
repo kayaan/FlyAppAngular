@@ -236,6 +236,35 @@ export const FlightsStore = signalStore(
         }
       },
 
+
+      async syncDownloadFlight(flightId: string): Promise<void> {
+        patchState(store, {
+          loading: true,
+          error: null,
+        });
+
+        try {
+          await backendSync.downloadFlight(flightId);
+
+          const localFlightListItems = await storage.getFlightListItems();
+
+          patchState(store, {
+            localFlightListItems,
+            loading: false,
+            error: null,
+          });
+
+          await this.loadBackendFlights();
+        } catch (error) {
+          console.error('Failed to download flight from backend', error);
+
+          patchState(store, {
+            loading: false,
+            error: 'Could not download flight from backend.',
+          });
+        }
+      },
+
       async deleteFlight(flightId: string): Promise<void> {
         patchState(store, {
           loading: true,

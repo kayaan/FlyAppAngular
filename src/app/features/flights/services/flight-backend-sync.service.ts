@@ -6,6 +6,9 @@ import { Flight } from '../models/flight.model';
 import { FlightStats } from '../models/flight-stats.model';
 import { TrackArrays } from '../models/track-arrays.model';
 
+import { FlightSyncPackageDto, SyncTrackFileContent } from '../models/flight-sync-package.model';
+import { IgcFile } from '../models/igc-file.model';
+
 @Injectable({
   providedIn: 'root',
 })
@@ -66,6 +69,87 @@ export class FlightBackendSyncService {
         }
       )
     );
+  }
+
+  async downloadFlight(flightId: string): Promise<Flight> {
+    const pkg = await firstValueFrom(
+      this.http.get<FlightSyncPackageDto>(
+        `${this.apiBaseUrl}/flights/${flightId}/sync/package`,
+        {
+          withCredentials: true,
+        }
+      )
+    );
+
+    const trackJson = this.base64ToText(pkg.trackFile.contentBase64);
+    const trackContent = JSON.parse(trackJson) as SyncTrackFileContent;
+
+    const flight: Flight = {
+      id: pkg.flight.id,
+      fileName: pkg.flight.fileName,
+      flightDate: pkg.flight.flightDate,
+      pilot: pkg.flight.pilot,
+      glider: pkg.flight.glider,
+      importedAtUtc: pkg.flight.importedAtUtc,
+    };
+
+    const stats: FlightStats = {
+      id: pkg.stats.flightId,
+
+      startIndex: pkg.stats.startIndex,
+      endIndex: pkg.stats.endIndex,
+      fixCount: pkg.stats.fixCount,
+
+      startTimeSec: pkg.stats.startTimeSec,
+      endTimeSec: pkg.stats.endTimeSec,
+      durationSec: pkg.stats.durationSec,
+
+      distanceM: pkg.stats.distanceM,
+
+      minAltGpsM: pkg.stats.minAltGpsM,
+      maxAltGpsM: pkg.stats.maxAltGpsM,
+      gainGpsM: pkg.stats.gainGpsM,
+
+      minAltBaroM: pkg.stats.minAltBaroM,
+      maxAltBaroM: pkg.stats.maxAltBaroM,
+      gainBaroM: pkg.stats.gainBaroM,
+    };
+
+    const track: TrackArrays = {
+      timeSec: new Int32Array(trackContent.timeSec),
+      latE7: new Int32Array(trackContent.latE7),
+      lonE7: new Int32Array(trackContent.lonE7),
+      altGpsCm: new Int32Array(trackContent.altGpsCm),
+      altBaroCm: new Int32Array(trackContent.altBaroCm),
+    };
+
+    const igcFile: IgcFile = {
+      id: pkg.igcFile.flightId,
+      fileName: pkg.igcFile.fileName,
+      content: this.base64ToText(pkg.igcFile.contentBase64),
+      sizeBytes: pkg.igcFile.sizeBytes,
+      createdAtUtc: new Date().toISOString(),
+    };
+
+    await this.storage.saveCompleteImport({
+      flight,
+      track,
+      stats,
+      igcFile,
+    });
+
+    return flight;
+  }
+
+  private base64ToText(base64: string): string {
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+
+    return new TextDecoder('utf-8').decode(bytes);
   }
 
   private createMetadata(
