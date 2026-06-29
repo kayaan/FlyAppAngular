@@ -42,6 +42,12 @@ export class BackendFlightsApiService {
     });
   }
 
+  deleteFlight(flightId: string) {
+    return this.http.delete<void>(`${this.baseUrl}/${flightId}`, {
+      withCredentials: true,
+    });
+  }
+
   importFlight(request: ImportBackendFlightRequest, file: File) {
     const formData = new FormData();
 

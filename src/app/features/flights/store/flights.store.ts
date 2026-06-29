@@ -31,6 +31,8 @@ type FlightsState = {
   downloadingFlightId: string | null;
   syncErrorByFlightId: Record<string, string>;
 
+  deletingRemoteFlightId: string | null;
+
 };
 
 const initialState: FlightsState = {
@@ -47,6 +49,8 @@ const initialState: FlightsState = {
   uploadingFlightId: null,
   downloadingFlightId: null,
   syncErrorByFlightId: {},
+
+  deletingRemoteFlightId: null,
 };
 
 export const FlightsStore = signalStore(
@@ -127,6 +131,32 @@ export const FlightsStore = signalStore(
             backendFlights: [],
             backendFlightsLoading: false,
             backendFlightsError: null,
+          });
+        }
+      },
+
+      async deleteRemoteFlight(flightId: string): Promise<void> {
+        patchState(store, {
+          deletingRemoteFlightId: flightId,
+        });
+
+        clearSyncError(flightId);
+
+        try {
+          await firstValueFrom(backendFlightsApi.deleteFlight(flightId));
+
+          await this.loadBackendFlights();
+
+          patchState(store, {
+            deletingRemoteFlightId: null,
+          });
+        } catch (error) {
+          console.error('Failed to delete remote flight', error);
+
+          setSyncError(flightId, 'Remote delete failed.');
+
+          patchState(store, {
+            deletingRemoteFlightId: null,
           });
         }
       },

@@ -152,6 +152,23 @@
                     </button>
                   }
 
+                  @if (item.backendFlight) {
+                    <button
+                      type="button"
+                      class="icon-button danger"
+                      title="Delete remote"
+                      aria-label="Delete remote"
+                      [disabled]="store.deletingRemoteFlightId() === item.id"
+                      (click)="store.deleteRemoteFlight(item.id)"
+                    >
+                      @if (store.deletingRemoteFlightId() === item.id) {
+                        ...
+                      } @else {
+                        ☁️🗑
+                      }
+                    </button>
+                  }
+
                   @if (item.syncStatus === 'localOnly') {
                     <button
                       type="button"
