@@ -3,6 +3,7 @@ import { Component, OnInit, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
 import { FlightsStore } from '../../store/flights.store';
+import { FlightSyncEventsService } from '../../services/flight-sync-events.service';
 
 @Component({
   selector: 'app-flight-list',
@@ -14,10 +15,21 @@ import { FlightsStore } from '../../store/flights.store';
 export class FlightList implements OnInit {
   readonly store = inject(FlightsStore);
 
+  private readonly syncEvents = inject(FlightSyncEventsService);
+  private eventSource: EventSource | null = null;
+
   ngOnInit(): void {
     void this.store.loadFlights();
+
+    this.eventSource = this.syncEvents.connect(() => {
+      void this.store.loadFlights();
+    });
   }
 
+  ngOnDestroy(): void {
+    this.eventSource?.close();
+    this.eventSource = null;
+  }
   onFilesSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
 
