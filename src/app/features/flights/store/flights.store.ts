@@ -10,7 +10,7 @@ import { firstValueFrom } from 'rxjs';
 
 import { FlightIndexedDbService } from '../data-access/flight-indexeddb.service';
 import { LocalFlightListItem } from '../data-access/flight-storage.interface';
-import { BackendFlight } from '../models/backend-flight.model';
+import { BackendFlight, FlightVisibility } from '../models/backend-flight.model';
 import { BackendFlightsApiService } from '../services/backend-flights-api.service';
 import { FlightBackendSyncService } from '../services/flight-backend-sync.service';
 import { FlightListMergeService } from '../services/flight-list-merge.service';
@@ -33,6 +33,7 @@ type FlightsState = {
 
   deletingRemoteFlightId: string | null;
 
+  updatingVisibilityFlightId: string | null;
 };
 
 const initialState: FlightsState = {
@@ -51,6 +52,8 @@ const initialState: FlightsState = {
   syncErrorByFlightId: {},
 
   deletingRemoteFlightId: null,
+
+  updatingVisibilityFlightId: null
 };
 
 export const FlightsStore = signalStore(
@@ -74,6 +77,7 @@ export const FlightsStore = signalStore(
     const backendFlightsApi = inject(BackendFlightsApiService);
     const backendSync = inject(FlightBackendSyncService);
 
+
     function clearSyncError(flightId: string): void {
       const current = store.syncErrorByFlightId();
       const { [flightId]: _, ...rest } = current;
@@ -93,6 +97,38 @@ export const FlightsStore = signalStore(
     }
 
     return {
+      async updateRemoteVisibility(
+        flightId: string,
+        visibility: FlightVisibility
+      ): Promise<void> {
+        patchState(store, {
+          updatingVisibilityFlightId: flightId,
+        });
+
+        clearSyncError(flightId);
+
+        try {
+          const updatedFlight = await firstValueFrom(
+            backendFlightsApi.updateVisibility(flightId, visibility)
+          );
+
+          patchState(store, {
+            backendFlights: store.backendFlights().map((flight) =>
+              flight.id === updatedFlight.id ? updatedFlight : flight
+            ),
+            updatingVisibilityFlightId: null,
+          });
+        } catch (error) {
+          console.error('Failed to update flight visibility', error);
+
+          setSyncError(flightId, 'Visibility update failed.');
+
+          patchState(store, {
+            updatingVisibilityFlightId: null,
+          });
+        }
+      },
+
       async loadFlights(): Promise<void> {
         patchState(store, {
           loading: true,

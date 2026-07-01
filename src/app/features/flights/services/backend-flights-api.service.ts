@@ -3,6 +3,7 @@ import { inject, Injectable } from '@angular/core';
 import {
   BackendFlight,
   CreateBackendFlightRequest,
+  FlightVisibility,
 } from '../models/backend-flight.model';
 import { ImportBackendFlightRequest } from '../models/backend-flight-import.model';
 
@@ -46,6 +47,16 @@ export class BackendFlightsApiService {
     return this.http.delete<void>(`${this.baseUrl}/${flightId}`, {
       withCredentials: true,
     });
+  }
+
+  updateVisibility(flightId: string, visibility: FlightVisibility) {
+    return this.http.patch<BackendFlight>(
+      `${this.baseUrl}/${flightId}/visibility`,
+      { visibility },
+      {
+        withCredentials: true,
+      }
+    );
   }
 
   importFlight(request: ImportBackendFlightRequest, file: File) {

@@ -3,7 +3,7 @@
 import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 
-import { BackendFlight } from '../models/backend-flight.model';
+import { BackendFlight, FlightVisibility } from '../models/backend-flight.model';
 
 @Injectable({
   providedIn: 'root',
