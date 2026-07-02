@@ -56,6 +56,20 @@ export class FlightDetails implements OnInit, OnDestroy {
   private readonly varioResolutionInput$ = new Subject<number>();
   private readonly speedResolutionInput$ = new Subject<number>();
 
+  readonly isPublicFlight = computed(
+    () => this.route.snapshot.data['source'] === 'public'
+  );
+
+  readonly backLink = computed(() =>
+    this.isPublicFlight() ? '/explore' : '/flights'
+  );
+
+  readonly backLabel = computed(() =>
+    this.isPublicFlight()
+      ? '← Back to public flights'
+      : '← Back to flights'
+  );
+
   viewMode: 'map' | '3d' = '3d';
 
   readonly flightStats = computed(() => this.store.stats());
@@ -136,7 +150,13 @@ export class FlightDetails implements OnInit, OnDestroy {
       return;
     }
 
-    void this.store.loadFlight(flightId);
+    const source = this.route.snapshot.data['source'];
+
+    if (source === 'public') {
+      void this.store.loadPublicFlight(flightId);
+    } else {
+      void this.store.loadFlight(flightId);
+    }
   }
 
   setViewMode(mode: 'map' | '3d'): void {

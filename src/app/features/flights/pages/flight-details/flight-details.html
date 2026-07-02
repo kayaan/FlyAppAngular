@@ -1,6 +1,8 @@
 <section class="flight-details-page">
   <header class="details-header">
-    <a routerLink="/flights" class="back-link">← Back to flights</a>
+    <a [routerLink]="backLink()" class="back-link">
+      {{ backLabel() }}
+    </a>
 
     @if (store.flight(); as flight) {
     <div class="title-line">

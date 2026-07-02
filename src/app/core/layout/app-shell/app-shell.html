@@ -1,6 +1,26 @@
 <div class="app-shell">
   <header class="app-header">
     <div class="app-title">
+      <a routerLink="/flights" class="brand">
+        FlightApp
+      </a>
+
+      <nav class="main-nav">
+        <a
+          routerLink="/flights"
+          routerLinkActive="active"
+          [routerLinkActiveOptions]="{ exact: true }"
+        >
+          My Flights
+        </a>
+
+        <a
+          routerLink="/explore"
+          routerLinkActive="active"
+        >
+          Explore
+        </a>
+      </nav>
     </div>
 
     <div class="auth-actions">

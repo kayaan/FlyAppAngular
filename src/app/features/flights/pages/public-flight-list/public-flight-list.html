@@ -1,0 +1,116 @@
+<section class="flight-list-page">
+  <header class="page-header">
+    <div>
+      <h1>Public Flights</h1>
+      <p>Public shared IGC flights</p>
+    </div>
+
+    <div class="header-actions">
+      <button type="button" class="secondary-button" (click)="load()">
+        Refresh
+      </button>
+    </div>
+  </header>
+
+  @if (error()) {
+    <div class="error-box">
+      {{ error() }}
+    </div>
+  }
+
+  @if (loading()) {
+    <div class="loading-box">Loading public flights.</div>
+  }
+
+  @if (!loading() && !hasFlights()) {
+    <div class="empty-box">
+      <h2>No public flights yet</h2>
+      <p>Flights marked as public will appear here.</p>
+    </div>
+  }
+
+  @if (hasFlights()) {
+    <div class="table-card">
+      <table class="flight-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Pilot</th>
+            <th>Glider</th>
+            <th>Status</th>
+            <th class="numeric">Duration</th>
+            <th class="numeric">Distance</th>
+            <th class="numeric">Min Alt</th>
+            <th class="numeric">Max Alt</th>
+            <th class="actions-col">Actions</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          @for (flight of flights(); track flight.id) {
+            <tr>
+              <td>
+                <div class="main-cell">
+                  <span class="primary-text">
+                    {{ formatDate(flight.flightDate) }}
+                  </span>
+
+                  <span class="secondary-text">
+                    {{ flight.fileName || '—' }}
+                  </span>
+                </div>
+              </td>
+
+              <td>
+                <span class="primary-text">
+                  {{ flight.pilot || '—' }}
+                </span>
+              </td>
+
+              <td>
+                <span class="primary-text">
+                  {{ flight.glider || '—' }}
+                </span>
+              </td>
+
+              <td>
+                <span class="sync-badge public">
+                  public
+                </span>
+              </td>
+
+              <td class="numeric">
+                {{ formatDuration(flight.durationSec) }}
+              </td>
+
+              <td class="numeric">
+                {{ formatDistance(flight.distanceM) }}
+              </td>
+
+              <td class="numeric">
+                {{ formatAltitude(flight.minAltGpsM) }}
+              </td>
+
+              <td class="numeric">
+                {{ formatAltitude(flight.maxAltGpsM) }}
+              </td>
+
+              <td class="actions-col">
+                <div class="row-actions">
+                  <a
+                    class="icon-button"
+                    [routerLink]="['/public/flights', flight.id]"
+                    title="Details"
+                    aria-label="Details"
+                  >
+                    ›
+                  </a>
+                </div>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</section>

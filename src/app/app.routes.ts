@@ -1,5 +1,7 @@
 import { Routes } from '@angular/router';
 import { AppShell } from './core/layout/app-shell/app-shell';
+import { PublicFlightList } from './features/flights/pages/public-flight-list/public-flight-list';
+import { FlightDetails } from './features/flights/pages/flight-details/flight-details';
 
 export const routes: Routes = [
   {
@@ -25,6 +27,15 @@ export const routes: Routes = [
             (m) => m.FlightDetails
           ),
       },
+      {
+        path: 'public/flights/:id',
+        component: FlightDetails,
+        data: { source: 'public' },
+      },
+      {
+        path: 'explore',
+        component: PublicFlightList,
+      }
     ],
   },
   {

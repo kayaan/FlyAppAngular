@@ -6,6 +6,7 @@ import {
   withMethods,
   withState,
 } from '@ngrx/signals';
+import { firstValueFrom } from 'rxjs';
 
 import { Flight } from '../models/flight.model';
 import { TrackArrays } from '../models/track-arrays.model';
@@ -21,6 +22,7 @@ import { DetectedClimb } from '../models/detected-climb.model';
 import { ReplayRange, ReplayState } from '../models/replay-state.model';
 import { TrackMetrics } from '../models/track-metrics.model';
 import { TrackMetricsService } from '../services/track-metrics.service';
+import { PublicFlightsApiService } from '../services/public-flights-api.service';
 
 type FlightDetailsState = {
   flight: Flight | null;
@@ -169,9 +171,32 @@ export const FlightDetailsStore = signalStore(
 
   withMethods((store) => {
     const storage = inject(FlightIndexedDbService);
+    const publicFlightsApi = inject(PublicFlightsApiService);
     const climbDetector = inject(ClimbDetectorService);
     const trackMetricsService = inject(TrackMetricsService);
     const settings = inject(FlightSettingsStore);
+
+    function resetBeforeLoad(): void {
+      patchState(store, {
+        loading: true,
+        error: null,
+        selectedClimbId: null,
+        selectedRange: null,
+        cursorIndex: null,
+        trackMetrics: null,
+        resetChartZoomRequest: store.resetChartZoomRequest() + 1,
+        replay: {
+          active: false,
+          paused: false,
+          index: null,
+          speed: 1,
+          direction: 1,
+          cameraFollowEnabled: false,
+          range: null,
+          replayTrailDurationSec: null,
+        },
+      });
+    }
 
     function selectClimbByIndex(index: number): void {
       const climbs = store.climbs();
@@ -535,25 +560,7 @@ export const FlightDetailsStore = signalStore(
       },
 
       async loadFlight(flightId: string): Promise<void> {
-        patchState(store, {
-          loading: true,
-          error: null,
-          selectedClimbId: null,
-          selectedRange: null,
-          cursorIndex: null,
-          trackMetrics: null,
-          resetChartZoomRequest: store.resetChartZoomRequest() + 1,
-          replay: {
-            active: false,
-            paused: false,
-            index: null,
-            speed: 1,
-            direction: 1,
-            cameraFollowEnabled: false,
-            range: null,
-            replayTrailDurationSec: null,
-          },
-        });
+        resetBeforeLoad();
 
         try {
           const details = await storage.getFlightDetails(flightId);
@@ -593,6 +600,7 @@ export const FlightDetailsStore = signalStore(
             loading: false,
             error: null,
             resetChartZoomRequest: store.resetChartZoomRequest() + 1,
+            showOnlySelectedClimbTrack: false,
           });
         } catch {
           patchState(store, {
@@ -607,6 +615,91 @@ export const FlightDetailsStore = signalStore(
             loading: false,
             error: 'Could not load flight details.',
             resetChartZoomRequest: store.resetChartZoomRequest() + 1,
+            showOnlySelectedClimbTrack: false,
+          });
+        }
+      },
+
+      async loadPublicFlight(flightId: string): Promise<void> {
+        resetBeforeLoad();
+
+        try {
+          const dto = await firstValueFrom(
+            publicFlightsApi.getPublicFlightDetails(flightId)
+          );
+
+          const flight: Flight = {
+            id: dto.flight.id,
+            fileName: dto.flight.fileName,
+            flightDate: dto.flight.flightDate,
+            pilot: dto.flight.pilot,
+            glider: dto.flight.glider,
+            importedAtUtc: dto.flight.importedAtUtc,
+          };
+
+          const track: TrackArrays = {
+            timeSec: new Int32Array(dto.track.timeSec),
+            latE7: new Int32Array(dto.track.latE7),
+            lonE7: new Int32Array(dto.track.lonE7),
+            altGpsCm: new Int32Array(dto.track.altGpsCm),
+            altBaroCm: new Int32Array(dto.track.altBaroCm),
+          };
+
+          const stats: FlightStats = {
+            id: dto.flight.id,
+
+            startIndex: dto.flight.startIndex,
+            endIndex: dto.flight.endIndex,
+            fixCount: dto.flight.fixCount,
+
+            startTimeSec: dto.flight.startTimeSec,
+            endTimeSec: dto.flight.endTimeSec,
+            durationSec: dto.flight.durationSec,
+
+            distanceM: dto.flight.distanceM,
+
+            minAltGpsM: dto.flight.minAltGpsM,
+            maxAltGpsM: dto.flight.maxAltGpsM,
+            gainGpsM: dto.flight.gainGpsM,
+
+            minAltBaroM: dto.flight.minAltBaroM,
+            maxAltBaroM: dto.flight.maxAltBaroM,
+            gainBaroM: dto.flight.gainBaroM,
+          };
+
+          const climbs = calculateClimbs(track, flight.id);
+          const trackMetrics = calculateTrackMetrics(track);
+
+          patchState(store, {
+            flight,
+            track,
+            trackMetrics,
+            climbs,
+            stats,
+            selectedClimbId: null,
+            selectedRange: null,
+            cursorIndex: null,
+            loading: false,
+            error: null,
+            resetChartZoomRequest: store.resetChartZoomRequest() + 1,
+            showOnlySelectedClimbTrack: false,
+          });
+        } catch (error) {
+          console.error('Could not load public flight details.', error);
+
+          patchState(store, {
+            flight: null,
+            track: null,
+            trackMetrics: null,
+            climbs: [],
+            stats: null,
+            selectedClimbId: null,
+            selectedRange: null,
+            cursorIndex: null,
+            loading: false,
+            error: 'Could not load public flight details.',
+            resetChartZoomRequest: store.resetChartZoomRequest() + 1,
+            showOnlySelectedClimbTrack: false,
           });
         }
       },
