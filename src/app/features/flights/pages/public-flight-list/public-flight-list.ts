@@ -2,7 +2,11 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 
-import { PublicFlightsApiService } from '../../services/public-flights-api.service';
+import {
+  PublicFlightsApiService,
+  PublicFlightSort,
+  PublicFlightsQuery,
+} from '../../services/public-flights-api.service';
 import { PublicFlight } from '../../models/public-flight.model';
 
 @Component({
@@ -23,7 +27,20 @@ export class PublicFlightList {
   readonly page = signal(0);
   readonly totalPages = signal(0);
 
+  readonly q = signal('');
+  readonly from = signal('');
+  readonly to = signal('');
+  readonly sort = signal<PublicFlightSort>('newest');
+
   readonly hasFlights = computed(() => this.flights().length > 0);
+
+  readonly hasActiveFilters = computed(
+    () =>
+      this.q().trim().length > 0 ||
+      this.from().length > 0 ||
+      this.to().length > 0 ||
+      this.sort() !== 'newest'
+  );
 
   constructor() {
     void this.load();
@@ -33,8 +50,17 @@ export class PublicFlightList {
     this.loading.set(true);
     this.error.set(null);
 
+    const query: PublicFlightsQuery = {
+      q: this.q(),
+      from: this.from() || null,
+      to: this.to() || null,
+      sort: this.sort(),
+      page: 0,
+      size: 50,
+    };
+
     try {
-      const result = await firstValueFrom(this.api.getPublicFlights());
+      const result = await firstValueFrom(this.api.getPublicFlights(query));
 
       this.flights.set(result.items);
       this.totalItems.set(result.totalItems);
@@ -46,6 +72,39 @@ export class PublicFlightList {
     } finally {
       this.loading.set(false);
     }
+  }
+
+  async applyFilters(): Promise<void> {
+    await this.load();
+  }
+
+  async clearFilters(): Promise<void> {
+    this.q.set('');
+    this.from.set('');
+    this.to.set('');
+    this.sort.set('newest');
+
+    await this.load();
+  }
+
+  onSearchInput(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.q.set(input.value);
+  }
+
+  onFromInput(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.from.set(input.value);
+  }
+
+  onToInput(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.to.set(input.value);
+  }
+
+  onSortChange(event: Event): void {
+    const select = event.target as HTMLSelectElement;
+    this.sort.set(select.value as PublicFlightSort);
   }
 
   formatDate(value: string | null): string {
