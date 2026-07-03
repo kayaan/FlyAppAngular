@@ -6,49 +6,65 @@
     </div>
 
     <div class="header-actions">
-      <button type="button" class="secondary-button" (click)="load()">
+      <button
+        type="button"
+        class="secondary-button"
+        (click)="load()"
+      >
         Refresh
       </button>
     </div>
   </header>
 
   <section class="filter-card">
-    <div class="filter-grid">
-      <label class="filter-field">
+    <div class="filter-row">
+      <label class="filter-field search-field">
         <span>Search</span>
-        <input type="search" [value]="q()" placeholder="Pilot, glider, file name" (input)="onSearchInput($event)"
-          (keydown.enter)="applyFilters()" />
+        <input
+          type="search"
+          [value]="q()"
+          placeholder="Pilot, glider, file name"
+          (input)="onSearchInput($event)"
+          (keydown.enter)="applyFilters()"
+        />
       </label>
 
-      <label class="filter-field">
+      <label class="filter-field date-field">
         <span>From</span>
-        <input type="date" [value]="from()" (input)="onFromInput($event)" />
+        <input
+          type="date"
+          [value]="from()"
+          (input)="onFromInput($event)"
+        />
       </label>
 
-      <label class="filter-field">
+      <label class="filter-field date-field">
         <span>To</span>
-        <input type="date" [value]="to()" (input)="onToInput($event)" />
+        <input
+          type="date"
+          [value]="to()"
+          (input)="onToInput($event)"
+        />
       </label>
 
-      <label class="filter-field">
-        <span>Sort</span>
-        <select [value]="sort()" (change)="onSortChange($event)">
-          <option value="newest">Newest</option>
-          <option value="distance">Distance</option>
-          <option value="duration">Duration</option>
-          <option value="gain">Gain</option>
-        </select>
-      </label>
-    </div>
+      <div class="filter-actions">
+        <button
+          type="button"
+          class="primary-button"
+          (click)="applyFilters()"
+        >
+          Apply
+        </button>
 
-    <div class="filter-actions">
-      <button type="button" class="primary-button" (click)="applyFilters()">
-        Apply
-      </button>
-
-      <button type="button" class="secondary-button" [disabled]="!hasActiveFilters()" (click)="clearFilters()">
-        Clear
-      </button>
+        <button
+          type="button"
+          class="secondary-button"
+          [disabled]="!hasActiveFilters()"
+          (click)="clearFilters()"
+        >
+          Clear
+        </button>
+      </div>
     </div>
   </section>
 
@@ -74,15 +90,114 @@
     <table class="flight-table">
       <thead>
         <tr>
-          <th>Date</th>
-          <th>Pilot</th>
-          <th>Glider</th>
-          <th>Status</th>
-          <th class="numeric">Duration</th>
-          <th class="numeric">Distance</th>
-          <th class="numeric">Min Alt</th>
-          <th class="numeric">Max Alt</th>
-          <th class="actions-col">Actions</th>
+          <th>
+            <button
+              type="button"
+              class="sort-header"
+              (click)="setSort('date')"
+            >
+              Date
+              @if (sortDirectionLabel('date')) {
+              <span class="sort-indicator">
+                {{ sortDirectionLabel('date') }}
+              </span>
+              }
+            </button>
+          </th>
+
+          <th>
+            <button
+              type="button"
+              class="sort-header"
+              (click)="setSort('pilot')"
+            >
+              Pilot
+              @if (sortDirectionLabel('pilot')) {
+              <span class="sort-indicator">
+                {{ sortDirectionLabel('pilot') }}
+              </span>
+              }
+            </button>
+          </th>
+
+          <th>
+            <button
+              type="button"
+              class="sort-header"
+              (click)="setSort('glider')"
+            >
+              Glider
+              @if (sortDirectionLabel('glider')) {
+              <span class="sort-indicator">
+                {{ sortDirectionLabel('glider') }}
+              </span>
+              }
+            </button>
+          </th>
+
+          <th class="numeric">
+            <button
+              type="button"
+              class="sort-header"
+              (click)="setSort('duration')"
+            >
+              Duration
+              @if (sortDirectionLabel('duration')) {
+              <span class="sort-indicator">
+                {{ sortDirectionLabel('duration') }}
+              </span>
+              }
+            </button>
+          </th>
+
+          <th class="numeric">
+            <button
+              type="button"
+              class="sort-header"
+              (click)="setSort('distance')"
+            >
+              Distance
+              @if (sortDirectionLabel('distance')) {
+              <span class="sort-indicator">
+                {{ sortDirectionLabel('distance') }}
+              </span>
+              }
+            </button>
+          </th>
+
+          <th class="numeric">
+            <button
+              type="button"
+              class="sort-header"
+              (click)="setSort('minAltGps')"
+            >
+              Min Alt
+              @if (sortDirectionLabel('minAltGps')) {
+              <span class="sort-indicator">
+                {{ sortDirectionLabel('minAltGps') }}
+              </span>
+              }
+            </button>
+          </th>
+
+          <th class="numeric">
+            <button
+              type="button"
+              class="sort-header"
+              (click)="setSort('maxAltGps')"
+            >
+              Max Alt
+              @if (sortDirectionLabel('maxAltGps')) {
+              <span class="sort-indicator">
+                {{ sortDirectionLabel('maxAltGps') }}
+              </span>
+              }
+            </button>
+          </th>
+
+          <th class="actions-col">
+            Actions
+          </th>
         </tr>
       </thead>
 
@@ -113,12 +228,6 @@
             </span>
           </td>
 
-          <td>
-            <span class="sync-badge public">
-              public
-            </span>
-          </td>
-
           <td class="numeric">
             {{ formatDuration(flight.durationSec) }}
           </td>
@@ -137,7 +246,12 @@
 
           <td class="actions-col">
             <div class="row-actions">
-              <a class="icon-button" [routerLink]="['/public/flights', flight.id]" title="Details" aria-label="Details">
+              <a
+                class="icon-button"
+                [routerLink]="['/public/flights', flight.id]"
+                title="Details"
+                aria-label="Details"
+              >
                 ›
               </a>
             </div>
@@ -154,16 +268,24 @@
     </div>
 
     <div class="pagination-actions">
-      <button type="button" class="secondary-button" [disabled]="page() <= 0 || loading()" (click)="previousPage()">
+      <button
+        type="button"
+        class="secondary-button"
+        [disabled]="page() <= 0 || loading()"
+        (click)="previousPage()"
+      >
         Previous
       </button>
 
-      <button type="button" class="secondary-button" [disabled]="page() + 1 >= totalPages() || loading()"
-        (click)="nextPage()">
+      <button
+        type="button"
+        class="secondary-button"
+        [disabled]="page() + 1 >= totalPages() || loading()"
+        (click)="nextPage()"
+      >
         Next
       </button>
     </div>
   </div>
-
   }
 </section>

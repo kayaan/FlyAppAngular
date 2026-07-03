@@ -14,6 +14,7 @@ export interface FlightListItem {
   id: string; // SHA-256 of original IGC bytes
 
   localFlight: Flight | null;
+  
   backendFlight: BackendFlight | null;
 
   localStats: FlightStats | null;

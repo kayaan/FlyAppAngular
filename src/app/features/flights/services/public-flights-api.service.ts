@@ -6,17 +6,26 @@ import {
   PublicFlightsPage,
 } from '../models/public-flight.model';
 
+export type PublicFlightSort =
+  | 'date'
+  | 'pilot'
+  | 'glider'
+  | 'duration'
+  | 'distance'
+  | 'minAltGps'
+  | 'maxAltGps';
+
+export type PublicFlightSortDirection = 'asc' | 'desc';
+
 export interface PublicFlightsQuery {
   q?: string | null;
   from?: string | null;
   to?: string | null;
-  sort?: 'newest' | 'distance' | 'duration' | 'gain';
+  sort?: PublicFlightSort;
+  direction?: PublicFlightSortDirection;
   page?: number;
   size?: number;
 }
-
-export type PublicFlightSort = 'newest' | 'distance' | 'duration' | 'gain';
-
 @Injectable({
   providedIn: 'root',
 })
@@ -27,6 +36,15 @@ export class PublicFlightsApiService {
 
   getPublicFlights(query: PublicFlightsQuery = {}) {
     let params = new HttpParams();
+
+    if (query.sort) {
+      params = params.set('sort', query.sort);
+    }
+
+    if (query.direction) {
+      params = params.set('direction', query.direction);
+    }
+
 
     if (query.q?.trim()) {
       params = params.set('q', query.q.trim());

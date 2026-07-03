@@ -15,6 +15,8 @@ import { BackendFlightsApiService } from '../services/backend-flights-api.servic
 import { FlightBackendSyncService } from '../services/flight-backend-sync.service';
 import { FlightListMergeService } from '../services/flight-list-merge.service';
 import { FlightSaveService } from '../services/flight-save.service';
+import { DEFAULT_FLIGHT_LIST_SORT, FlightListSort, FlightSortKey } from '../models/flight-list-sort';
+import { FlightListSortService } from '../services/flight-list-sort.service';
 
 type FlightsState = {
   localFlightListItems: LocalFlightListItem[];
@@ -36,6 +38,8 @@ type FlightsState = {
   deletingRemoteFlightId: string | null;
 
   updatingVisibilityFlightId: string | null;
+
+  sort: FlightListSort;
 };
 
 const initialState: FlightsState = {
@@ -56,7 +60,9 @@ const initialState: FlightsState = {
 
   deletingRemoteFlightId: null,
 
-  updatingVisibilityFlightId: null
+  updatingVisibilityFlightId: null,
+
+  sort: DEFAULT_FLIGHT_LIST_SORT
 };
 
 export const FlightsStore = signalStore(
@@ -66,22 +72,25 @@ export const FlightsStore = signalStore(
 
   withComputed((store) => {
     const mergeService = inject(FlightListMergeService);
+    const sortService = inject(FlightListSortService);
+
+    const mergedFlightListItems = computed(() =>
+      mergeService.merge(store.localFlightListItems(), store.backendFlights())
+    );
 
     return {
       flightListItems: computed(() =>
-        mergeService.merge(store.localFlightListItems(), store.backendFlights())
+        sortService.sort(mergedFlightListItems(), store.sort())
       ),
 
       localOnlyFlightIds: computed(() =>
-        mergeService
-          .merge(store.localFlightListItems(), store.backendFlights())
+        mergedFlightListItems()
           .filter((item) => item.syncStatus === 'localOnly')
           .map((item) => item.id)
       ),
 
       localOnlyCount: computed(() =>
-        mergeService
-          .merge(store.localFlightListItems(), store.backendFlights())
+        mergedFlightListItems()
           .filter((item) => item.syncStatus === 'localOnly').length
       ),
     };
@@ -116,6 +125,20 @@ export const FlightsStore = signalStore(
     }
 
     return {
+      setSort(key: FlightSortKey): void {
+        const current = store.sort();
+
+        patchState(store, {
+          sort: {
+            key,
+            direction:
+              current.key === key && current.direction === 'asc'
+                ? 'desc'
+                : 'asc',
+          },
+        });
+      },
+
       async updateRemoteVisibility(
         flightId: string,
         visibility: FlightVisibility

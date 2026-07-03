@@ -5,6 +5,7 @@ import { RouterLink } from '@angular/router';
 import { AuthStore } from '../../../auth/store/auth.store';
 import { FlightSyncEventsService } from '../../services/flight-sync-events.service';
 import { FlightsStore } from '../../store/flights.store';
+import { FlightSortKey } from '../../models/flight-list-sort';
 
 @Component({
   selector: 'app-flight-list',
@@ -52,6 +53,18 @@ export class FlightList implements OnInit, OnDestroy {
     void this.store.importFiles(input.files);
 
     input.value = '';
+  }
+
+  isSortedBy(key: FlightSortKey): boolean {
+    return this.store.sort().key === key;
+  }
+
+  sortDirectionLabel(key: FlightSortKey): string {
+    if (!this.isSortedBy(key)) {
+      return '';
+    }
+
+    return this.store.sort().direction === 'asc' ? '↑' : '↓';
   }
 
   formatDate(value: string | null | undefined): string {

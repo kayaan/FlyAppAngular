@@ -43,23 +43,7 @@ export class FlightListMergeService {
         });
       }
     }
-
-    return Array.from(itemsById.values()).sort((a, b) => {
-      const aDate =
-        a.localFlight?.flightDate ??
-        a.backendFlight?.flightDate ??
-        a.localFlight?.importedAtUtc ??
-        a.backendFlight?.importedAtUtc ??
-        '';
-
-      const bDate =
-        b.localFlight?.flightDate ??
-        b.backendFlight?.flightDate ??
-        b.localFlight?.importedAtUtc ??
-        b.backendFlight?.importedAtUtc ??
-        '';
-
-      return bDate.localeCompare(aDate);
-    });
+    
+    return Array.from(itemsById.values());
   }
 }

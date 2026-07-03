@@ -5,6 +5,7 @@ import { firstValueFrom } from 'rxjs';
 import {
   PublicFlightsApiService,
   PublicFlightSort,
+  PublicFlightSortDirection,
   PublicFlightsQuery,
 } from '../../services/public-flights-api.service';
 import { PublicFlight } from '../../models/public-flight.model';
@@ -30,7 +31,8 @@ export class PublicFlightList {
   readonly q = signal('');
   readonly from = signal('');
   readonly to = signal('');
-  readonly sort = signal<PublicFlightSort>('newest');
+  readonly sort = signal<PublicFlightSort>('date');
+  readonly direction = signal<PublicFlightSortDirection>('desc');
 
   readonly hasFlights = computed(() => this.flights().length > 0);
 
@@ -39,7 +41,8 @@ export class PublicFlightList {
       this.q().trim().length > 0 ||
       this.from().length > 0 ||
       this.to().length > 0 ||
-      this.sort() !== 'newest'
+      this.sort() !== 'date' ||
+      this.direction() !== 'desc'
   );
 
   constructor() {
@@ -55,6 +58,7 @@ export class PublicFlightList {
       from: this.from() || null,
       to: this.to() || null,
       sort: this.sort(),
+      direction: this.direction(),
       page,
       size: 50,
     };
@@ -82,27 +86,27 @@ export class PublicFlightList {
     this.q.set('');
     this.from.set('');
     this.to.set('');
-    this.sort.set('newest');
+    this.sort.set('date');
+    this.direction.set('desc');
 
     await this.load(0);
   }
 
   async nextPage(): Promise<void> {
-  if (this.page() + 1 >= this.totalPages()) {
-    return;
+    if (this.page() + 1 >= this.totalPages()) {
+      return;
+    }
+
+    await this.load(this.page() + 1);
   }
 
-  await this.load(this.page() + 1);
-}
+  async previousPage(): Promise<void> {
+    if (this.page() <= 0) {
+      return;
+    }
 
-async previousPage(): Promise<void> {
-  if (this.page() <= 0) {
-    return;
+    await this.load(this.page() - 1);
   }
-
-  await this.load(this.page() - 1);
-}
-
 
 
   onSearchInput(event: Event): void {
@@ -120,9 +124,9 @@ async previousPage(): Promise<void> {
     this.to.set(input.value);
   }
 
-  onSortChange(event: Event): void {
+  async onSortChange(event: Event): Promise<void> {
     const select = event.target as HTMLSelectElement;
-    this.sort.set(select.value as PublicFlightSort);
+    await this.setSort(select.value as PublicFlightSort);
   }
 
   formatDate(value: string | null): string {
@@ -162,5 +166,39 @@ async previousPage(): Promise<void> {
     }
 
     return `${Math.round(meters)} m`;
+  }
+
+  async setSort(sort: PublicFlightSort): Promise<void> {
+    if (this.sort() === sort) {
+      this.direction.set(this.direction() === 'asc' ? 'desc' : 'asc');
+    } else {
+      this.sort.set(sort);
+      this.direction.set(this.defaultDirectionFor(sort));
+    }
+
+    await this.load(0);
+  }
+
+  sortDirectionLabel(sort: PublicFlightSort): string {
+    if (this.sort() !== sort) {
+      return '';
+    }
+
+    return this.direction() === 'asc' ? '↑' : '↓';
+  }
+
+  private defaultDirectionFor(sort: PublicFlightSort): PublicFlightSortDirection {
+    switch (sort) {
+      case 'date':
+      case 'duration':
+      case 'distance':
+      case 'minAltGps':
+      case 'maxAltGps':
+        return 'desc';
+
+      case 'pilot':
+      case 'glider':
+        return 'asc';
+    }
   }
 }

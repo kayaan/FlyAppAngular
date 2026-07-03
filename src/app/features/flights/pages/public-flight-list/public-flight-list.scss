@@ -250,20 +250,9 @@
   }
 }
 
-@media (max-width: 800px) {
-  .flight-list-page {
-    padding: 20px;
-  }
-
-  .page-header {
-    flex-direction: column;
-    align-items: stretch;
-  }
-}
-
 .filter-card {
   margin-bottom: 20px;
-  padding: 18px;
+  padding: 18px 24px;
   border: 1px solid #e5e7eb;
   border-radius: 18px;
   background: #ffffff;
@@ -272,10 +261,10 @@
     0 12px 28px rgba(16, 24, 40, 0.06);
 }
 
-.filter-grid {
-  display: grid;
-  grid-template-columns: minmax(260px, 2fr) repeat(3, minmax(160px, 1fr));
-  gap: 14px;
+.filter-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 22px;
 }
 
 .filter-field {
@@ -294,6 +283,7 @@
   input,
   select {
     height: 40px;
+    box-sizing: border-box;
     border: 1px solid #d0d5dd;
     border-radius: 10px;
     padding: 0 12px;
@@ -309,33 +299,39 @@
   }
 }
 
+.search-field {
+  width: 420px;
+
+  input {
+    width: 100%;
+  }
+}
+
+.date-field {
+  width: 190px;
+
+  input {
+    width: 100%;
+  }
+}
+
 .filter-actions {
   display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 16px;
+  align-items: flex-end;
+  gap: 14px;
+  margin-left: 8px;
+
+  .primary-button,
+  .secondary-button {
+    height: 40px;
+    min-width: 92px;
+    white-space: nowrap;
+  }
 }
 
 button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-}
-
-@media (max-width: 1000px) {
-  .filter-grid {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-
-@media (max-width: 640px) {
-  .filter-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .filter-actions {
-    flex-direction: column;
-    align-items: stretch;
-  }
 }
 
 .pagination-bar {
@@ -357,7 +353,90 @@ button:disabled {
   gap: 10px;
 }
 
+.sort-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.sort-header:hover {
+  text-decoration: underline;
+}
+
+.sort-indicator {
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #e0e7ff;
+  color: #1d4ed8;
+  font-size: 14px;
+  font-weight: 900;
+  line-height: 1;
+  opacity: 1;
+}
+
+@media (max-width: 1000px) {
+  .filter-row {
+    flex-wrap: wrap;
+  }
+
+  .search-field {
+    width: 100%;
+  }
+
+  .date-field {
+    width: calc(50% - 11px);
+  }
+
+  .filter-actions {
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 800px) {
+  .flight-list-page {
+    padding: 20px;
+  }
+
+  .page-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
 @media (max-width: 640px) {
+  .filter-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+  }
+
+  .search-field,
+  .date-field {
+    width: 100%;
+  }
+
+  .filter-actions {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+
+    .primary-button,
+    .secondary-button {
+      width: 100%;
+    }
+  }
+
   .pagination-bar {
     flex-direction: column;
     align-items: stretch;

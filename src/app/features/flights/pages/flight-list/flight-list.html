@@ -7,22 +7,22 @@
 
     <div class="header-actions">
       @if (authStore.authenticated()) {
-        <button
-          type="button"
-          class="secondary-button"
-          [disabled]="
-            store.localOnlyCount() === 0 ||
-            store.uploadingAll() ||
-            store.uploadingFlightId() !== null
-          "
-          (click)="store.syncUploadAllFlights()"
-        >
-          @if (store.uploadingAll()) {
-            Uploading all...
-          } @else {
-            Upload all ({{ store.localOnlyCount() }})
-          }
-        </button>
+      <button
+        type="button"
+        class="secondary-button"
+        [disabled]="
+          store.localOnlyCount() === 0 ||
+          store.uploadingAll() ||
+          store.uploadingFlightId() !== null
+        "
+        (click)="store.syncUploadAllFlights()"
+      >
+        @if (store.uploadingAll()) {
+        Uploading all...
+        } @else {
+        Upload all ({{ store.localOnlyCount() }})
+        }
+      </button>
       }
 
       <button
@@ -45,212 +45,337 @@
   </header>
 
   @if (store.error()) {
-    <div class="error-box">
-      {{ store.error() }}
-      <button type="button" (click)="store.clearError()">Dismiss</button>
-    </div>
+  <div class="error-box">
+    {{ store.error() }}
+    <button
+      type="button"
+      (click)="store.clearError()"
+    >
+      Dismiss
+    </button>
+  </div>
   }
 
   @if (store.loading()) {
-    <div class="loading-box">Loading flights.</div>
+  <div class="loading-box">Loading flights.</div>
   }
 
   @if (!store.loading() && store.flightListItems().length === 0) {
-    <div class="empty-box">
-      <h2>No flights imported yet</h2>
-      <p>Import one or more IGC files to start analysing your flights.</p>
-    </div>
+  <div class="empty-box">
+    <h2>No flights imported yet</h2>
+    <p>Import one or more IGC files to start analysing your flights.</p>
+  </div>
   }
 
   @if (store.flightListItems().length > 0) {
-    <div class="table-card">
-      <table class="flight-table">
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>Pilot</th>
-            <th>Glider</th>
-            <th>Status</th>
-            <th>Time</th>
-            <th class="numeric">Duration</th>
-            <th class="numeric">Distance</th>
-            <th class="numeric">Min Alt</th>
-            <th class="numeric">Max Alt</th>
-            <th class="actions-col">Actions</th>
-          </tr>
-        </thead>
+  <div class="table-card">
+    <table class="flight-table">
+      <thead>
+        <tr>
+          <th>
+            <button
+              type="button"
+              class="sort-header"
+              (click)="store.setSort('flightDate')"
+            >
+              Date
+              @if (sortDirectionLabel('flightDate')) {
+              <span class="sort-indicator">
+                {{ sortDirectionLabel('flightDate') }}
+              </span>
+              }
+            </button>
+          </th>
 
-        <tbody>
-          @for (item of store.flightListItems(); track item.id) {
-            <tr>
-              <td>
-                <div class="main-cell">
-                  <span class="primary-text">
-                    {{
-                      formatDate(
-                        item.localFlight?.flightDate ??
-                        item.backendFlight?.flightDate
-                      )
-                    }}
-                  </span>
+          <th>
+            <button
+              type="button"
+              class="sort-header"
+              (click)="store.setSort('pilot')"
+            >
+              Pilot
+              @if (sortDirectionLabel('pilot')) {
+              <span class="sort-indicator">
+                {{ sortDirectionLabel('pilot') }}
+              </span>
+              }
+            </button>
+          </th>
 
-                  <span class="secondary-text">
-                    {{
-                      item.localFlight?.fileName ??
-                      item.backendFlight?.fileName ??
-                      '—'
-                    }}
-                  </span>
-                </div>
-              </td>
+          <th>
+            <button
+              type="button"
+              class="sort-header"
+              (click)="store.setSort('glider')"
+            >
+              Glider
+              @if (sortDirectionLabel('glider')) {
+              <span class="sort-indicator">
+                {{ sortDirectionLabel('glider') }}
+              </span>
+              }
+            </button>
+          </th>
 
-              <td>
-                <span class="primary-text">
-                  {{
-                    item.localFlight?.pilot ??
-                    item.backendFlight?.pilot ??
-                    '—'
-                  }}
-                </span>
-              </td>
+          <th>
+            <button
+              type="button"
+              class="sort-header"
+              (click)="store.setSort('syncStatus')"
+            >
+              Status
+              @if (sortDirectionLabel('syncStatus')) {
+              <span class="sort-indicator">
+                {{ sortDirectionLabel('syncStatus') }}
+              </span>
+              }
+            </button>
+          </th>
 
-              <td>
-                <span class="primary-text">
-                  {{
-                    item.localFlight?.glider ??
-                    item.backendFlight?.glider ??
-                    '—'
-                  }}
-                </span>
-              </td>
+          <th>
+            Start
+          </th>
 
-              <td>
-                <span class="sync-badge" [ngClass]="item.syncStatus">
-                  {{ item.syncStatus }}
-                </span>
-              </td>
+          <th class="numeric">
+            <button
+              type="button"
+              class="sort-header"
+              (click)="store.setSort('durationSec')"
+            >
+              Duration
+              @if (sortDirectionLabel('durationSec')) {
+              <span class="sort-indicator">
+                {{ sortDirectionLabel('durationSec') }}
+              </span>
+              }
+            </button>
+          </th>
 
-              <td>
-                <span class="mono-text">
-                  {{ formatTime(item.localStats?.startTimeSec) }}
-                </span>
-              </td>
+          <th class="numeric">
+            <button
+              type="button"
+              class="sort-header"
+              (click)="store.setSort('distanceM')"
+            >
+              Distance
+              @if (sortDirectionLabel('distanceM')) {
+              <span class="sort-indicator">
+                {{ sortDirectionLabel('distanceM') }}
+              </span>
+              }
+            </button>
+          </th>
 
-              <td class="numeric">
-                {{ formatDuration(item.localStats?.durationSec) }}
-              </td>
+          <th class="numeric">
+            <button
+              type="button"
+              class="sort-header"
+              (click)="store.setSort('minAltGpsM')"
+            >
+              Min Alt
+              @if (sortDirectionLabel('minAltGpsM')) {
+              <span class="sort-indicator">
+                {{ sortDirectionLabel('minAltGpsM') }}
+              </span>
+              }
+            </button>
+          </th>
 
-              <td class="numeric">
-                {{ formatDistance(item.localStats?.distanceM) }}
-              </td>
+          <th class="numeric">
+            <button
+              type="button"
+              class="sort-header"
+              (click)="store.setSort('maxAltGpsM')"
+            >
+              Max Alt
+              @if (sortDirectionLabel('maxAltGpsM')) {
+              <span class="sort-indicator">
+                {{ sortDirectionLabel('maxAltGpsM') }}
+              </span>
+              }
+            </button>
+          </th>
 
-              <td class="numeric">
-                {{ formatHeight(item.localStats?.minAltGpsM) }}
-              </td>
+          <th class="actions-col">
+            Actions
+          </th>
+        </tr>
+      </thead>
 
-              <td class="numeric">
-                {{ formatHeight(item.localStats?.maxAltGpsM) }}
-              </td>
+      <tbody>
+        @for (item of store.flightListItems(); track item.id) {
+        <tr>
+          <td>
+            <div class="main-cell">
+              <span class="primary-text">
+                {{
+                formatDate(
+                item.localFlight?.flightDate ??
+                item.backendFlight?.flightDate
+                )
+                }}
+              </span>
 
-              <td class="actions-col">
-                <div class="row-actions">
-                  @if (item.localFlight) {
-                    <a
-                      class="icon-button"
-                      [routerLink]="['/flights', item.id]"
-                      title="Details"
-                      aria-label="Details"
-                    >
-                      ›
-                    </a>
+              <span class="secondary-text">
+                {{
+                item.localFlight?.fileName ??
+                item.backendFlight?.fileName ??
+                '—'
+                }}
+              </span>
+            </div>
+          </td>
 
-                    <button
-                      type="button"
-                      class="icon-button danger"
-                      title="Delete local"
-                      aria-label="Delete local"
-                      (click)="store.deleteFlight(item.id)"
-                    >
-                      🗑
-                    </button>
-                  }
+          <td>
+            <span class="primary-text">
+              {{
+              item.localFlight?.pilot ??
+              item.backendFlight?.pilot ??
+              '—'
+              }}
+            </span>
+          </td>
 
-                  @if (authStore.authenticated() && item.backendFlight) {
-                    <select
-                      class="visibility-select"
-                      [value]="item.backendFlight.visibility"
-                      [disabled]="store.updatingVisibilityFlightId() === item.id"
-                      (change)="store.updateRemoteVisibility(item.id, $any($event.target).value)"
-                    >
-                      <option value="PRIVATE">Private</option>
-                      <option value="UNLISTED">Unlisted</option>
-                      <option value="PUBLIC">Public</option>
-                    </select>
+          <td>
+            <span class="primary-text">
+              {{
+              item.localFlight?.glider ??
+              item.backendFlight?.glider ??
+              '—'
+              }}
+            </span>
+          </td>
 
-                    <button
-                      type="button"
-                      class="icon-button danger"
-                      title="Delete remote"
-                      aria-label="Delete remote"
-                      [disabled]="store.deletingRemoteFlightId() === item.id"
-                      (click)="store.deleteRemoteFlight(item.id)"
-                    >
-                      @if (store.deletingRemoteFlightId() === item.id) {
-                        ...
-                      } @else {
-                        ☁️🗑
-                      }
-                    </button>
-                  }
+          <td>
+            <span
+              class="sync-badge"
+              [ngClass]="item.syncStatus"
+            >
+              {{ item.syncStatus }}
+            </span>
+          </td>
 
-                  @if (authStore.authenticated() && item.syncStatus === 'localOnly') {
-                    <button
-                      type="button"
-                      class="secondary-button"
-                      title="Upload to backend"
-                      aria-label="Upload to backend"
-                      [disabled]="
-                        store.uploadingAll() ||
-                        store.uploadingFlightId() === item.id
-                      "
-                      (click)="store.syncUploadFlight(item.id)"
-                    >
-                      @if (store.uploadingFlightId() === item.id) {
-                        Uploading...
-                      } @else {
-                        Upload
-                      }
-                    </button>
-                  }
+          <td>
+            <span class="mono-text">
+              {{ formatTime(item.localStats?.startTimeSec) }}
+            </span>
+          </td>
 
-                  @if (authStore.authenticated() && item.syncStatus === 'remoteOnly') {
-                    <button
-                      type="button"
-                      class="secondary-button"
-                      title="Download from backend"
-                      aria-label="Download from backend"
-                      [disabled]="store.downloadingFlightId() === item.id"
-                      (click)="store.syncDownloadFlight(item.id)"
-                    >
-                      @if (store.downloadingFlightId() === item.id) {
-                        Downloading...
-                      } @else {
-                        Download
-                      }
-                    </button>
-                  }
-                </div>
+          <td class="numeric">
+            {{ formatDuration(item.localStats?.durationSec) }}
+          </td>
 
-                @if (store.syncErrorByFlightId()[item.id]; as syncError) {
-                  <div class="sync-error">
-                    {{ syncError }}
-                  </div>
+          <td class="numeric">
+            {{ formatDistance(item.localStats?.distanceM) }}
+          </td>
+
+          <td class="numeric">
+            {{ formatHeight(item.localStats?.minAltGpsM) }}
+          </td>
+
+          <td class="numeric">
+            {{ formatHeight(item.localStats?.maxAltGpsM) }}
+          </td>
+
+          <td class="actions-col">
+            <div class="row-actions">
+              @if (item.localFlight) {
+              <a
+                class="icon-button"
+                [routerLink]="['/flights', item.id]"
+                title="Details"
+                aria-label="Details"
+              >
+                ›
+              </a>
+
+              <button
+                type="button"
+                class="icon-button danger"
+                title="Delete local"
+                aria-label="Delete local"
+                (click)="store.deleteFlight(item.id)"
+              >
+                🗑
+              </button>
+              }
+
+              @if (authStore.authenticated() && item.backendFlight) {
+              <select
+                class="visibility-select"
+                [value]="item.backendFlight.visibility"
+                [disabled]="store.updatingVisibilityFlightId() === item.id"
+                (change)="store.updateRemoteVisibility(item.id, $any($event.target).value)"
+              >
+                <option value="PRIVATE">Private</option>
+                <option value="UNLISTED">Unlisted</option>
+                <option value="PUBLIC">Public</option>
+              </select>
+
+              <button
+                type="button"
+                class="icon-button danger"
+                title="Delete remote"
+                aria-label="Delete remote"
+                [disabled]="store.deletingRemoteFlightId() === item.id"
+                (click)="store.deleteRemoteFlight(item.id)"
+              >
+                @if (store.deletingRemoteFlightId() === item.id) {
+                ...
+                } @else {
+                ☁️🗑
                 }
-              </td>
-            </tr>
-          }
-        </tbody>
-      </table>
-    </div>
+              </button>
+              }
+
+              @if (authStore.authenticated() && item.syncStatus === 'localOnly') {
+              <button
+                type="button"
+                class="secondary-button"
+                title="Upload to backend"
+                aria-label="Upload to backend"
+                [disabled]="
+                  store.uploadingAll() ||
+                  store.uploadingFlightId() === item.id
+                "
+                (click)="store.syncUploadFlight(item.id)"
+              >
+                @if (store.uploadingFlightId() === item.id) {
+                Uploading...
+                } @else {
+                Upload
+                }
+              </button>
+              }
+
+              @if (authStore.authenticated() && item.syncStatus === 'remoteOnly') {
+              <button
+                type="button"
+                class="secondary-button"
+                title="Download from backend"
+                aria-label="Download from backend"
+                [disabled]="store.downloadingFlightId() === item.id"
+                (click)="store.syncDownloadFlight(item.id)"
+              >
+                @if (store.downloadingFlightId() === item.id) {
+                Downloading...
+                } @else {
+                Download
+                }
+              </button>
+              }
+            </div>
+
+            @if (store.syncErrorByFlightId()[item.id]; as syncError) {
+            <div class="sync-error">
+              {{ syncError }}
+            </div>
+            }
+          </td>
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
   }
 </section>

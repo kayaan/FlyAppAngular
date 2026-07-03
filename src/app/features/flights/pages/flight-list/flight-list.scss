@@ -329,3 +329,35 @@
 
   font-size: 12px;
 }
+
+.sort-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.sort-header:hover {
+  text-decoration: underline;
+}
+
+.sort-indicator {
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #e0e7ff;
+  color: #1d4ed8;
+  font-size: 14px;
+  font-weight: 900;
+  line-height: 1;
+  opacity: 1;
+}
