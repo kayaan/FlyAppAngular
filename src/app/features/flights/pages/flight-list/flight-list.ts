@@ -1,9 +1,10 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnDestroy, OnInit, effect, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
-import { FlightsStore } from '../../store/flights.store';
+import { AuthStore } from '../../../auth/store/auth.store';
 import { FlightSyncEventsService } from '../../services/flight-sync-events.service';
+import { FlightsStore } from '../../store/flights.store';
 
 @Component({
   selector: 'app-flight-list',
@@ -12,24 +13,35 @@ import { FlightSyncEventsService } from '../../services/flight-sync-events.servi
   templateUrl: './flight-list.html',
   styleUrl: './flight-list.scss',
 })
-export class FlightList implements OnInit {
-  readonly store = inject(FlightsStore);
+export class FlightList implements OnInit, OnDestroy {
+  public readonly store = inject(FlightsStore);
+  public readonly authStore = inject(AuthStore);
 
   private readonly syncEvents = inject(FlightSyncEventsService);
+
   private eventSource: EventSource | null = null;
+
+  private readonly authEffect = effect(() => {
+    const authenticated = this.authStore.authenticated();
+
+    if (authenticated) {
+      void this.store.loadBackendFlights();
+      this.openSyncEvents();
+      return;
+    }
+
+    this.closeSyncEvents();
+    this.store.clearBackendState();
+  });
 
   ngOnInit(): void {
     void this.store.loadFlights();
-
-    this.eventSource = this.syncEvents.connect(() => {
-      void this.store.loadFlights();
-    });
   }
 
   ngOnDestroy(): void {
-    this.eventSource?.close();
-    this.eventSource = null;
+    this.closeSyncEvents();
   }
+
   onFilesSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
 
@@ -102,5 +114,24 @@ export class FlightList implements OnInit {
     }
 
     return `${Math.round(heightM)} m`;
+  }
+
+  private openSyncEvents(): void {
+    if (this.eventSource) {
+      return;
+    }
+
+    this.eventSource = this.syncEvents.connect(() => {
+      void this.store.loadBackendFlights();
+    });
+  }
+
+  private closeSyncEvents(): void {
+    if (!this.eventSource) {
+      return;
+    }
+
+    this.eventSource.close();
+    this.eventSource = null;
   }
 }

@@ -30,6 +30,8 @@ type FlightsState = {
   uploadingFlightId: string | null;
   downloadingFlightId: string | null;
   syncErrorByFlightId: Record<string, string>;
+  uploadingAll: boolean;
+
 
   deletingRemoteFlightId: string | null;
 
@@ -50,6 +52,7 @@ const initialState: FlightsState = {
   uploadingFlightId: null,
   downloadingFlightId: null,
   syncErrorByFlightId: {},
+  uploadingAll: false,
 
   deletingRemoteFlightId: null,
 
@@ -67,6 +70,19 @@ export const FlightsStore = signalStore(
     return {
       flightListItems: computed(() =>
         mergeService.merge(store.localFlightListItems(), store.backendFlights())
+      ),
+
+      localOnlyFlightIds: computed(() =>
+        mergeService
+          .merge(store.localFlightListItems(), store.backendFlights())
+          .filter((item) => item.syncStatus === 'localOnly')
+          .map((item) => item.id)
+      ),
+
+      localOnlyCount: computed(() =>
+        mergeService
+          .merge(store.localFlightListItems(), store.backendFlights())
+          .filter((item) => item.syncStatus === 'localOnly').length
       ),
     };
   }),
@@ -86,6 +102,9 @@ export const FlightsStore = signalStore(
         syncErrorByFlightId: rest,
       });
     }
+
+
+
 
     function setSyncError(flightId: string, message: string): void {
       patchState(store, {
@@ -127,6 +146,22 @@ export const FlightsStore = signalStore(
             updatingVisibilityFlightId: null,
           });
         }
+      },
+
+      clearBackendState(): void {
+        patchState(store, {
+          backendFlights: [],
+          backendFlightsLoading: false,
+          backendFlightsError: null,
+
+          uploadingFlightId: null,
+          uploadingAll: false,
+          downloadingFlightId: null,
+          deletingRemoteFlightId: null,
+          updatingVisibilityFlightId: null,
+
+          syncErrorByFlightId: {},
+        });
       },
 
       async loadFlights(): Promise<void> {
@@ -319,6 +354,49 @@ export const FlightsStore = signalStore(
             uploadingFlightId: null,
           });
         }
+      },
+
+      async syncUploadAllFlights(): Promise<void> {
+        const flightIds = store.localOnlyFlightIds();
+
+        if (flightIds.length === 0) {
+          return;
+        }
+
+        patchState(store, {
+          uploadingAll: true,
+          error: null,
+        });
+
+        let failedCount = 0;
+
+        for (const flightId of flightIds) {
+          patchState(store, {
+            uploadingFlightId: flightId,
+          });
+
+          clearSyncError(flightId);
+
+          try {
+            await backendSync.uploadFlight(flightId);
+          } catch (error) {
+            console.error('Failed to upload flight to backend', error);
+
+            failedCount++;
+            setSyncError(flightId, 'Upload failed.');
+          }
+        }
+
+        await this.loadBackendFlights();
+
+        patchState(store, {
+          uploadingFlightId: null,
+          uploadingAll: false,
+          error:
+            failedCount > 0
+              ? `${failedCount} flight(s) could not be uploaded.`
+              : null,
+        });
       },
 
       async syncDownloadFlight(flightId: string): Promise<void> {
