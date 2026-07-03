@@ -46,7 +46,7 @@ export class PublicFlightList {
     void this.load();
   }
 
-  async load(): Promise<void> {
+  async load(page = this.page()): Promise<void> {
     this.loading.set(true);
     this.error.set(null);
 
@@ -55,7 +55,7 @@ export class PublicFlightList {
       from: this.from() || null,
       to: this.to() || null,
       sort: this.sort(),
-      page: 0,
+      page,
       size: 50,
     };
 
@@ -75,7 +75,7 @@ export class PublicFlightList {
   }
 
   async applyFilters(): Promise<void> {
-    await this.load();
+    await this.load(0);
   }
 
   async clearFilters(): Promise<void> {
@@ -84,8 +84,26 @@ export class PublicFlightList {
     this.to.set('');
     this.sort.set('newest');
 
-    await this.load();
+    await this.load(0);
   }
+
+  async nextPage(): Promise<void> {
+  if (this.page() + 1 >= this.totalPages()) {
+    return;
+  }
+
+  await this.load(this.page() + 1);
+}
+
+async previousPage(): Promise<void> {
+  if (this.page() <= 0) {
+    return;
+  }
+
+  await this.load(this.page() - 1);
+}
+
+
 
   onSearchInput(event: Event): void {
     const input = event.target as HTMLInputElement;

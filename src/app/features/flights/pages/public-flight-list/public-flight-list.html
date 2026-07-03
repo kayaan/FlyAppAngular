@@ -147,5 +147,23 @@
       </tbody>
     </table>
   </div>
+
+  <div class="pagination-bar">
+    <div class="pagination-info">
+      {{ totalItems() }} public flights · page {{ page() + 1 }} / {{ totalPages() || 1 }}
+    </div>
+
+    <div class="pagination-actions">
+      <button type="button" class="secondary-button" [disabled]="page() <= 0 || loading()" (click)="previousPage()">
+        Previous
+      </button>
+
+      <button type="button" class="secondary-button" [disabled]="page() + 1 >= totalPages() || loading()"
+        (click)="nextPage()">
+        Next
+      </button>
+    </div>
+  </div>
+
   }
 </section>
