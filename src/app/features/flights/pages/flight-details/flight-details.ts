@@ -23,6 +23,8 @@ import { FlightSummaryTags } from '../../components/flight-summary-tags/flight-s
 import { FlightClimbsPanel } from '../../components/flight-climbs-panel/flight-climbs-panel';
 import { FlightReplayControls } from '../../components/flight-replay-controls/flight-replay-controls';
 import { TrackColorMode } from '../../models/flight-settings.model';
+import { FlightTrackTooltip } from '../../components/flight-track-tooltip/flight-track-tooltip';
+
 
 const RESOLUTION_INPUT_DEBOUNCE_MS = 350;
 
@@ -37,6 +39,7 @@ const RESOLUTION_INPUT_DEBOUNCE_MS = 350;
     FlightSummaryTags,
     FlightClimbsPanel,
     FlightReplayControls,
+    FlightTrackTooltip,
   ],
   templateUrl: './flight-details.html',
   styleUrl: './flight-details.scss',

@@ -1,0 +1,39 @@
+@if (tooltip(); as info) {
+  <div class="track-tooltip">
+    <div class="track-tooltip-time">
+      {{ formatReplayTime(info.relativeTimeSec) }}
+    </div>
+
+    <div class="track-tooltip-row">
+      <span class="track-tooltip-label">Altitude</span>
+      <strong class="track-tooltip-value">
+        {{ formatNumber(info.altitudeM, 0) }}
+      </strong>
+      <span class="track-tooltip-unit">m</span>
+    </div>
+
+    <div class="track-tooltip-row">
+      <span class="track-tooltip-label">Vario</span>
+      <strong class="track-tooltip-value">
+        {{ formatSignedNumber(info.varioMs, 1) }}
+      </strong>
+      <span class="track-tooltip-unit">m/s</span>
+    </div>
+
+    <div class="track-tooltip-row">
+      <span class="track-tooltip-label">Speed</span>
+      <strong class="track-tooltip-value">
+        {{ formatNumber(info.speedKmh, 0) }}
+      </strong>
+      <span class="track-tooltip-unit">km/h</span>
+    </div>
+
+    <div class="track-tooltip-row muted">
+      <span class="track-tooltip-label">Index</span>
+      <strong class="track-tooltip-value">
+        {{ info.index }}
+      </strong>
+      <span class="track-tooltip-unit"></span>
+    </div>
+  </div>
+}

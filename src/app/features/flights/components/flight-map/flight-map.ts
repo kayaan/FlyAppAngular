@@ -31,7 +31,6 @@ export class FlightMap implements AfterViewInit, OnDestroy {
   private trackLayers: L.Polyline[] = [];
   private didFitBounds = false;
 
-  private hoverTooltip: L.Tooltip | null = null;
   private readonly hoverTolerancePx = 16;
 
   private hoverPointMarker: L.CircleMarker | null = null;
@@ -116,171 +115,6 @@ export class FlightMap implements AfterViewInit, OnDestroy {
     });
   }
 
-  private clearSelectedClimbHalo(): void {
-    this.selectedClimbHaloLayer?.remove();
-    this.selectedClimbHaloLayer = null;
-  }
-
-  private fitMapToSelection(
-    track: TrackArrays,
-    climbs: Climb[],
-    selectedClimbId: number | null,
-  ): void {
-    if (!this.map) {
-      return;
-    }
-
-    if (selectedClimbId === null) {
-      this.fitMapToTrack(track);
-      return;
-    }
-
-    const climb = climbs.find((x) => x.id === selectedClimbId);
-
-    if (!climb) {
-      return;
-    }
-
-    const points = this.buildTrackPoints(
-      track,
-      climb.startIndex,
-      climb.endIndex,
-    );
-
-    if (points.length < 2) {
-      return;
-    }
-
-    this.map.fitBounds(L.latLngBounds(points), {
-      padding: [48, 48],
-      maxZoom: 15,
-      animate: true,
-    });
-  }
-
-  private fitMapToTrack(track: TrackArrays): void {
-    if (!this.map) {
-      return;
-    }
-
-    const points = this.buildTrackPoints(
-      track,
-      0,
-      track.latE7.length - 1,
-    );
-
-    if (points.length < 2) {
-      return;
-    }
-
-    this.map.fitBounds(L.latLngBounds(points), {
-      padding: [24, 24],
-      animate: true,
-    });
-  }
-
-  private buildTrackPoints(
-    track: TrackArrays,
-    startIndex: number,
-    endIndex: number,
-  ): L.LatLngExpression[] {
-    const points: L.LatLngExpression[] = [];
-
-    const safeStartIndex = Math.max(0, startIndex);
-    const safeEndIndex = Math.min(track.latE7.length - 1, endIndex);
-
-    for (let i = safeStartIndex; i <= safeEndIndex; i++) {
-      const lat = track.latE7[i] / 10_000_000;
-      const lon = track.lonE7[i] / 10_000_000;
-
-      if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-        continue;
-      }
-
-      if (lat === 0 && lon === 0) {
-        continue;
-      }
-
-      points.push([lat, lon]);
-    }
-
-    return points;
-  }
-
-  private renderSelectedClimbHalo(
-    track: TrackArrays,
-    climbs: Climb[],
-    selectedClimbId: number | null,
-  ): void {
-    if (!this.map) {
-      return;
-    }
-
-    this.selectedClimbHaloLayer?.remove();
-    this.selectedClimbHaloLayer = null;
-
-    if (selectedClimbId === null) {
-      return;
-    }
-
-    const climb = climbs.find((x) => x.id === selectedClimbId);
-
-    if (!climb) {
-      return;
-    }
-
-    const points: L.LatLngExpression[] = [];
-
-    for (let i = climb.startIndex; i <= climb.endIndex; i++) {
-      points.push([
-        track.latE7[i] / 10_000_000,
-        track.lonE7[i] / 10_000_000,
-      ]);
-    }
-
-    if (points.length < 2) {
-      return;
-    }
-
-    this.selectedClimbHaloLayer = L.polyline(points, {
-      pane: 'selectedClimbHaloPane',
-      color: '#0b26f5',
-      weight: 16,
-      opacity: 0.96,
-      lineCap: 'round',
-      lineJoin: 'round',
-      interactive: false,
-    }).addTo(this.map);
-
-  }
-  private showHoverPointAtIndex(index: number): void {
-    const track = this.store.track();
-
-    if (!this.map || !track) {
-      return;
-    }
-
-    if (index < 0 || index >= track.latE7.length) {
-      this.hideHoverPoint();
-      return;
-    }
-
-    const lat = track.latE7[index] / 10_000_000;
-    const lon = track.lonE7[index] / 10_000_000;
-
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-      this.hideHoverPoint();
-      return;
-    }
-
-    if (lat === 0 && lon === 0) {
-      this.hideHoverPoint();
-      return;
-    }
-
-    this.showHoverPoint(L.latLng(lat, lon));
-  }
-
   ngAfterViewInit(): void {
     this.initMap();
     this.renderTrack();
@@ -289,7 +123,6 @@ export class FlightMap implements AfterViewInit, OnDestroy {
   ngOnDestroy(): void {
     this.store.setCursorIndex(null);
 
-    this.hideHoverTooltip();
     this.hideHoverPoint();
     this.clearSelectedClimbHalo();
     this.clearTrackLayers();
@@ -322,18 +155,15 @@ export class FlightMap implements AfterViewInit, OnDestroy {
     });
 
     this.map.on('mouseout', () => {
-      this.hideHoverTooltip();
       this.hideHoverPoint();
       this.store.setCursorIndex(null);
     });
-
 
     this.map.createPane('selectedClimbHaloPane');
     this.map.getPane('selectedClimbHaloPane')!.style.zIndex = '410';
 
     this.map.createPane('trackPane');
     this.map.getPane('trackPane')!.style.zIndex = '420';
-
 
     setTimeout(() => {
       this.map?.invalidateSize();
@@ -348,7 +178,6 @@ export class FlightMap implements AfterViewInit, OnDestroy {
     const track = this.store.track();
 
     if (!track || track.latE7.length < 2) {
-      this.hideHoverTooltip();
       this.hideHoverPoint();
       this.store.setCursorIndex(null);
       return;
@@ -357,21 +186,12 @@ export class FlightMap implements AfterViewInit, OnDestroy {
     const nearest = this.findNearestTrackIndex(event.latlng);
 
     if (!nearest || nearest.distancePx > this.hoverTolerancePx) {
-      this.hideHoverTooltip();
       this.hideHoverPoint();
       this.store.setCursorIndex(null);
       return;
     }
 
-    const index = nearest.index;
-
-    this.store.setCursorIndex(index);
-
-    this.showHoverTooltip(
-      nearest.latLng,
-      this.buildHoverTooltipContent(index),
-    );
-
+    this.store.setCursorIndex(nearest.index);
     this.showHoverPoint(nearest.latLng);
   }
 
@@ -461,117 +281,32 @@ export class FlightMap implements AfterViewInit, OnDestroy {
     );
   }
 
-  private buildHoverTooltipContent(index: number): string {
+  private showHoverPointAtIndex(index: number): void {
     const track = this.store.track();
 
-    if (!track) {
-      return '';
-    }
-
-    const altitudeM = track.altGpsCm[index] / 100;
-    const varioMs = this.calculateInstantVarioMs(index);
-    const speedKmh = this.calculateInstantSpeedKmh(index);
-
-    return `
-    <div class="map-hover-tooltip">
-      <div><strong>Altitude:</strong> ${altitudeM.toFixed(0)} m</div>
-      <div><strong>Vario:</strong> ${varioMs.toFixed(1)} m/s</div>
-      <div><strong>Speed:</strong> ${speedKmh.toFixed(0)} km/h</div>
-    </div>
-  `;
-  }
-
-  private calculateInstantVarioMs(index: number): number {
-    const track = this.store.track();
-
-    if (!track || index <= 0) {
-      return 0;
-    }
-
-    const durationSec = track.timeSec[index] - track.timeSec[index - 1];
-
-    if (durationSec <= 0) {
-      return 0;
-    }
-
-    const altitudeDeltaM =
-      (track.altGpsCm[index] - track.altGpsCm[index - 1]) / 100;
-
-    return altitudeDeltaM / durationSec;
-  }
-
-  private calculateInstantSpeedKmh(index: number): number {
-    const track = this.store.track();
-
-    if (!track || index <= 0) {
-      return 0;
-    }
-
-    const durationSec = track.timeSec[index] - track.timeSec[index - 1];
-
-    if (durationSec <= 0) {
-      return 0;
-    }
-
-    const lat1 = track.latE7[index - 1] / 10_000_000;
-    const lon1 = track.lonE7[index - 1] / 10_000_000;
-    const lat2 = track.latE7[index] / 10_000_000;
-    const lon2 = track.lonE7[index] / 10_000_000;
-
-    const distanceM = this.distanceMeters(lat1, lon1, lat2, lon2);
-
-    return (distanceM / durationSec) * 3.6;
-  }
-
-  private distanceMeters(
-    lat1: number,
-    lon1: number,
-    lat2: number,
-    lon2: number,
-  ): number {
-    const earthRadiusM = 6_371_000;
-
-    const dLat = this.toRad(lat2 - lat1);
-    const dLon = this.toRad(lon2 - lon1);
-
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(this.toRad(lat1)) *
-      Math.cos(this.toRad(lat2)) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-
-    return earthRadiusM * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  }
-
-  private showHoverTooltip(latLng: L.LatLng, content: string): void {
-    if (!this.map) {
+    if (!this.map || !track) {
       return;
     }
 
-    if (!this.hoverTooltip) {
-      this.hoverTooltip = L.tooltip({
-        permanent: false,
-        sticky: false,
-        direction: 'top',
-        offset: [0, -10],
-        opacity: 0.95,
-        className: 'flight-map-hover-tooltip',
-      });
-    }
-
-    this.hoverTooltip
-      .setLatLng(latLng)
-      .setContent(content)
-      .addTo(this.map);
-  }
-
-  private hideHoverTooltip(): void {
-    if (!this.map || !this.hoverTooltip) {
+    if (index < 0 || index >= track.latE7.length) {
+      this.hideHoverPoint();
       return;
     }
 
-    this.map.removeLayer(this.hoverTooltip);
+    const lat = track.latE7[index] / 10_000_000;
+    const lon = track.lonE7[index] / 10_000_000;
+
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+      this.hideHoverPoint();
+      return;
+    }
+
+    if (lat === 0 && lon === 0) {
+      this.hideHoverPoint();
+      return;
+    }
+
+    this.showHoverPoint(L.latLng(lat, lon));
   }
 
   private showHoverPoint(latLng: L.LatLng): void {
@@ -624,9 +359,145 @@ export class FlightMap implements AfterViewInit, OnDestroy {
     }
   }
 
+  private clearSelectedClimbHalo(): void {
+    this.selectedClimbHaloLayer?.remove();
+    this.selectedClimbHaloLayer = null;
+  }
 
-  private toRad(value: number): number {
-    return (value * Math.PI) / 180;
+  private fitMapToSelection(
+    track: TrackArrays,
+    climbs: Climb[],
+    selectedClimbId: number | null,
+  ): void {
+    if (!this.map) {
+      return;
+    }
+
+    if (selectedClimbId === null) {
+      this.fitMapToTrack(track);
+      return;
+    }
+
+    const climb = climbs.find((x) => x.id === selectedClimbId);
+
+    if (!climb) {
+      return;
+    }
+
+    const points = this.buildTrackPoints(
+      track,
+      climb.startIndex,
+      climb.endIndex,
+    );
+
+    if (points.length < 2) {
+      return;
+    }
+
+    this.map.fitBounds(L.latLngBounds(points), {
+      padding: [48, 48],
+      maxZoom: 15,
+      animate: true,
+    });
+  }
+
+  private fitMapToTrack(track: TrackArrays): void {
+    if (!this.map) {
+      return;
+    }
+
+    const points = this.buildTrackPoints(track, 0, track.latE7.length - 1);
+
+    if (points.length < 2) {
+      return;
+    }
+
+    this.map.fitBounds(L.latLngBounds(points), {
+      padding: [24, 24],
+      animate: true,
+    });
+  }
+
+  private buildTrackPoints(
+    track: TrackArrays,
+    startIndex: number,
+    endIndex: number,
+  ): L.LatLngExpression[] {
+    const points: L.LatLngExpression[] = [];
+
+    const safeStartIndex = Math.max(0, startIndex);
+    const safeEndIndex = Math.min(track.latE7.length - 1, endIndex);
+
+    for (let i = safeStartIndex; i <= safeEndIndex; i++) {
+      const lat = track.latE7[i] / 10_000_000;
+      const lon = track.lonE7[i] / 10_000_000;
+
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+        continue;
+      }
+
+      if (lat === 0 && lon === 0) {
+        continue;
+      }
+
+      points.push([lat, lon]);
+    }
+
+    return points;
+  }
+
+  private renderSelectedClimbHalo(
+    track: TrackArrays,
+    climbs: Climb[],
+    selectedClimbId: number | null,
+  ): void {
+    if (!this.map) {
+      return;
+    }
+
+    this.selectedClimbHaloLayer?.remove();
+    this.selectedClimbHaloLayer = null;
+
+    if (selectedClimbId === null) {
+      return;
+    }
+
+    const climb = climbs.find((x) => x.id === selectedClimbId);
+
+    if (!climb) {
+      return;
+    }
+
+    const points: L.LatLngExpression[] = [];
+
+    for (let i = climb.startIndex; i <= climb.endIndex; i++) {
+      const lat = track.latE7[i] / 10_000_000;
+      const lon = track.lonE7[i] / 10_000_000;
+
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+        continue;
+      }
+
+      if (lat === 0 && lon === 0) {
+        continue;
+      }
+
+      points.push([lat, lon]);
+    }
+
+    if (points.length < 2) {
+      return;
+    }
+
+    this.selectedClimbHaloLayer = L.polyline(points, {
+      pane: 'selectedClimbHaloPane',
+      color: '#0b26f5',
+      weight: 16,
+      opacity: 0.96,
+      lineCap: 'round',
+      lineJoin: 'round',
+      interactive: false,
+    }).addTo(this.map);
   }
 
   private renderTrack(): void {
@@ -636,8 +507,7 @@ export class FlightMap implements AfterViewInit, OnDestroy {
 
     this.clearTrackLayers();
 
-    const showOnlySelectedClimbTrack =
-      this.store.showOnlySelectedClimbTrack();
+    const showOnlySelectedClimbTrack = this.store.showOnlySelectedClimbTrack();
 
     const track = this.store.track();
     const climbs = this.store.climbs();
@@ -660,7 +530,11 @@ export class FlightMap implements AfterViewInit, OnDestroy {
         return;
       }
 
-      this.renderSelectedClimbTrackColored(track, climb.startIndex, climb.endIndex);
+      this.renderSelectedClimbTrackColored(
+        track,
+        climb.startIndex,
+        climb.endIndex,
+      );
 
       setTimeout(() => {
         this.map?.invalidateSize();
@@ -715,7 +589,6 @@ export class FlightMap implements AfterViewInit, OnDestroy {
     }, 0);
   }
 
-
   private renderSelectedClimbTrackColored(
     track: TrackArrays,
     startIndex: number,
@@ -731,55 +604,38 @@ export class FlightMap implements AfterViewInit, OnDestroy {
       Math.max(startIndex, endIndex),
     );
 
+    const segments = this.store.coloredTrackSegments();
+
     for (let i = safeStartIndex; i <= safeEndIndex; i++) {
-      const lat1 = track.latE7[i - 1] / 10_000_000;
-      const lon1 = track.lonE7[i - 1] / 10_000_000;
-      const lat2 = track.latE7[i] / 10_000_000;
-      const lon2 = track.lonE7[i] / 10_000_000;
+      const segmentIndex = i - 1;
+      const segment = segments[segmentIndex];
 
-      if (
-        !Number.isFinite(lat1) ||
-        !Number.isFinite(lon1) ||
-        !Number.isFinite(lat2) ||
-        !Number.isFinite(lon2)
-      ) {
+      if (!segment) {
         continue;
       }
 
-      if ((lat1 === 0 && lon1 === 0) || (lat2 === 0 && lon2 === 0)) {
+      const validPoints = segment.points.filter(([lat, lon]) => {
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+          return false;
+        }
+
+        return !(lat === 0 && lon === 0);
+      });
+
+      if (validPoints.length < 2) {
         continue;
       }
 
-      const varioMs = this.calculateInstantVarioMs(i);
-
-      const layer = L.polyline(
-        [
-          [lat1, lon1],
-          [lat2, lon2],
-        ],
-        {
-          pane: 'trackPane',
-          color: this.getTrackColorForVario(varioMs),
-          weight: 5,
-          opacity: 0.95,
-          interactive: false,
-        },
-      ).addTo(this.map);
+      const layer = L.polyline(validPoints, {
+        pane: 'trackPane',
+        color: segment.color,
+        weight: 5,
+        opacity: 0.95,
+        interactive: false,
+      }).addTo(this.map);
 
       this.trackLayers.push(layer);
     }
-  }
-
-  private getTrackColorForVario(varioMs: number): string {
-    if (!Number.isFinite(varioMs)) {
-      return '#22d3ee';
-    }
-
-    if (varioMs >= 0) {
-      return '#0f766e';
-    }
-
-    return '#dc2626';
   }
 
   private clearTrackLayers(): void {
