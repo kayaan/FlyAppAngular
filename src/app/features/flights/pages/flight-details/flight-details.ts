@@ -22,6 +22,7 @@ import { FlightSummaryTags } from '../../components/flight-summary-tags/flight-s
 import { FlightClimbsPanel } from '../../components/flight-climbs-panel/flight-climbs-panel';
 import { Flight3d } from '../../components/flight-3d/flight-3d';
 import { FlightReplayControls } from '../../components/flight-replay-controls/flight-replay-controls';
+import { TrackColorMode } from '../../models/flight-settings.model';
 
 const RESOLUTION_INPUT_DEBOUNCE_MS = 350;
 
@@ -161,6 +162,12 @@ export class FlightDetails implements OnInit, OnDestroy {
 
   setViewMode(mode: 'map' | '3d'): void {
     this.viewMode = mode;
+  }
+
+  setTrackColorMode(event: Event): void {
+    const value = (event.target as HTMLSelectElement).value as TrackColorMode;
+
+    this.settingsStore.setTrackColorMode(value);
   }
 
   openSettingsDrawer(): void {

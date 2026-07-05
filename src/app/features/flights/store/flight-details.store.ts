@@ -133,18 +133,18 @@ export const FlightDetailsStore = signalStore(
         const selection: StatsSelection =
           selectedRange !== null
             ? {
-                type: 'range',
-                startIndex: selectedRange.startIndex,
-                endIndex: selectedRange.endIndex,
-              }
+              type: 'range',
+              startIndex: selectedRange.startIndex,
+              endIndex: selectedRange.endIndex,
+            }
             : selectedClimbId !== null
               ? {
-                  type: 'climb',
-                  climbId: selectedClimbId,
-                }
+                type: 'climb',
+                climbId: selectedClimbId,
+              }
               : {
-                  type: 'flight',
-                };
+                type: 'flight',
+              };
 
         return derivedStatsService.derive(
           store.track(),
@@ -160,12 +160,19 @@ export const FlightDetailsStore = signalStore(
     const trackColorService = inject(TrackColorService);
 
     return {
-      coloredTrackSegments: computed(() =>
-        trackColorService.buildVarioColoredSegments(
+      coloredTrackSegments: computed(() => {
+        if (settings.trackColorMode() === 'speed') {
+          return trackColorService.buildSpeedColoredSegments(
+            store.track(),
+            settings.speedChartResolutionInSec()
+          );
+        }
+
+        return trackColorService.buildVarioColoredSegments(
           store.track(),
           settings.varioChartResolutionInSec()
-        )
-      ),
+        );
+      }),
     };
   }),
 
@@ -513,8 +520,8 @@ export const FlightDetailsStore = signalStore(
             direction: 1 as const,
             index:
               currentIndex !== null &&
-              currentIndex >= startIndex &&
-              currentIndex <= endIndex
+                currentIndex >= startIndex &&
+                currentIndex <= endIndex
                 ? currentIndex
                 : startIndex,
             range,
@@ -550,8 +557,8 @@ export const FlightDetailsStore = signalStore(
             direction: -1 as const,
             index:
               currentIndex !== null &&
-              currentIndex >= startIndex &&
-              currentIndex <= endIndex
+                currentIndex >= startIndex &&
+                currentIndex <= endIndex
                 ? currentIndex
                 : endIndex,
             range,

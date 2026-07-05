@@ -13,6 +13,7 @@ import {
   DEFAULT_FLIGHT_SETTINGS,
   ChartHeightMode,
   MapTileMode,
+  TrackColorMode,
 } from '../models/flight-settings.model';
 import { FlightSettingsStorageService } from '../services/flight-settings-storage.service';
 
@@ -46,12 +47,15 @@ export const FlightSettingsStore = signalStore(
         varioChartResolutionInSec: store.varioChartResolutionInSec(),
         speedChartResolutionInSec: store.speedChartResolutionInSec(),
 
+        trackColorMode: store.trackColorMode(),
+
         showStatsPanel: store.showStatsPanel(),
         showClimbsOnCharts: store.showClimbsOnCharts(),
       });
     }
 
     return {
+
       setShowStatsPanel(show: boolean): void {
         patchState(store, {
           showStatsPanel: show,
@@ -71,6 +75,14 @@ export const FlightSettingsStore = signalStore(
       setMapTileMode(mapTileMode: MapTileMode): void {
         patchState(store, {
           mapTileMode,
+        });
+
+        persist();
+      },
+
+      setTrackColorMode(trackColorMode: TrackColorMode): void {
+        patchState(store, {
+          trackColorMode,
         });
 
         persist();

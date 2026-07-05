@@ -482,3 +482,27 @@ app-flight-3d {
     min-height: 520px;
   }
 }
+
+.track-title-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+
+  h2 {
+    margin: 0;
+  }
+}
+
+.track-color-mode-select {
+  height: 30px;
+  padding: 0 9px;
+
+  border: 1px solid #d0d5dd;
+  border-radius: 8px;
+
+  background: #ffffff;
+  color: #101828;
+
+  font-size: 13px;
+  font-weight: 600;
+}

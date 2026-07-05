@@ -33,12 +33,17 @@ import {
   Matrix4,
 } from 'cesium';
 
+
+
 import { FlightDetailsStore } from '../../store/flight-details.store';
 import { FlightSettingsStore } from '../../store/flight-settings.store';
 import { TrackArrays } from '../../models/track-arrays.model';
 import { ReplayRange } from '../../models/replay-state.model';
 
 import { environment } from '../../../../../environments/environment';
+
+import { TrackColorService } from '../../services/track-color.service';
+
 
 @Component({
   selector: 'app-flight-3d',
@@ -52,6 +57,7 @@ export class Flight3d implements AfterViewInit, OnDestroy {
 
   private readonly store = inject(FlightDetailsStore);
   private readonly settingsStore = inject(FlightSettingsStore);
+  private readonly trackColorService = inject(TrackColorService);
 
   private readonly verticalExaggeration = 2.0;
   private readonly verticalExaggerationRelativeHeight = 0.0;
@@ -65,6 +71,8 @@ export class Flight3d implements AfterViewInit, OnDestroy {
   private viewer: Viewer | null = null;
   private flightTrackEntities: Entity[] = [];
   private lastTrackReference: TrackArrays | null = null;
+  private lastTrackRenderKey = '';
+
   private selectedClimbEntity: Entity | null = null;
 
   private cursorEntity: Entity | null = null;
@@ -87,8 +95,8 @@ export class Flight3d implements AfterViewInit, OnDestroy {
       const track = this.store.track();
       const replayActive = this.store.replay.active();
 
-      // Re-render colors when resolution changes.
-      this.settingsStore.varioChartResolutionInSec();
+      // Re-render colors when color mode / resolution changes.
+      const trackRenderKey = this.buildTrackRenderKey();
 
       // Re-render 3D track when selected climb / only-mode changes.
       this.store.showOnlySelectedClimbTrack();
@@ -109,10 +117,15 @@ export class Flight3d implements AfterViewInit, OnDestroy {
 
 
       const shouldCenter = track !== this.lastTrackReference;
+      const shouldRenderTrack =
+        track !== this.lastTrackReference ||
+        trackRenderKey !== this.lastTrackRenderKey ||
+        this.flightTrackEntities.length === 0;
 
-      if (track !== this.lastTrackReference || this.flightTrackEntities.length === 0) {
+      if (shouldRenderTrack) {
         this.renderTrack(track, shouldCenter);
         this.lastTrackReference = track;
+        this.lastTrackRenderKey = trackRenderKey;
       }
     });
 
@@ -214,17 +227,17 @@ export class Flight3d implements AfterViewInit, OnDestroy {
 
       polyline.width = new ConstantProperty(enabled ? 1.0 : 1.5);
 
-      const varioClass = entity.properties?.getValue()?.['varioClass'] as
-        | number
+      const colorCss = entity.properties?.getValue()?.['colorCss'] as
+        | string
         | undefined;
 
-      if (typeof varioClass !== 'number') {
+      if (!colorCss) {
         continue;
       }
 
-      const color = enabled
-        ? this.getColorForVarioClass(varioClass).withAlpha(0.35)
-        : this.getColorForVarioClass(varioClass);
+      const color = Color.fromCssColorString(colorCss).withAlpha(
+        enabled ? 0.35 : 1.0
+      );
 
       polyline.material = new ColorMaterialProperty(color);
     }
@@ -303,6 +316,7 @@ export class Flight3d implements AfterViewInit, OnDestroy {
 
     this.renderTrack(this.store.track(), true);
     this.lastTrackReference = this.store.track();
+    this.lastTrackRenderKey = this.buildTrackRenderKey();
   }
 
   ngOnDestroy(): void {
@@ -320,6 +334,7 @@ export class Flight3d implements AfterViewInit, OnDestroy {
     this.viewer?.destroy();
     this.viewer = null;
     this.lastTrackReference = null;
+    this.lastTrackRenderKey = '';
     this.smoothedCameraHeadingRad = null;
     this.lastCameraFollowEnabled = false;
   }
@@ -358,6 +373,14 @@ export class Flight3d implements AfterViewInit, OnDestroy {
 
   formatSpeed(value: number): string {
     return `${Math.round(value)} km/h`;
+  }
+
+  private buildTrackRenderKey(): string {
+    const trackColorMode = this.settingsStore.trackColorMode();
+    const varioResolutionSec = this.settingsStore.varioChartResolutionInSec();
+    const speedResolutionSec = this.settingsStore.speedChartResolutionInSec();
+
+    return `${trackColorMode}:${varioResolutionSec}:${speedResolutionSec}`;
   }
 
   private updateReplayCurrentEntity(
@@ -1047,7 +1070,8 @@ export class Flight3d implements AfterViewInit, OnDestroy {
 
     const entities: Entity[] = [];
 
-    let currentClass: number | null = null;
+    let currentColorKey: string | null = null;
+    let currentColor: Color | null = null;
     let currentPositions: Cartesian3[] = [];
 
     for (let i = start; i <= end; i += this.renderStep) {
@@ -1062,38 +1086,34 @@ export class Flight3d implements AfterViewInit, OnDestroy {
         continue;
       }
 
-      const varioMs = this.averageVarioMs(
-        track,
-        i,
-        this.settingsStore.varioChartResolutionInSec()
-      );
+      const nextColorInfo = this.getTrackColorInfo(track, i);
 
-      const nextClass = this.getVarioClass(varioMs);
-
-      if (currentClass === null) {
-        currentClass = nextClass;
+      if (currentColorKey === null || currentColor === null) {
+        currentColorKey = nextColorInfo.key;
+        currentColor = nextColorInfo.color;
         currentPositions.push(position);
         continue;
       }
 
-      if (nextClass === currentClass) {
+      if (nextColorInfo.key === currentColorKey) {
         currentPositions.push(position);
         continue;
       }
 
       if (currentPositions.length >= 2) {
-        entities.push(this.addTrackBlockEntity(currentPositions, currentClass));
+        entities.push(this.addTrackBlockEntity(currentPositions, currentColor));
       }
 
-      currentClass = nextClass;
+      currentColorKey = nextColorInfo.key;
+      currentColor = nextColorInfo.color;
       currentPositions = [
         currentPositions[currentPositions.length - 1],
         position,
       ];
     }
 
-    if (currentClass !== null && currentPositions.length >= 2) {
-      entities.push(this.addTrackBlockEntity(currentPositions, currentClass));
+    if (currentColor !== null && currentPositions.length >= 2) {
+      entities.push(this.addTrackBlockEntity(currentPositions, currentColor));
     }
 
     return entities;
@@ -1118,10 +1138,10 @@ export class Flight3d implements AfterViewInit, OnDestroy {
     }
 
     const entities: Entity[] = [];
-
     const pointCount = this.getPointCount(track);
 
-    let currentClass: number | null = null;
+    let currentColorKey: string | null = null;
+    let currentColor: Color | null = null;
     let currentPositions: Cartesian3[] = [];
 
     for (let i = 0; i < pointCount; i += this.renderStep) {
@@ -1136,38 +1156,34 @@ export class Flight3d implements AfterViewInit, OnDestroy {
         continue;
       }
 
-      const varioMs = this.averageVarioMs(
-        track,
-        i,
-        this.settingsStore.varioChartResolutionInSec()
-      );
+      const nextColorInfo = this.getTrackColorInfo(track, i);
 
-      const nextClass = this.getVarioClass(varioMs);
-
-      if (currentClass === null) {
-        currentClass = nextClass;
+      if (currentColorKey === null || currentColor === null) {
+        currentColorKey = nextColorInfo.key;
+        currentColor = nextColorInfo.color;
         currentPositions.push(position);
         continue;
       }
 
-      if (nextClass === currentClass) {
+      if (nextColorInfo.key === currentColorKey) {
         currentPositions.push(position);
         continue;
       }
 
       if (currentPositions.length >= 2) {
-        entities.push(this.addTrackBlockEntity(currentPositions, currentClass));
+        entities.push(this.addTrackBlockEntity(currentPositions, currentColor));
       }
 
-      currentClass = nextClass;
+      currentColorKey = nextColorInfo.key;
+      currentColor = nextColorInfo.color;
       currentPositions = [
         currentPositions[currentPositions.length - 1],
         position,
       ];
     }
 
-    if (currentClass !== null && currentPositions.length >= 2) {
-      entities.push(this.addTrackBlockEntity(currentPositions, currentClass));
+    if (currentColor !== null && currentPositions.length >= 2) {
+      entities.push(this.addTrackBlockEntity(currentPositions, currentColor));
     }
 
     return entities;
@@ -1175,26 +1191,73 @@ export class Flight3d implements AfterViewInit, OnDestroy {
 
   private addTrackBlockEntity(
     positions: Cartesian3[],
-    varioClass: number
+    color: Color
   ): Entity {
     if (!this.viewer) {
       throw new Error('Cesium viewer is not initialized.');
     }
 
+    const colorCss = this.colorToCss(color);
+
     return this.viewer.entities.add({
       name: 'Flight track block',
       properties: {
-        varioClass,
+        colorCss,
       },
       polyline: {
         positions,
         width: 1.5,
-        material: new ColorMaterialProperty(this.getColorForVarioClass(varioClass)),
+        material: new ColorMaterialProperty(color),
         clampToGround: false,
         arcType: ArcType.NONE,
       },
     });
   }
+
+  private colorToCss(color: Color): string {
+    const r = Math.round(color.red * 255);
+    const g = Math.round(color.green * 255);
+    const b = Math.round(color.blue * 255);
+
+    return `rgb(${r}, ${g}, ${b})`;
+  }
+
+  private getTrackColorInfo(
+    track: TrackArrays,
+    index: number
+  ): { key: string; color: Color } {
+    if (this.settingsStore.trackColorMode() === 'speed') {
+      const metrics = this.store.trackMetrics();
+
+      const speedKmh =
+        metrics && index >= 0 && index < metrics.speedKmh.length
+          ? metrics.speedKmh[index]
+          : 0;
+
+      const colorCss = this.trackColorService.getSpeedColorCss(speedKmh);
+      const color = Color.fromCssColorString(colorCss).withAlpha(1.0);
+
+      return {
+        key: `speed-${colorCss}`,
+        color,
+      };
+    }
+
+    const varioMs = this.averageVarioMs(
+      track,
+      index,
+      this.settingsStore.varioChartResolutionInSec()
+    );
+
+    const varioClass = this.getVarioClass(varioMs);
+
+    return {
+      key: `vario-${varioClass}`,
+      color: this.getColorForVarioClass(varioClass),
+    };
+  }
+
+
 
   private buildPosition(track: TrackArrays, index: number): Cartesian3 | null {
     const lat = track.latE7[index] / 10_000_000;

@@ -3,6 +3,8 @@
 export type MapTileMode = 'topo' | 'osm';
 export type ChartHeightMode = 'auto' | 'compact' | 'large';
 
+export type TrackColorMode = 'vario' | 'speed';
+
 export interface FlightSettings {
   mapTileMode: MapTileMode;
   showAltitudeChart: boolean;
@@ -14,8 +16,9 @@ export interface FlightSettings {
   varioChartResolutionInSec: number;
   speedChartResolutionInSec: number;
 
-  showStatsPanel: boolean,
+  trackColorMode: TrackColorMode;
 
+  showStatsPanel: boolean;
   showClimbsOnCharts: boolean;
 }
 
@@ -30,7 +33,8 @@ export const DEFAULT_FLIGHT_SETTINGS: FlightSettings = {
   varioChartResolutionInSec: 5,
   speedChartResolutionInSec: 5,
 
-  showStatsPanel: false,
+  trackColorMode: 'vario',
 
-  showClimbsOnCharts: false
+  showStatsPanel: false,
+  showClimbsOnCharts: false,
 };

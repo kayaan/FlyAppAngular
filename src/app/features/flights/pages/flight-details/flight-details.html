@@ -1,6 +1,9 @@
 <section class="flight-details-page">
   <header class="details-header">
-    <a [routerLink]="backLink()" class="back-link">
+    <a
+      [routerLink]="backLink()"
+      class="back-link"
+    >
       {{ backLabel() }}
     </a>
 
@@ -14,7 +17,12 @@
     </div>
     }
 
-    <button type="button" class="settings-button" title="Settings" (click)="openSettingsDrawer()">
+    <button
+      type="button"
+      class="settings-button"
+      title="Settings"
+      (click)="openSettingsDrawer()"
+    >
       ⚙
     </button>
   </header>
@@ -44,7 +52,11 @@
         </header>
 
         <div class="chart-body">
-          <app-flight-line-chart title="Altitude" unit="m" [data]="altitudeData()" />
+          <app-flight-line-chart
+            title="Altitude"
+            unit="m"
+            [data]="altitudeData()"
+          />
         </div>
       </section>
       }
@@ -56,7 +68,11 @@
         </header>
 
         <div class="chart-body">
-          <app-flight-line-chart title="Climb" unit="m/s" [data]="varioData()" />
+          <app-flight-line-chart
+            title="Climb"
+            unit="m/s"
+            [data]="varioData()"
+          />
         </div>
       </section>
       }
@@ -68,7 +84,11 @@
         </header>
 
         <div class="chart-body">
-          <app-flight-line-chart title="Speed" unit="km/h" [data]="speedData()" />
+          <app-flight-line-chart
+            title="Speed"
+            unit="km/h"
+            [data]="speedData()"
+          />
         </div>
       </section>
       }
@@ -78,18 +98,45 @@
     <section class="right-panel">
       <div class="map-card">
         <header>
-          <h2>Track</h2>
+          <div class="track-title-row">
+            <h2>Track</h2>
 
-          <div class="view-mode-toggle" role="radiogroup" aria-label="View mode">
+            <select
+              class="track-color-mode-select"
+              [value]="settingsStore.trackColorMode()"
+              (change)="setTrackColorMode($event)"
+              title="Track color mode"
+            >
+              <option value="vario">Vario</option>
+              <option value="speed">Speed</option>
+            </select>
+          </div>
+
+
+          <div
+            class="view-mode-toggle"
+            role="radiogroup"
+            aria-label="View mode"
+          >
             <label class="view-mode-option">
-              <input type="radio" name="viewMode" value="map" [checked]="viewMode === 'map'"
-                (change)="setViewMode('map')" />
+              <input
+                type="radio"
+                name="viewMode"
+                value="map"
+                [checked]="viewMode === 'map'"
+                (change)="setViewMode('map')"
+              />
               <span>Map</span>
             </label>
 
             <label class="view-mode-option">
-              <input type="radio" name="viewMode" value="3d" [checked]="viewMode === '3d'"
-                (change)="setViewMode('3d')" />
+              <input
+                type="radio"
+                name="viewMode"
+                value="3d"
+                [checked]="viewMode === '3d'"
+                (change)="setViewMode('3d')"
+              />
               <span>3D</span>
             </label>
           </div>
@@ -115,7 +162,10 @@
 
 
   @if (settingsDrawerOpen()) {
-  <div class="drawer-backdrop" (click)="closeSettingsDrawer()"></div>
+  <div
+    class="drawer-backdrop"
+    (click)="closeSettingsDrawer()"
+  ></div>
 
   <aside class="settings-drawer">
     <header class="drawer-header">
@@ -124,7 +174,11 @@
         <p>Chart visibility and resolution</p>
       </div>
 
-      <button type="button" class="drawer-close" (click)="closeSettingsDrawer()">
+      <button
+        type="button"
+        class="drawer-close"
+        (click)="closeSettingsDrawer()"
+      >
         ×
       </button>
     </header>
@@ -133,18 +187,29 @@
       <h3>Visible charts</h3>
 
       <label class="checkbox-row">
-        <input type="checkbox" [checked]="settingsStore.showAltitudeChart()"
-          (change)="setAltitudeChartVisible($event)" />
+        <input
+          type="checkbox"
+          [checked]="settingsStore.showAltitudeChart()"
+          (change)="setAltitudeChartVisible($event)"
+        />
         <span>Altitude chart</span>
       </label>
 
       <label class="checkbox-row">
-        <input type="checkbox" [checked]="settingsStore.showVarioChart()" (change)="setVarioChartVisible($event)" />
+        <input
+          type="checkbox"
+          [checked]="settingsStore.showVarioChart()"
+          (change)="setVarioChartVisible($event)"
+        />
         <span>Climb chart</span>
       </label>
 
       <label class="checkbox-row">
-        <input type="checkbox" [checked]="settingsStore.showSpeedChart()" (change)="setSpeedChartVisible($event)" />
+        <input
+          type="checkbox"
+          [checked]="settingsStore.showSpeedChart()"
+          (change)="setSpeedChartVisible($event)"
+        />
         <span>Speed chart</span>
       </label>
     </section>
@@ -154,20 +219,38 @@
 
       <label class="number-row">
         <span>Altitude resolution</span>
-        <input type="number" min="1" max="120" step="1" [value]="settingsStore.altitudeChartResolutionInSec()"
-          (change)="setAltitudeResolution($event)" />
+        <input
+          type="number"
+          min="1"
+          max="120"
+          step="1"
+          [value]="settingsStore.altitudeChartResolutionInSec()"
+          (change)="setAltitudeResolution($event)"
+        />
       </label>
 
       <label class="number-row">
         <span>Climb resolution</span>
-        <input type="number" min="1" max="120" step="1" [value]="settingsStore.varioChartResolutionInSec()"
-          (change)="setVarioResolution($event)" />
+        <input
+          type="number"
+          min="1"
+          max="120"
+          step="1"
+          [value]="settingsStore.varioChartResolutionInSec()"
+          (change)="setVarioResolution($event)"
+        />
       </label>
 
       <label class="number-row">
         <span>Speed resolution</span>
-        <input type="number" min="1" max="120" step="1" [value]="settingsStore.speedChartResolutionInSec()"
-          (change)="setSpeedResolution($event)" />
+        <input
+          type="number"
+          min="1"
+          max="120"
+          step="1"
+          [value]="settingsStore.speedChartResolutionInSec()"
+          (change)="setSpeedResolution($event)"
+        />
       </label>
     </section>
   </aside>
