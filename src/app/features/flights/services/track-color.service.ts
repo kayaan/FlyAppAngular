@@ -1,9 +1,8 @@
 import { Injectable } from '@angular/core';
 
-import { TrackArrays } from '../models/track-arrays.model';
 import { ColoredTrackSegment } from '../models/colored-track-segment.model';
-
-
+import { TrackArrays } from '../models/track-arrays.model';
+import { TrackMathUtils } from './track-math-utils';
 
 const MIN_VARIO_MS = -4;
 const MAX_VARIO_MS = 4;
@@ -15,7 +14,6 @@ const STRONG_SINK_COLOR = '#840000';
 // Climb: weak climb -> strong climb
 const WEAK_CLIMB_COLOR = '#00f95b';
 const STRONG_CLIMB_COLOR = '#004e1f';
-
 
 const MIN_SPEED_KMH = 0;
 const MAX_SPEED_KMH = 120;
@@ -33,10 +31,9 @@ const SPEED_COLOR_STOPS: [number, string][] = [
   providedIn: 'root',
 })
 export class TrackColorService {
-
   buildVarioColoredSegments(
     track: TrackArrays | null,
-    resolutionSec: number,
+    resolutionSec: number
   ): ColoredTrackSegment[] {
     if (!track || track.timeSec.length < 2) {
       return [];
@@ -45,19 +42,23 @@ export class TrackColorService {
     const segments: ColoredTrackSegment[] = [];
 
     for (let i = 1; i < track.timeSec.length; i++) {
-      const previousIndex = this.findPreviousIndexByResolution(
-        track.timeSec,
+      const varioMs = TrackMathUtils.averageVarioMs(
+        track,
         i,
-        resolutionSec,
+        resolutionSec
       );
-
-      const varioMs = this.averageVarioMs(track, previousIndex, i);
 
       segments.push({
         color: this.getVarioColor(varioMs),
         points: [
-          [track.latE7[i - 1] / 10_000_000, track.lonE7[i - 1] / 10_000_000],
-          [track.latE7[i] / 10_000_000, track.lonE7[i] / 10_000_000],
+          [
+            TrackMathUtils.e7ToDeg(track.latE7[i - 1]),
+            TrackMathUtils.e7ToDeg(track.lonE7[i - 1]),
+          ],
+          [
+            TrackMathUtils.e7ToDeg(track.latE7[i]),
+            TrackMathUtils.e7ToDeg(track.lonE7[i]),
+          ],
         ],
       });
     }
@@ -67,7 +68,7 @@ export class TrackColorService {
 
   buildSpeedColoredSegments(
     track: TrackArrays | null,
-    resolutionSec: number,
+    resolutionSec: number
   ): ColoredTrackSegment[] {
     if (!track || track.timeSec.length < 2) {
       return [];
@@ -76,90 +77,28 @@ export class TrackColorService {
     const segments: ColoredTrackSegment[] = [];
 
     for (let i = 1; i < track.timeSec.length; i++) {
-      const previousIndex = this.findPreviousIndexByResolution(
-        track.timeSec,
+      const speedKmh = TrackMathUtils.averageSpeedKmh(
+        track,
         i,
-        resolutionSec,
+        resolutionSec
       );
-
-      const speedKmh = this.averageSpeedKmh(track, previousIndex, i);
 
       segments.push({
         color: this.getSpeedColorCss(speedKmh),
         points: [
-          [track.latE7[i - 1] / 10_000_000, track.lonE7[i - 1] / 10_000_000],
-          [track.latE7[i] / 10_000_000, track.lonE7[i] / 10_000_000],
+          [
+            TrackMathUtils.e7ToDeg(track.latE7[i - 1]),
+            TrackMathUtils.e7ToDeg(track.lonE7[i - 1]),
+          ],
+          [
+            TrackMathUtils.e7ToDeg(track.latE7[i]),
+            TrackMathUtils.e7ToDeg(track.lonE7[i]),
+          ],
         ],
       });
     }
 
     return segments;
-  }
-
-  private findPreviousIndexByResolution(
-    timeSec: Int32Array,
-    currentIndex: number,
-    resolutionSec: number,
-  ): number {
-    const minTimeSec = timeSec[currentIndex] - resolutionSec;
-
-    for (let i = currentIndex; i >= 0; i--) {
-      if (timeSec[i] <= minTimeSec) {
-        return i;
-      }
-    }
-
-    return 0;
-  }
-
-  private averageVarioMs(
-    track: TrackArrays,
-    startIndex: number,
-    endIndex: number,
-  ): number {
-    if (endIndex <= startIndex) {
-      return 0;
-    }
-
-    const durationSec = track.timeSec[endIndex] - track.timeSec[startIndex];
-
-    if (durationSec <= 0) {
-      return 0;
-    }
-
-    const altitudeDeltaM =
-      (track.altGpsCm[endIndex] - track.altGpsCm[startIndex]) / 100;
-
-    return altitudeDeltaM / durationSec;
-  }
-
-  private averageSpeedKmh(
-    track: TrackArrays,
-    startIndex: number,
-    endIndex: number,
-  ): number {
-    if (endIndex <= startIndex) {
-      return 0;
-    }
-
-    const durationSec = track.timeSec[endIndex] - track.timeSec[startIndex];
-
-    if (durationSec <= 0) {
-      return 0;
-    }
-
-    let distanceM = 0;
-
-    for (let i = startIndex + 1; i <= endIndex; i++) {
-      distanceM += this.distanceMeters(
-        track.latE7[i - 1] / 10_000_000,
-        track.lonE7[i - 1] / 10_000_000,
-        track.latE7[i] / 10_000_000,
-        track.lonE7[i] / 10_000_000,
-      );
-    }
-
-    return (distanceM / durationSec) * 3.6;
   }
 
   private getVarioColor(varioMs: number): string {
@@ -171,7 +110,7 @@ export class TrackColorService {
       return this.interpolateColor(
         WEAK_SINK_COLOR,
         STRONG_SINK_COLOR,
-        t,
+        t
       );
     }
 
@@ -180,7 +119,7 @@ export class TrackColorService {
     return this.interpolateColor(
       WEAK_CLIMB_COLOR,
       STRONG_CLIMB_COLOR,
-      t,
+      t
     );
   }
 
@@ -223,8 +162,6 @@ export class TrackColorService {
     return stops[stops.length - 1][1];
   }
 
-
-
   private clamp(value: number, min: number, max: number): number {
     return Math.min(max, Math.max(min, value));
   }
@@ -248,41 +185,5 @@ export class TrackColorService {
       g: parseInt(value.substring(2, 4), 16),
       b: parseInt(value.substring(4, 6), 16),
     };
-  }
-
-  private distanceMeters(
-    lat1: number,
-    lon1: number,
-    lat2: number,
-    lon2: number,
-  ): number {
-    if (
-      !Number.isFinite(lat1) ||
-      !Number.isFinite(lon1) ||
-      !Number.isFinite(lat2) ||
-      !Number.isFinite(lon2)
-    ) {
-      return 0;
-    }
-
-    const earthRadiusM = 6_371_000;
-
-    const dLat = this.toRad(lat2 - lat1);
-    const dLon = this.toRad(lon2 - lon1);
-
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(this.toRad(lat1)) *
-      Math.cos(this.toRad(lat2)) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-    return earthRadiusM * c;
-  }
-
-  private toRad(value: number): number {
-    return (value * Math.PI) / 180;
   }
 }

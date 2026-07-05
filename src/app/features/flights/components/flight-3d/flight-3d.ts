@@ -43,6 +43,7 @@ import { ReplayRange } from '../../models/replay-state.model';
 import { environment } from '../../../../../environments/environment';
 
 import { TrackColorService } from '../../services/track-color.service';
+import { TrackMathUtils } from '../../services/track-math-utils';
 
 
 @Component({
@@ -729,80 +730,6 @@ export class Flight3d implements AfterViewInit, OnDestroy {
     return Math.atan2(y, x);
   }
 
-  private smoothHeading(rawHeading: number, alpha: number): number {
-    if (this.smoothedCameraHeadingRad === null) {
-      this.smoothedCameraHeadingRad = rawHeading;
-      return rawHeading;
-    }
-
-    let delta = rawHeading - this.smoothedCameraHeadingRad;
-
-    while (delta > Math.PI) {
-      delta -= Math.PI * 2;
-    }
-
-    while (delta < -Math.PI) {
-      delta += Math.PI * 2;
-    }
-
-    const deadZoneRad = CesiumMath.toRadians(3);
-
-    if (Math.abs(delta) < deadZoneRad) {
-      return this.smoothedCameraHeadingRad;
-    }
-
-    const maxStepRad = CesiumMath.toRadians(1.2);
-
-    const smoothedStep = delta * alpha;
-    const limitedStep = Math.max(
-      -maxStepRad,
-      Math.min(maxStepRad, smoothedStep)
-    );
-
-    this.smoothedCameraHeadingRad += limitedStep;
-
-    return this.smoothedCameraHeadingRad;
-  }
-
-  private calculateCameraPositionBehindTarget(
-    targetLatDeg: number,
-    targetLonDeg: number,
-    cameraAltM: number,
-    headingRad: number,
-    distanceM: number
-  ): Cartesian3 {
-    const earthRadiusM = 6_371_000;
-
-    const targetLatRad = CesiumMath.toRadians(targetLatDeg);
-    const targetLonRad = CesiumMath.toRadians(targetLonDeg);
-
-    const behindHeading = headingRad + Math.PI;
-    const angularDistance = distanceM / earthRadiusM;
-
-    const cameraLatRad = Math.asin(
-      Math.sin(targetLatRad) * Math.cos(angularDistance) +
-      Math.cos(targetLatRad) *
-      Math.sin(angularDistance) *
-      Math.cos(behindHeading)
-    );
-
-    const cameraLonRad =
-      targetLonRad +
-      Math.atan2(
-        Math.sin(behindHeading) *
-        Math.sin(angularDistance) *
-        Math.cos(targetLatRad),
-        Math.cos(angularDistance) -
-        Math.sin(targetLatRad) * Math.sin(cameraLatRad)
-      );
-
-    return Cartesian3.fromDegrees(
-      CesiumMath.toDegrees(cameraLonRad),
-      CesiumMath.toDegrees(cameraLatRad),
-      cameraAltM
-    );
-  }
-
   private renderSelectedClimbHighlight(
     track: TrackArrays,
     startIndex: number,
@@ -1243,7 +1170,7 @@ export class Flight3d implements AfterViewInit, OnDestroy {
       };
     }
 
-    const varioMs = this.averageVarioMs(
+    const varioMs = TrackMathUtils.averageVarioMs(
       track,
       index,
       this.settingsStore.varioChartResolutionInSec()
@@ -1273,50 +1200,6 @@ export class Flight3d implements AfterViewInit, OnDestroy {
     }
 
     return Cartesian3.fromDegrees(lon, lat, altM);
-  }
-
-  private averageVarioMs(
-    track: TrackArrays,
-    index: number,
-    resolutionSec: number
-  ): number {
-    const previousIndex = this.findPreviousIndexByResolution(
-      track,
-      index,
-      resolutionSec
-    );
-
-    const deltaAltM =
-      (track.altGpsCm[index] - track.altGpsCm[previousIndex]) / 100;
-
-    const deltaTimeSec =
-      track.timeSec[index] - track.timeSec[previousIndex];
-
-    if (deltaTimeSec <= 0) {
-      return 0;
-    }
-
-    return deltaAltM / deltaTimeSec;
-  }
-
-  private findPreviousIndexByResolution(
-    track: TrackArrays,
-    index: number,
-    resolutionSec: number
-  ): number {
-    const currentTimeSec = track.timeSec[index];
-    const minTimeSec = currentTimeSec - resolutionSec;
-
-    let previousIndex = index;
-
-    while (
-      previousIndex > 0 &&
-      track.timeSec[previousIndex] > minTimeSec
-    ) {
-      previousIndex--;
-    }
-
-    return previousIndex;
   }
 
   private getVarioClass(varioMs: number): number {
