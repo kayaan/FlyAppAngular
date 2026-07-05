@@ -1,6 +1,8 @@
 import { Injectable } from '@angular/core';
-import { TrackArrays } from '../models/track-arrays.model';
+
 import { CalculatedFlightStats } from '../models/calculated-flight-stats.model';
+import { TrackArrays } from '../models/track-arrays.model';
+import { TrackMathUtils } from './track-math-utils';
 
 @Injectable({
   providedIn: 'root',
@@ -36,8 +38,6 @@ export class FlightStatsCalculatorService {
     let minAltBaroCm = Number.POSITIVE_INFINITY;
     let maxAltBaroCm = Number.NEGATIVE_INFINITY;
 
-    let maxSpeedKmh = 0;
-
     for (let i = startIndex; i <= endIndex; i++) {
       const altGpsCm = track.altGpsCm[i];
       const altBaroCm = track.altBaroCm[i];
@@ -49,29 +49,18 @@ export class FlightStatsCalculatorService {
       maxAltBaroCm = Math.max(maxAltBaroCm, altBaroCm);
 
       if (i > startIndex) {
-        const segmentDistanceM = this.distanceMeters(
+        distanceM += TrackMathUtils.distanceMeters(
           track.latE7[i - 1],
           track.lonE7[i - 1],
           track.latE7[i],
           track.lonE7[i]
         );
-
-        distanceM += segmentDistanceM;
-
-        const deltaTimeSec = track.timeSec[i] - track.timeSec[i - 1];
-
-        if (deltaTimeSec > 0) {
-          const speedKmh = (segmentDistanceM / deltaTimeSec) * 3.6;
-          maxSpeedKmh = Math.max(maxSpeedKmh, speedKmh);
-        }
       }
     }
 
     const startTimeSec = track.timeSec[startIndex];
     const endTimeSec = track.timeSec[endIndex];
-    const durationSec = endTimeSec - startTimeSec;
-
-    const avgSpeedKmh = durationSec > 0 ? (distanceM / durationSec) * 3.6 : 0;
+    const durationSec = Math.max(0, endTimeSec - startTimeSec);
 
     return {
       startIndex,
@@ -115,42 +104,7 @@ export class FlightStatsCalculatorService {
 
       minAltBaroM: 0,
       maxAltBaroM: 0,
-      gainBaroM: 0
+      gainBaroM: 0,
     };
-  }
-
-  /**
-   * Calculates distance between two coordinates using the haversine formula.
-   *
-   * Input format:
-   * - latitude and longitude are stored as degrees * 10,000,000
-   */
-  private distanceMeters(
-    lat1E7: number,
-    lon1E7: number,
-    lat2E7: number,
-    lon2E7: number
-  ): number {
-    const earthRadiusM = 6_371_000;
-
-    const lat1 = this.toRadians(lat1E7 / 10_000_000);
-    const lon1 = this.toRadians(lon1E7 / 10_000_000);
-    const lat2 = this.toRadians(lat2E7 / 10_000_000);
-    const lon2 = this.toRadians(lon2E7 / 10_000_000);
-
-    const deltaLat = lat2 - lat1;
-    const deltaLon = lon2 - lon1;
-
-    const a =
-      Math.sin(deltaLat / 2) ** 2 +
-      Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLon / 2) ** 2;
-
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-    return earthRadiusM * c;
-  }
-
-  private toRadians(degrees: number): number {
-    return (degrees * Math.PI) / 180;
   }
 }

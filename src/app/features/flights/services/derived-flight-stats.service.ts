@@ -7,6 +7,7 @@ import {
   StatsSelection,
 } from '../models/derived-flight-stats.model';
 import { TrackArrays } from '../models/track-arrays.model';
+import { TrackMathUtils } from './track-math-utils';
 
 @Injectable({
   providedIn: 'root',
@@ -69,12 +70,12 @@ export class DerivedFlightStatsService {
   ): DerivedFlightStats {
     const maxIndex = track.timeSec.length - 1;
 
-    const startIndex = this.clampIndex(
+    const startIndex = TrackMathUtils.clampIndex(
       Math.min(rawStartIndex, rawEndIndex),
       maxIndex
     );
 
-    const endIndex = this.clampIndex(
+    const endIndex = TrackMathUtils.clampIndex(
       Math.max(rawStartIndex, rawEndIndex),
       maxIndex
     );
@@ -83,8 +84,8 @@ export class DerivedFlightStatsService {
     const endTimeSec = track.timeSec[endIndex];
     const durationSec = Math.max(0, endTimeSec - startTimeSec);
 
-    const altitudeStartM = this.cmToM(track.altGpsCm[startIndex]);
-    const altitudeEndM = this.cmToM(track.altGpsCm[endIndex]);
+    const altitudeStartM = TrackMathUtils.cmToM(track.altGpsCm[startIndex]);
+    const altitudeEndM = TrackMathUtils.cmToM(track.altGpsCm[endIndex]);
 
     let altitudeMinM: number | null = null;
     let altitudeMaxM: number | null = null;
@@ -100,7 +101,7 @@ export class DerivedFlightStatsService {
     let maxVarioMs: number | null = null;
 
     for (let i = startIndex; i <= endIndex; i++) {
-      const altM = this.cmToM(track.altGpsCm[i]);
+      const altM = TrackMathUtils.cmToM(track.altGpsCm[i]);
 
       if (altM !== null) {
         altitudeMinM =
@@ -114,7 +115,7 @@ export class DerivedFlightStatsService {
         continue;
       }
 
-      const prevAltM = this.cmToM(track.altGpsCm[i - 1]);
+      const prevAltM = TrackMathUtils.cmToM(track.altGpsCm[i - 1]);
       const dt = track.timeSec[i] - track.timeSec[i - 1];
 
       if (prevAltM !== null && altM !== null) {
@@ -140,16 +141,11 @@ export class DerivedFlightStatsService {
         }
       }
 
-      const prevLat = track.latE7[i - 1] / 10_000_000;
-      const prevLon = track.lonE7[i - 1] / 10_000_000;
-      const lat = track.latE7[i] / 10_000_000;
-      const lon = track.lonE7[i] / 10_000_000;
-
-      const segmentDistanceM = this.haversineDistanceM(
-        prevLat,
-        prevLon,
-        lat,
-        lon
+      const segmentDistanceM = TrackMathUtils.distanceMeters(
+        track.latE7[i - 1],
+        track.lonE7[i - 1],
+        track.latE7[i],
+        track.lonE7[i]
       );
 
       distanceM += segmentDistanceM;
@@ -206,55 +202,5 @@ export class DerivedFlightStatsService {
 
       climbCount,
     };
-  }
-
-  private cmToM(valueCm: number | undefined): number | null {
-    if (typeof valueCm !== 'number' || !Number.isFinite(valueCm)) {
-      return null;
-    }
-
-    return valueCm / 100;
-  }
-
-  private clampIndex(index: number, maxIndex: number): number {
-    return Math.max(0, Math.min(index, maxIndex));
-  }
-
-  private haversineDistanceM(
-    lat1: number,
-    lon1: number,
-    lat2: number,
-    lon2: number
-  ): number {
-    if (
-      !Number.isFinite(lat1) ||
-      !Number.isFinite(lon1) ||
-      !Number.isFinite(lat2) ||
-      !Number.isFinite(lon2)
-    ) {
-      return 0;
-    }
-
-    const earthRadiusM = 6_371_000;
-
-    const lat1Rad = this.degToRad(lat1);
-    const lat2Rad = this.degToRad(lat2);
-    const deltaLatRad = this.degToRad(lat2 - lat1);
-    const deltaLonRad = this.degToRad(lon2 - lon1);
-
-    const a =
-      Math.sin(deltaLatRad / 2) * Math.sin(deltaLatRad / 2) +
-      Math.cos(lat1Rad) *
-        Math.cos(lat2Rad) *
-        Math.sin(deltaLonRad / 2) *
-        Math.sin(deltaLonRad / 2);
-
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-    return earthRadiusM * c;
-  }
-
-  private degToRad(value: number): number {
-    return (value * Math.PI) / 180;
   }
 }
