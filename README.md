@@ -2,9 +2,11 @@
 
 FlightApp Angular is a local-first web application for analyzing IGC flight files.
 
-The application runs in the browser, stores imported flights locally using IndexedDB, and provides charts, map visualization, 3D visualization, replay, flight statistics, and detected climb phases.
+The application runs in the browser, stores imported flights locally using IndexedDB, and provides charts, map visualization, 3D visualization, replay, flight statistics, detected climb phases, backend synchronization, and public flight sharing.
 
-The app also supports backend synchronization for multi-device usage. Flights can be uploaded to the backend, downloaded on another device, deleted locally or remotely, and synchronized live across open browser tabs or devices using Server-Sent Events.
+The app supports backend synchronization for multi-device usage. Flights can be uploaded to the backend, downloaded on another device, deleted locally or remotely, and synchronized live across open browser tabs or devices using Server-Sent Events.
+
+Public flights can be listed and opened through the backend. Public flight details use the same viewer as local flights and support charts, map, 3D view, replay, climb detection, track coloring, and shared tooltips.
 
 ## Features
 
@@ -19,19 +21,26 @@ The app also supports backend synchronization for multi-device usage. Flights ca
 * Soft delete support for backend flights
 * Live sync updates across browser tabs/devices using Server-Sent Events
 * Visibility controls for backend flights:
-
   * Private
   * Unlisted
   * Public
+* Public flight list
+* Public flight detail view
+* Public flights can be opened with charts, map, 3D view, replay, climbs, and track coloring
 * Flight detail view
 * Altitude, vario, and speed charts
 * 2D map view using Leaflet
 * 3D view using CesiumJS
+* Cesium 3D view is lazy-loaded to reduce the initial bundle size
 * 3D replay mode
 * Flight statistics overview
 * Climb detection
 * Map / 3D view toggle
-* Local settings for chart visibility and chart smoothing resolution
+* Track color mode selection:
+  * Vario
+  * Speed
+* Shared map/3D track tooltip with time, altitude, vario, speed, and index
+* Local settings for chart visibility, chart smoothing resolution, and track color mode
 
 ## Tech Stack
 
@@ -64,7 +73,7 @@ Node.js 20 or newer
 npm 10 or newer
 ```
 
-A running FlightApp backend is required for authentication, backend sync, remote delete, visibility changes, and live SSE updates.
+A running FlightApp backend is required for authentication, backend sync, remote delete, visibility changes, public flights, public flight details, and live SSE updates.
 
 ## Installation
 
@@ -104,6 +113,14 @@ export const environment = {
 For production deployment, configure the production environment accordingly.
 
 Do not commit private access tokens to the repository.
+
+## Cesium Lazy Loading
+
+The Cesium-based 3D view is lazy-loaded.
+
+The flight detail page loads the 3D component only when the user switches from `Map` to `3D`.
+
+This reduces the initial application bundle and keeps the default map/details view lighter.
 
 ## Development Server
 
@@ -178,6 +195,7 @@ The app will:
 * parse the IGC track
 * calculate flight statistics
 * detect climb phases
+* store the original IGC file locally
 * store the flight locally in IndexedDB
 
 Imported flights are shown in the flight list.
@@ -246,6 +264,7 @@ The detail page shows:
 * speed chart
 * 2D map or 3D view
 * detected climbs
+* shared track tooltip
 * replay controls in 3D mode
 
 ### 8. Use the charts
@@ -257,19 +276,46 @@ The detail page contains charts for:
 * speed
 
 Moving over a chart updates the shared cursor position.
-The map and charts are synchronized through the current track index.
+The map, 3D view, and charts are synchronized through the current track index.
+
+The chart tooltip shows the selected chart value and time.
 
 ### 9. Use the 2D map
 
 The map view shows the flight track on a Leaflet map.
 
-Depending on the current settings, the track can be colored by flight metrics such as vario.
+The track can be colored by:
+
+* vario
+* speed
+
+Moving over the track updates the shared cursor index and shows a shared track tooltip with:
+
+* time
+* altitude
+* vario
+* speed
+* track index
+
+The same cursor index is also used by charts and the 3D view.
 
 ### 10. Use the 3D view
 
 Switch from `Map` to `3D` in the right panel.
 
 The 3D view uses CesiumJS and shows the flight track over terrain.
+
+The 3D component is lazy-loaded when the user switches to the 3D view. This keeps the initial application bundle smaller.
+
+The 3D view supports:
+
+* colored flight track rendering
+* vario-based track coloring
+* speed-based track coloring
+* selected climb rendering
+* replay aircraft marker
+* camera follow mode
+* shared track tooltip
 
 ### 11. Use replay mode
 
@@ -300,6 +346,8 @@ Detected climbs can be selected and inspected.
 The app can show the selected climb in charts and on the map.
 The `Full flight` action resets the view back to the complete flight.
 
+The selected climb can also be replayed in 3D mode.
+
 ### 13. Use settings
 
 Open the settings drawer using the settings icon in the flight detail header.
@@ -312,8 +360,9 @@ Available settings include:
 * change altitude chart smoothing resolution
 * change vario chart smoothing resolution
 * change speed chart smoothing resolution
-* show or hide statistics panel
-* show or hide climbs on charts
+* change track color mode:
+  * vario
+  * speed
 
 Settings are stored locally in the browser.
 
@@ -365,6 +414,38 @@ Supported live sync events include:
 * remote delete
 * visibility change
 
+## Public Flights
+
+FlightApp supports public flight discovery and public flight details.
+
+Public flights can be listed through the backend and opened without requiring local IndexedDB data.
+
+The public detail page uses the same flight detail viewer as local flights and supports:
+
+* flight metadata
+* calculated statistics
+* detected climbs
+* altitude chart
+* vario chart
+* speed chart
+* Leaflet map
+* Cesium 3D view
+* replay
+* track color modes
+* shared track tooltip
+
+Backend visibility controls decide whether a flight appears publicly.
+
+Supported visibility values are:
+
+* `PRIVATE`
+* `UNLISTED`
+* `PUBLIC`
+
+The public flight list shows only `PUBLIC` flights.
+
+Public flight detail access can support `PUBLIC` and `UNLISTED` flights depending on backend rules.
+
 ## Data Storage
 
 FlightApp Angular stores data locally in the browser using IndexedDB.
@@ -381,6 +462,38 @@ The app is local-first. Imported flights are stored locally first and are only u
 
 To reset all locally stored data, clear the browser site data for the application.
 
+## Track Coloring and Tooltip
+
+Track rendering uses a shared color service so that Leaflet and Cesium use the same color logic.
+
+Supported track color modes:
+
+* `vario`
+* `speed`
+
+Speed coloring uses a 0-100 km/h scale:
+
+```text
+0 km/h     blue
+20 km/h    cyan-blue
+40 km/h    green
+60 km/h    yellow
+80 km/h    orange
+100+ km/h  red
+```
+
+Map and 3D share the same track tooltip component.
+
+The tooltip displays:
+
+* relative flight time
+* altitude
+* vario
+* speed
+* track index
+
+The tooltip is styled similarly to the chart tooltip, but shows multiple track values instead of a single chart series value.
+
 ## Project Structure
 
 Typical structure:
@@ -393,6 +506,13 @@ src/
     features/
       flights/
         components/
+          flight-3d/
+          flight-climbs-panel/
+          flight-line-chart/
+          flight-map/
+          flight-replay-controls/
+          flight-summary-tags/
+          flight-track-tooltip/
         data-access/
         models/
         pages/
@@ -407,13 +527,13 @@ Important areas:
 src/app/features/flights/models
 ```
 
-Contains domain models such as flights, tracks, stats, climbs, settings, sync models, and derived stats.
+Contains domain models such as flights, tracks, stats, climbs, settings, sync models, replay state, track metrics, and derived stats.
 
 ```text
 src/app/features/flights/services
 ```
 
-Contains parsing, import, statistics, climb detection, track metrics, color calculation, settings, backend sync, and SSE services.
+Contains parsing, import, statistics, climb detection, track metrics, color calculation, settings, backend sync, public flights API, and SSE services.
 
 ```text
 src/app/features/flights/data-access
@@ -431,13 +551,13 @@ Contains SignalStore-based application state.
 src/app/features/flights/pages
 ```
 
-Contains route-level pages such as the flight list and flight detail page.
+Contains route-level pages such as the flight list, public flight list, and flight detail page.
 
 ```text
 src/app/features/flights/components
 ```
 
-Contains reusable UI components such as charts, map, 3D view, summary tags, replay controls, and climb panel.
+Contains reusable UI components such as charts, map, 3D view, summary tags, replay controls, shared track tooltip, and climb panel.
 
 ## Available Scripts
 
@@ -501,6 +621,25 @@ Also check the browser network tab for failing requests under:
 /api
 ```
 
+### Public flights do not load
+
+Check that the backend is running and that public endpoints are reachable.
+
+Typical public endpoints:
+
+```text
+GET /api/public/flights
+GET /api/public/flights/{flightId}/details
+```
+
+Also check:
+
+* backend is running
+* Angular proxy is active
+* public routes are allowed by backend security configuration
+* the flight visibility is `PUBLIC` for the public list
+* the flight visibility is allowed for public details
+
 ### Live sync does not update another tab
 
 Check the browser network tab and confirm that the SSE connection is open:
@@ -528,6 +667,8 @@ Also check:
 * `localhost` is allowed for local development
 * the deployed domain is allowed for production
 
+The 3D component is lazy-loaded. If the 3D chunk fails to load, check the browser console and network tab for failed JavaScript chunk requests.
+
 ### The map is empty
 
 Check the browser console and network tab.
@@ -538,6 +679,16 @@ Possible causes:
 * internet connection unavailable
 * browser blocked third-party requests
 * map container has no height
+
+### The shared tooltip is not visible
+
+If the map/3D hover marker appears but the shared tooltip is not visible, check:
+
+* the tooltip component is rendered inside the map placeholder overlay
+* the tooltip has a high enough `z-index`
+* the current cursor index is set
+* track metrics are available
+* the component is imported in the flight detail page
 
 ### Imported flights disappeared
 
@@ -574,10 +725,11 @@ For Azure Static Web Apps, make sure:
 * the production Cesium token is configured
 * the production domain is allowed in Cesium
 * the production backend/API routing is configured correctly
+* public API routing is configured correctly
 * authentication and cookies work correctly in the deployed environment
 
 ## Notes
 
-FlightApp Angular is currently focused on local-first flight analysis with optional backend synchronization.
+FlightApp Angular is currently focused on local-first flight analysis with optional backend synchronization and public flight sharing.
 
-The application is designed so that imported flights remain usable locally, while backend sync enables multi-device usage, remote backup, visibility settings, and live updates across sessions.
+The application is designed so that imported flights remain usable locally, while backend sync enables multi-device usage, remote backup, visibility settings, public sharing, and live updates across sessions.
