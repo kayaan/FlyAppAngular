@@ -1,9 +1,7 @@
-import { CalculatedFlightStats } from "./calculated-flight-stats.model";
-
 export type FlightVisibility = 'PRIVATE' | 'UNLISTED' | 'PUBLIC';
 
 export interface BackendFlight {
-  id: string;        // SHA-256 hash
+  id: string; // SHA-256 hash
   fileName: string;
   flightDate: string | null;
   pilot: string | null;
@@ -41,14 +39,4 @@ export interface ImportBackendFlightStatsRequest {
   minAltBaroM: number;
   maxAltBaroM: number;
   gainBaroM: number;
-}
-
-export interface ImportBackendFlightRequest {
-  id: string;
-  fileName: string;
-  flightDate: string | null;
-  pilot: string | null;
-  glider: string | null;
-  importedAtUtc: string;
-  stats: ImportBackendFlightStatsRequest | null;
 }

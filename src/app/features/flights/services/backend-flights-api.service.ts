@@ -1,11 +1,12 @@
 import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
+
 import {
   BackendFlight,
   CreateBackendFlightRequest,
   FlightVisibility,
 } from '../models/backend-flight.model';
-import { ImportBackendFlightRequest } from '../models/backend-flight-import.model';
+import { BackendFlightImportRequest } from '../models/backend-flight-import.model';
 
 @Injectable({
   providedIn: 'root',
@@ -59,7 +60,7 @@ export class BackendFlightsApiService {
     );
   }
 
-  importFlight(request: ImportBackendFlightRequest, file: File) {
+  importFlight(request: BackendFlightImportRequest, file: File) {
     const formData = new FormData();
 
     formData.append(

@@ -1,6 +1,6 @@
 import { CalculatedFlightStats } from './calculated-flight-stats.model';
 
-export interface ImportBackendFlightRequest {
+export interface BackendFlightImportRequest {
   id: string;
   fileName: string;
   flightDate: string | null;
@@ -9,3 +9,10 @@ export interface ImportBackendFlightRequest {
   importedAtUtc: string;
   stats: CalculatedFlightStats | null;
 }
+
+/**
+ * Temporary compatibility alias.
+ *
+ * New code should use BackendFlightImportRequest.
+ */
+export type ImportBackendFlightRequest = BackendFlightImportRequest;

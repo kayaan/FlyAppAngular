@@ -1,12 +1,15 @@
 import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
+import { firstValueFrom } from 'rxjs';
 
 import { FlightIndexedDbService } from '../data-access/flight-indexeddb.service';
 import { Flight } from '../models/flight.model';
 import { FlightStats } from '../models/flight-stats.model';
 import { TrackArrays } from '../models/track-arrays.model';
-
-import { FlightSyncPackageDto, SyncTrackFileContent } from '../models/flight-sync-package.model';
+import {
+  FlightSyncPackageDto,
+  SyncTrackFileContent,
+} from '../models/flight-sync-package.model';
 import { IgcFile } from '../models/igc-file.model';
 
 @Injectable({
@@ -141,22 +144,11 @@ export class FlightBackendSyncService {
     return flight;
   }
 
-  private base64ToText(base64: string): string {
-    const binary = atob(base64);
-    const bytes = new Uint8Array(binary.length);
-
-    for (let i = 0; i < binary.length; i++) {
-      bytes[i] = binary.charCodeAt(i);
-    }
-
-    return new TextDecoder('utf-8').decode(bytes);
-  }
-
   private createMetadata(
     flight: Flight,
     stats: FlightStats,
     track: TrackArrays
-  ): SyncFlightUploadRequest {
+  ): unknown {
     return {
       id: flight.id,
       fileName: flight.fileName,
@@ -164,7 +156,6 @@ export class FlightBackendSyncService {
       pilot: flight.pilot ?? null,
       glider: flight.glider ?? null,
       importedAtUtc: flight.importedAtUtc,
-
       stats: {
         startIndex: stats.startIndex,
         endIndex: stats.endIndex,
@@ -184,9 +175,7 @@ export class FlightBackendSyncService {
         maxAltBaroM: stats.maxAltBaroM,
         gainBaroM: stats.gainBaroM,
       },
-
       track: {
-        formatVersion: 1,
         timeSec: Array.from(track.timeSec),
         latE7: Array.from(track.latE7),
         lonE7: Array.from(track.lonE7),
@@ -195,48 +184,15 @@ export class FlightBackendSyncService {
       },
     };
   }
-}
 
-import { firstValueFrom } from 'rxjs';
+  private base64ToText(base64: string): string {
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
 
-interface SyncFlightUploadRequest {
-  id: string;
-  fileName: string;
-  flightDate: string | null;
-  pilot: string | null;
-  glider: string | null;
-  importedAtUtc: string;
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
 
-  stats: SyncFlightStatsRequest;
-  track: SyncFlightTrackRequest;
-}
-
-interface SyncFlightStatsRequest {
-  startIndex: number;
-  endIndex: number;
-  fixCount: number;
-
-  startTimeSec: number;
-  endTimeSec: number;
-  durationSec: number;
-
-  distanceM: number;
-
-  minAltGpsM: number;
-  maxAltGpsM: number;
-  gainGpsM: number;
-
-  minAltBaroM: number;
-  maxAltBaroM: number;
-  gainBaroM: number;
-}
-
-interface SyncFlightTrackRequest {
-  formatVersion: number;
-
-  timeSec: number[];
-  latE7: number[];
-  lonE7: number[];
-  altGpsCm: number[];
-  altBaroCm: number[];
+    return new TextDecoder().decode(bytes);
+  }
 }

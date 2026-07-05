@@ -26,6 +26,7 @@ export interface PublicFlightsQuery {
   page?: number;
   size?: number;
 }
+
 @Injectable({
   providedIn: 'root',
 })
@@ -36,15 +37,6 @@ export class PublicFlightsApiService {
 
   getPublicFlights(query: PublicFlightsQuery = {}) {
     let params = new HttpParams();
-
-    if (query.sort) {
-      params = params.set('sort', query.sort);
-    }
-
-    if (query.direction) {
-      params = params.set('direction', query.direction);
-    }
-
 
     if (query.q?.trim()) {
       params = params.set('q', query.q.trim());
@@ -60,6 +52,10 @@ export class PublicFlightsApiService {
 
     if (query.sort) {
       params = params.set('sort', query.sort);
+    }
+
+    if (query.direction) {
+      params = params.set('direction', query.direction);
     }
 
     if (query.page !== undefined) {
