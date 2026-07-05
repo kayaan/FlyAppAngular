@@ -151,7 +151,13 @@
             @if (viewMode === 'map') {
             <app-flight-map />
             } @else {
-            <app-flight-3d />
+            @if (flight3dComponent(); as component) {
+            <ng-container *ngComponentOutlet="component"></ng-container>
+            } @else {
+            <div class="lazy-3d-placeholder">
+              Loading 3D view...
+            </div>
+            }
             }
           </div>
         </div>

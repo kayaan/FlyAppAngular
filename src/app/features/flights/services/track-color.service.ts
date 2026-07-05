@@ -17,8 +17,8 @@ const WEAK_CLIMB_COLOR = '#00f95b';
 const STRONG_CLIMB_COLOR = '#004e1f';
 
 
-const MIN_SPEED_KMH = 20;
-const MAX_SPEED_KMH = 100;
+const MIN_SPEED_KMH = 0;
+const MAX_SPEED_KMH = 120;
 
 const SPEED_COLOR_STOPS: [number, string][] = [
   [0.0, '#1e3a8a'], // tiefblau - sehr langsam

@@ -2,6 +2,7 @@ import {
   Component,
   OnDestroy,
   OnInit,
+  Type,
   computed,
   inject,
   signal,
@@ -20,7 +21,6 @@ import {
 } from '../../components/flight-line-chart/flight-line-chart';
 import { FlightSummaryTags } from '../../components/flight-summary-tags/flight-summary-tags';
 import { FlightClimbsPanel } from '../../components/flight-climbs-panel/flight-climbs-panel';
-import { Flight3d } from '../../components/flight-3d/flight-3d';
 import { FlightReplayControls } from '../../components/flight-replay-controls/flight-replay-controls';
 import { TrackColorMode } from '../../models/flight-settings.model';
 
@@ -36,7 +36,6 @@ const RESOLUTION_INPUT_DEBOUNCE_MS = 350;
     FlightMap,
     FlightSummaryTags,
     FlightClimbsPanel,
-    Flight3d,
     FlightReplayControls,
   ],
   templateUrl: './flight-details.html',
@@ -71,7 +70,9 @@ export class FlightDetails implements OnInit, OnDestroy {
       : '← Back to flights'
   );
 
-  viewMode: 'map' | '3d' = '3d';
+  viewMode: 'map' | '3d' = 'map';
+
+  readonly flight3dComponent = signal<Type<unknown> | null>(null);
 
   readonly flightStats = computed(() => this.store.stats());
 
@@ -160,8 +161,22 @@ export class FlightDetails implements OnInit, OnDestroy {
     }
   }
 
-  setViewMode(mode: 'map' | '3d'): void {
-    this.viewMode = mode;
+  async setViewMode(viewMode: 'map' | '3d'): Promise<void> {
+    this.viewMode = viewMode;
+
+    if (viewMode === '3d') {
+      await this.loadFlight3dComponent();
+    }
+  }
+
+  private async loadFlight3dComponent(): Promise<void> {
+    if (this.flight3dComponent()) {
+      return;
+    }
+
+    const module = await import('../../components/flight-3d/flight-3d');
+
+    this.flight3dComponent.set(module.Flight3d);
   }
 
   setTrackColorMode(event: Event): void {

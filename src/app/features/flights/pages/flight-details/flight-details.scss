@@ -142,8 +142,8 @@ app-flight-summary-tags {
     0 16px 40px rgba(16, 24, 40, 0.06);
 }
 
-.chart-card > header,
-.map-card > header {
+.chart-card>header,
+.map-card>header {
   flex: 0 0 auto;
 
   padding: 12px 16px;
@@ -233,7 +233,7 @@ app-flight-line-chart {
     user-select: none;
   }
 
-  input:checked + span {
+  input:checked+span {
     background: #101828;
     color: #ffffff;
   }
@@ -269,8 +269,8 @@ app-flight-replay-controls {
   min-width: 0;
   min-height: 0;
 
-  > app-flight-map,
-  > app-flight-3d {
+  >app-flight-map,
+  >app-flight-3d {
     display: block;
     width: 100%;
     height: 100%;
@@ -504,5 +504,18 @@ app-flight-3d {
   color: #101828;
 
   font-size: 13px;
+  font-weight: 600;
+}
+
+.lazy-3d-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 100%;
+  height: 100%;
+
+  color: #64748b;
+  font-size: 14px;
   font-weight: 600;
 }
