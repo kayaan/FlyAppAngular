@@ -20,23 +20,3 @@ export interface CreateBackendFlightRequest {
   glider: string | null;
   importedAtUtc: string;
 }
-
-export interface ImportBackendFlightStatsRequest {
-  startIndex: number;
-  endIndex: number;
-  fixCount: number;
-
-  startTimeSec: number;
-  endTimeSec: number;
-  durationSec: number;
-
-  distanceM: number;
-
-  minAltGpsM: number;
-  maxAltGpsM: number;
-  gainGpsM: number;
-
-  minAltBaroM: number;
-  maxAltBaroM: number;
-  gainBaroM: number;
-}

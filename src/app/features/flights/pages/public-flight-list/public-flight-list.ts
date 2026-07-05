@@ -124,11 +124,6 @@ export class PublicFlightList {
     this.to.set(input.value);
   }
 
-  async onSortChange(event: Event): Promise<void> {
-    const select = event.target as HTMLSelectElement;
-    await this.setSort(select.value as PublicFlightSort);
-  }
-
   formatDate(value: string | null): string {
     if (!value) {
       return '—';
