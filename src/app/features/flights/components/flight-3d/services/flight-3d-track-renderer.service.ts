@@ -16,8 +16,9 @@ import { TrackMetrics } from '../../../models/track-metrics.model';
 import { TrackArrays } from '../../../models/track-arrays.model';
 import { TrackColorService } from '../../../services/track-color.service';
 import { TrackMathUtils } from '../../../services/track-math-utils';
+import { Flight3dPositionOptions, Flight3dPositionService } from './flight-3d-position.service';
 
-export interface Flight3dTrackRenderOptions {
+export interface Flight3dTrackRenderOptions extends Flight3dPositionOptions {
   trackColorMode: TrackColorMode;
 
   varioChartResolutionInSec: number;
@@ -25,10 +26,6 @@ export interface Flight3dTrackRenderOptions {
   renderStep: number;
   varioClassCount: number;
   maxVarioForColorMs: number;
-
-  trackAltitudeOffsetM: number;
-  verticalExaggeration: number;
-  verticalExaggerationRelativeHeight: number;
 
   showOnlySelectedClimbTrack: boolean;
   selectedClimbId: number | null;
@@ -43,6 +40,7 @@ export interface Flight3dTrackRenderOptions {
 @Injectable()
 export class Flight3dTrackRendererService {
   private readonly trackColorService = inject(TrackColorService);
+  private readonly positionService = inject(Flight3dPositionService);
 
   private viewer: Viewer | null = null;
   private flightTrackEntities: Entity[] = [];
@@ -149,7 +147,7 @@ export class Flight3dTrackRendererService {
       return this.buildColoredTrackBlocks(track, options);
     }
 
-    const pointCount = this.getPointCount(track);
+    const pointCount = this.positionService.getPointCount(track);
 
     const start = Math.max(
       0,
@@ -168,7 +166,7 @@ export class Flight3dTrackRendererService {
     let currentPositions: Cartesian3[] = [];
 
     for (let i = start; i <= end; i += this.getRenderStep(options)) {
-      const position = this.buildPosition(track, i, options);
+      const position = this.positionService.buildPosition(track, i, options);
 
       if (!position) {
         continue;
@@ -221,14 +219,14 @@ export class Flight3dTrackRendererService {
     }
 
     const entities: Entity[] = [];
-    const pointCount = this.getPointCount(track);
+    const pointCount = this.positionService.getPointCount(track);
 
     let currentColorKey: string | null = null;
     let currentColor: Color | null = null;
     let currentPositions: Cartesian3[] = [];
 
     for (let i = 0; i < pointCount; i += this.getRenderStep(options)) {
-      const position = this.buildPosition(track, i, options);
+      const position = this.positionService.buildPosition(track, i, options);
 
       if (!position) {
         continue;
@@ -328,30 +326,6 @@ export class Flight3dTrackRendererService {
     };
   }
 
-  private buildPosition(
-    track: TrackArrays,
-    index: number,
-    options: Flight3dTrackRenderOptions
-  ): Cartesian3 | null {
-    const lat = track.latE7[index] / 10_000_000;
-    const lon = track.lonE7[index] / 10_000_000;
-    const rawAltitudeM = track.altGpsCm[index] / 100;
-    const altM = this.exaggerateHeight(rawAltitudeM, options);
-
-    if (
-      !Number.isFinite(lat) ||
-      !Number.isFinite(lon) ||
-      !Number.isFinite(altM)
-    ) {
-      return null;
-    }
-
-    if (lat === 0 && lon === 0) {
-      return null;
-    }
-
-    return Cartesian3.fromDegrees(lon, lat, altM);
-  }
 
   private getVarioClass(
     varioMs: number,
@@ -407,33 +381,12 @@ export class Flight3dTrackRendererService {
     );
   }
 
-  private exaggerateHeight(
-    heightM: number,
-    options: Flight3dTrackRenderOptions
-  ): number {
-    return (
-      options.trackAltitudeOffsetM +
-      options.verticalExaggerationRelativeHeight +
-      (heightM - options.verticalExaggerationRelativeHeight) *
-        options.verticalExaggeration
-    );
-  }
-
   private colorToCss(color: Color): string {
     const r = Math.round(color.red * 255);
     const g = Math.round(color.green * 255);
     const b = Math.round(color.blue * 255);
 
     return `rgb(${r}, ${g}, ${b})`;
-  }
-
-  private getPointCount(track: TrackArrays): number {
-    return Math.min(
-      track.latE7.length,
-      track.lonE7.length,
-      track.altGpsCm.length,
-      track.timeSec.length
-    );
   }
 
   private getRenderStep(options: Flight3dTrackRenderOptions): number {
