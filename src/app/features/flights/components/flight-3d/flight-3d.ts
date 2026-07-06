@@ -78,6 +78,12 @@ export class Flight3d implements AfterViewInit, OnDestroy {
   private lastCameraFollowEnabled = false;
 
   constructor() {
+    this.registerTrackRenderEffect();
+    this.registerCursorRenderEffect();
+    this.registerSelectedClimbRenderEffect();
+    this.registerReplayRenderEffect();
+  }
+  private registerTrackRenderEffect(): void {
     effect(() => {
       const track = this.store.track();
       const replayActive = this.store.replay.active();
@@ -118,7 +124,9 @@ export class Flight3d implements AfterViewInit, OnDestroy {
         this.lastTrackRenderKey = trackRenderKey;
       }
     });
+  }
 
+  private registerCursorRenderEffect(): void {
     effect(() => {
       const track = this.store.track();
       const cursorIndex = this.store.cursorIndex();
@@ -134,14 +142,15 @@ export class Flight3d implements AfterViewInit, OnDestroy {
         return;
       }
 
-      this.cursorRenderer.update(track, cursorIndex, {
-        trackAltitudeOffsetM: this.settingsStore.threeDTrackAltitudeOffsetM(),
-        verticalExaggeration: this.settingsStore.threeDVerticalExaggeration(),
-        verticalExaggerationRelativeHeight:
-          this.settingsStore.threeDVerticalExaggerationRelativeHeight(),
-      });
+      this.cursorRenderer.update(
+        track,
+        cursorIndex,
+        this.buildPositionOptions()
+      );
     });
+  }
 
+  private registerSelectedClimbRenderEffect(): void {
     effect(() => {
       const track = this.store.track();
       const climbs = this.store.climbs();
@@ -173,15 +182,14 @@ export class Flight3d implements AfterViewInit, OnDestroy {
         selectedClimb.startIndex,
         selectedClimb.endIndex,
         {
+          ...this.buildPositionOptions(),
           renderStep: this.settingsStore.threeDRenderStep(),
-          trackAltitudeOffsetM: this.settingsStore.threeDTrackAltitudeOffsetM(),
-          verticalExaggeration: this.settingsStore.threeDVerticalExaggeration(),
-          verticalExaggerationRelativeHeight:
-            this.settingsStore.threeDVerticalExaggerationRelativeHeight(),
         }
       );
     });
+  }
 
+  private registerReplayRenderEffect(): void {
     effect(() => {
       const track = this.store.track();
       const replayActive = this.store.replay.active();
