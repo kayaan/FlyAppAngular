@@ -28,6 +28,7 @@ import { FlightDetailsStore } from '../../store/flight-details.store';
 import { FlightSettingsStore } from '../../store/flight-settings.store';
 import { FlightLineChartTimeService } from './services/flight-line-chart-time.service';
 import { FlightLineChartTooltipService } from './services/flight-line-chart-tooltip.service';
+import { FlightLineChartMarkLineService } from './services/flight-line-chart-mark-line.service';
 
 echarts.use([
   LineChart,
@@ -47,7 +48,10 @@ export interface FlightChartPoint {
 
 @Component({
   selector: 'app-flight-line-chart',
-  providers: [FlightLineChartTimeService, FlightLineChartTooltipService],
+  providers: [
+    FlightLineChartTimeService,
+    FlightLineChartTooltipService,
+    FlightLineChartMarkLineService],
   standalone: true,
   templateUrl: './flight-line-chart.html',
   styleUrl: './flight-line-chart.scss',
@@ -68,17 +72,8 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
   private readonly settingsStore = inject(FlightSettingsStore);
   private readonly timeService = inject(FlightLineChartTimeService);
   private readonly tooltipService = inject(FlightLineChartTooltipService);
+  private readonly markLineService = inject(FlightLineChartMarkLineService);
 
-  private readonly climbBoundaryColors = [
-    '#2563eb',
-    '#16a34a',
-    '#dc2626',
-    '#9333ea',
-    '#ea580c',
-    '#0891b2',
-    '#4f46e5',
-    '#be123c',
-  ];
 
   private currentZoomStartPercent = 0;
   private currentZoomEndPercent = 100;
@@ -132,6 +127,8 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
     this.chart?.dispose();
     this.chart = null;
   }
+
+
 
   private setupCursorEffect(): void {
     effect(() => {
@@ -420,85 +417,13 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
   }
 
   private buildMarkLineData(cursorTrackIndex: number | null): unknown[] {
-    const data: unknown[] = [];
-
-    const climbs = this.store.climbs();
-    const selectedClimbId = this.store.selectedClimbId();
-    const showAllClimbs = this.settingsStore.showClimbsOnCharts();
-
-    const visibleClimbs = showAllClimbs
-      ? climbs
-      : selectedClimbId !== null
-        ? climbs.filter((climb) => climb.id === selectedClimbId)
-        : [];
-
-    for (const climb of visibleClimbs) {
-      const climbIndex = climbs.findIndex((item) => item.id === climb.id);
-
-      if (climbIndex < 0) {
-        continue;
-      }
-
-      const startElapsedSec = this.timeService.getElapsedSecForTrackIndex(this.data, climb.startIndex);
-      const endElapsedSec = this.timeService.getElapsedSecForTrackIndex(this.data, climb.endIndex);
-
-      if (startElapsedSec === null || endElapsedSec === null) {
-        continue;
-      }
-
-      const color =
-        this.climbBoundaryColors[climbIndex % this.climbBoundaryColors.length];
-
-      const isSelected = climb.id === selectedClimbId;
-
-      data.push(
-        {
-          xAxis: startElapsedSec,
-          lineStyle: {
-            color,
-            type: 'dotted',
-            width: isSelected ? 2.5 : 1.5,
-            opacity: isSelected ? 1 : 0.65,
-          },
-          label: {
-            show: false,
-          },
-        },
-        {
-          xAxis: endElapsedSec,
-          lineStyle: {
-            color,
-            type: 'dotted',
-            width: isSelected ? 2.5 : 1.5,
-            opacity: isSelected ? 1 : 0.65,
-          },
-          label: {
-            show: false,
-          },
-        },
-      );
-    }
-
-    if (cursorTrackIndex !== null) {
-      const cursorElapsedSec = this.timeService.getElapsedSecForTrackIndex(this.data, cursorTrackIndex);
-
-      if (cursorElapsedSec !== null) {
-        data.push({
-          xAxis: cursorElapsedSec,
-          lineStyle: {
-            type: 'solid',
-            width: 1,
-            color: '#101828',
-            opacity: 0.9,
-          },
-          label: {
-            show: false,
-          },
-        });
-      }
-    }
-
-    return data;
+    return this.markLineService.buildMarkLineData({
+      data: this.data,
+      climbs: this.store.climbs(),
+      selectedClimbId: this.store.selectedClimbId(),
+      showAllClimbs: this.settingsStore.showClimbsOnCharts(),
+      cursorTrackIndex,
+    });
   }
 
   private showCursorAtIndex(trackIndex: number): void {
