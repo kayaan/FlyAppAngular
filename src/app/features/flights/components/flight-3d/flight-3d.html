@@ -2,46 +2,6 @@
   <div #cesiumContainer class="cesium-container"></div>
 
   @if (replayInfo(); as info) {
-    <div class="replay-info-overlay">
-      <div class="replay-info-title-row">
-        <span class="replay-info-title">Replay</span>
-        <strong class="replay-info-value replay-info-time">
-          {{ info.relativeTimeSec | flightDuration }}
-        </strong>
-        <span class="replay-info-unit"></span>
-      </div>
-
-      <div class="replay-info-row">
-        <span class="replay-info-label">Altitude</span>
-        <strong class="replay-info-value">
-          {{ info.altitudeM | flightNumber: 0 }}
-        </strong>
-        <span class="replay-info-unit">m</span>
-      </div>
-
-      <div class="replay-info-row">
-        <span class="replay-info-label">Vario</span>
-        <strong class="replay-info-value">
-          {{ info.varioMs | flightSignedNumber: 1 }}
-        </strong>
-        <span class="replay-info-unit">m/s</span>
-      </div>
-
-      <div class="replay-info-row">
-        <span class="replay-info-label">Speed</span>
-        <strong class="replay-info-value">
-          {{ info.speedKmh | flightNumber: 0 }}
-        </strong>
-        <span class="replay-info-unit">km/h</span>
-      </div>
-
-      <div class="replay-info-row muted">
-        <span class="replay-info-label">Index</span>
-        <strong class="replay-info-value">
-          {{ info.index }}
-        </strong>
-        <span class="replay-info-unit">/ {{ info.maxIndex }}</span>
-      </div>
-    </div>
+    <app-flight-replay-info-overlay [info]="info" />
   }
 </div>

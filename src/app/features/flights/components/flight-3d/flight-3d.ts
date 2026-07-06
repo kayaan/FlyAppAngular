@@ -33,11 +33,6 @@ import {
   Matrix4,
 } from 'cesium';
 
-import { FlightDurationPipe } from '../../pipes/flight-duration.pipe';
-import { FlightNumberPipe } from '../../pipes/flight-number.pipe';
-import { FlightSignedNumberPipe } from '../../pipes/flight-signed-number.pipe';
-
-
 import { FlightDetailsStore } from '../../store/flight-details.store';
 import { FlightSettingsStore } from '../../store/flight-settings.store';
 import { TrackArrays } from '../../models/track-arrays.model';
@@ -47,15 +42,13 @@ import { environment } from '../../../../../environments/environment';
 
 import { TrackColorService } from '../../services/track-color.service';
 import { TrackMathUtils } from '../../services/track-math-utils';
-
+import { FlightReplayInfoOverlay } from '../flight-replay-info-overlay/flight-replay-info-overlay';
 
 @Component({
   selector: 'app-flight-3d',
   standalone: true,
   imports: [
-    FlightDurationPipe,
-    FlightNumberPipe,
-    FlightSignedNumberPipe,
+    FlightReplayInfoOverlay
   ],
   templateUrl: './flight-3d.html',
   styleUrl: './flight-3d.scss',
