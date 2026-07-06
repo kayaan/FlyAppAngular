@@ -27,8 +27,6 @@ import {
   ScreenSpaceEventHandler,
   ScreenSpaceEventType,
   Viewer,
-  ConstantProperty,
-  ColorMaterialProperty,
   HeadingPitchRange,
   Matrix4,
 } from 'cesium';
@@ -41,7 +39,6 @@ import { ReplayRange } from '../../models/replay-state.model';
 import { environment } from '../../../../../environments/environment';
 
 import { TrackColorService } from '../../services/track-color.service';
-import { TrackMathUtils } from '../../services/track-math-utils';
 import { FlightReplayInfoOverlay } from '../flight-replay-info-overlay/flight-replay-info-overlay';
 import { Flight3dTrackRendererService, Flight3dTrackRenderOptions } from './services/flight-3d-track-renderer.service';
 import { Flight3dCursorRendererService } from './services/flight-3d-cursor-renderer.service';
@@ -74,7 +71,6 @@ export class Flight3d implements AfterViewInit, OnDestroy {
   private readonly selectedClimbRenderer = inject(Flight3dSelectedClimbRendererService);
 
   private viewer: Viewer | null = null;
-  private flightTrackEntities: Entity[] = [];
   private lastTrackReference: TrackArrays | null = null;
   private lastTrackRenderKey = '';
 
@@ -109,25 +105,25 @@ export class Flight3d implements AfterViewInit, OnDestroy {
       }
 
       if (replayActive) {
-        this.setFlightTrackGhostMode(true);
+        this.trackRenderer.setGhostMode(true);
         this.selectedClimbRenderer.clear();
         return;
       }
 
-      this.setFlightTrackGhostMode(false);
-
+      this.trackRenderer.setGhostMode(false);
 
       const shouldCenter = track !== this.lastTrackReference;
       const shouldRenderTrack =
         track !== this.lastTrackReference ||
         trackRenderKey !== this.lastTrackRenderKey ||
-        this.flightTrackEntities.length === 0;
+        !this.trackRenderer.hasRenderedTrack();
 
       if (shouldRenderTrack) {
         this.trackRenderer.render(
           track,
           this.buildTrackRenderOptions(shouldCenter, replayActive)
         );
+
         this.lastTrackReference = track;
         this.lastTrackRenderKey = trackRenderKey;
       }
@@ -231,34 +227,6 @@ export class Flight3d implements AfterViewInit, OnDestroy {
     });
   }
 
-  private setFlightTrackGhostMode(enabled: boolean): void {
-    for (const entity of this.flightTrackEntities) {
-      entity.show = true;
-
-      const polyline = entity.polyline;
-
-      if (!polyline) {
-        continue;
-      }
-
-      polyline.width = new ConstantProperty(enabled ? 1.0 : 1.5);
-
-      const colorCss = entity.properties?.getValue()?.['colorCss'] as
-        | string
-        | undefined;
-
-      if (!colorCss) {
-        continue;
-      }
-
-      const color = Color.fromCssColorString(colorCss).withAlpha(
-        enabled ? 0.35 : 1.0
-      );
-
-      polyline.material = new ColorMaterialProperty(color);
-    }
-  }
-
   readonly replayInfo = computed(() => {
     const track = this.store.track();
     const metrics = this.store.trackMetrics();
@@ -353,7 +321,7 @@ export class Flight3d implements AfterViewInit, OnDestroy {
     this.clearReplayEndEntity();
     this.clearReplayCurrentEntity();
     this.selectedClimbRenderer.clear();
-    this.clearTrackEntities();
+    this.trackRenderer.clear();
 
     this.viewer?.destroy();
     this.viewer = null;
@@ -853,146 +821,6 @@ export class Flight3d implements AfterViewInit, OnDestroy {
     return bestIndex;
   }
 
-  private clearTrackEntities(): void {
-    if (!this.viewer) {
-      this.flightTrackEntities = [];
-      return;
-    }
-
-    for (const entity of this.flightTrackEntities) {
-      this.viewer.entities.remove(entity);
-    }
-
-    this.flightTrackEntities = [];
-  }
-
-  private buildColoredTrackBlocks(track: TrackArrays): Entity[] {
-    if (!this.viewer) {
-      return [];
-    }
-
-    const entities: Entity[] = [];
-    const pointCount = this.getPointCount(track);
-
-    let currentColorKey: string | null = null;
-    let currentColor: Color | null = null;
-    let currentPositions: Cartesian3[] = [];
-
-    for (let i = 0; i < pointCount; i += this.settingsStore.threeDRenderStep()) {
-      const position = this.buildPosition(track, i);
-
-      if (!position) {
-        continue;
-      }
-
-      if (currentPositions.length === 0) {
-        currentPositions.push(position);
-        continue;
-      }
-
-      const nextColorInfo = this.getTrackColorInfo(track, i);
-
-      if (currentColorKey === null || currentColor === null) {
-        currentColorKey = nextColorInfo.key;
-        currentColor = nextColorInfo.color;
-        currentPositions.push(position);
-        continue;
-      }
-
-      if (nextColorInfo.key === currentColorKey) {
-        currentPositions.push(position);
-        continue;
-      }
-
-      if (currentPositions.length >= 2) {
-        entities.push(this.addTrackBlockEntity(currentPositions, currentColor));
-      }
-
-      currentColorKey = nextColorInfo.key;
-      currentColor = nextColorInfo.color;
-      currentPositions = [
-        currentPositions[currentPositions.length - 1],
-        position,
-      ];
-    }
-
-    if (currentColor !== null && currentPositions.length >= 2) {
-      entities.push(this.addTrackBlockEntity(currentPositions, currentColor));
-    }
-
-    return entities;
-  }
-
-  private addTrackBlockEntity(
-    positions: Cartesian3[],
-    color: Color
-  ): Entity {
-    if (!this.viewer) {
-      throw new Error('Cesium viewer is not initialized.');
-    }
-
-    const colorCss = this.colorToCss(color);
-
-    return this.viewer.entities.add({
-      name: 'Flight track block',
-      properties: {
-        colorCss,
-      },
-      polyline: {
-        positions,
-        width: 1.5,
-        material: new ColorMaterialProperty(color),
-        clampToGround: false,
-        arcType: ArcType.NONE,
-      },
-    });
-  }
-
-  private colorToCss(color: Color): string {
-    const r = Math.round(color.red * 255);
-    const g = Math.round(color.green * 255);
-    const b = Math.round(color.blue * 255);
-
-    return `rgb(${r}, ${g}, ${b})`;
-  }
-
-  private getTrackColorInfo(
-    track: TrackArrays,
-    index: number
-  ): { key: string; color: Color } {
-    if (this.settingsStore.trackColorMode() === 'speed') {
-      const metrics = this.store.trackMetrics();
-
-      const speedKmh =
-        metrics && index >= 0 && index < metrics.speedKmh.length
-          ? metrics.speedKmh[index]
-          : 0;
-
-      const colorCss = this.trackColorService.getSpeedColorCss(speedKmh);
-      const color = Color.fromCssColorString(colorCss).withAlpha(1.0);
-
-      return {
-        key: `speed-${colorCss}`,
-        color,
-      };
-    }
-
-    const varioMs = TrackMathUtils.averageVarioMs(
-      track,
-      index,
-      this.settingsStore.varioChartResolutionInSec()
-    );
-
-    const varioClass = this.getVarioClass(varioMs);
-
-    return {
-      key: `vario-${varioClass}`,
-      color: this.getColorForVarioClass(varioClass),
-    };
-  }
-
-
-
   private buildPosition(track: TrackArrays, index: number): Cartesian3 | null {
     const lat = track.latE7[index] / 10_000_000;
     const lon = track.lonE7[index] / 10_000_000;
@@ -1009,56 +837,6 @@ export class Flight3d implements AfterViewInit, OnDestroy {
     return Cartesian3.fromDegrees(lon, lat, altM);
   }
 
-  private getVarioClass(varioMs: number): number {
-    if (!Number.isFinite(varioMs)) {
-      return 1;
-    }
-
-    const clamped = Math.max(
-      -this.settingsStore.threeDMaxVarioForColorMs(),
-      Math.min(this.settingsStore.threeDMaxVarioForColorMs(), varioMs)
-    );
-
-    const strength = Math.abs(clamped) / this.settingsStore.threeDMaxVarioForColorMs();
-
-    const level = Math.max(
-      1,
-      Math.min(
-        this.settingsStore.threeDVarioClassCount(),
-        Math.ceil(strength * this.settingsStore.threeDVarioClassCount())
-      )
-    );
-
-    return clamped >= 0 ? level : -level;
-  }
-
-  private getColorForVarioClass(varioClass: number): Color {
-    const lightGreen = Color.fromCssColorString('#22d3ee');
-    const darkGreen = Color.fromCssColorString('#0f766e');
-
-    const lightRed = Color.fromCssColorString('#ef4444');
-    const darkRed = Color.fromCssColorString('#7f1d1d');
-
-    const level = Math.min(this.settingsStore.threeDVarioClassCount(), Math.abs(varioClass));
-    const t = level / this.settingsStore.threeDVarioClassCount();
-
-    if (varioClass > 0) {
-      return this.interpolateColor(lightGreen, darkGreen, t).withAlpha(1.0);
-    }
-
-    return this.interpolateColor(lightRed, darkRed, t).withAlpha(1.0);
-  }
-
-  private interpolateColor(from: Color, to: Color, t: number): Color {
-    const clampedT = Math.max(0, Math.min(1, t));
-
-    return new Color(
-      from.red + (to.red - from.red) * clampedT,
-      from.green + (to.green - from.green) * clampedT,
-      from.blue + (to.blue - from.blue) * clampedT,
-      from.alpha + (to.alpha - from.alpha) * clampedT
-    );
-  }
 
   private exaggerateHeight(heightM: number): number {
     return (
