@@ -14,9 +14,6 @@ import {
   createWorldTerrainAsync,
   EllipsoidTerrainProvider,
   Ion,
-  SceneTransforms,
-  ScreenSpaceEventHandler,
-  ScreenSpaceEventType,
   Viewer,
 } from 'cesium';
 
@@ -34,6 +31,7 @@ import { Flight3dSelectedClimbRendererService } from './services/flight-3d-selec
 import { Flight3dReplayRendererService, Flight3dReplayRenderOptions } from './services/flight-3d-replay-renderer.service';
 import { Flight3dPositionOptions, Flight3dPositionService } from './services/flight-3d-position.service';
 import { Flight3dReplayCameraService } from './services/flight-3d-replay-camera.service';
+import { Flight3dPickingService } from './services/flight-3d-picking.service';
 
 @Component({
   selector: 'app-flight-3d',
@@ -48,6 +46,7 @@ import { Flight3dReplayCameraService } from './services/flight-3d-replay-camera.
     Flight3dSelectedClimbRendererService,
     Flight3dReplayRendererService,
     Flight3dReplayCameraService,
+    Flight3dPickingService,
   ],
   templateUrl: './flight-3d.html',
   styleUrl: './flight-3d.scss',
@@ -65,12 +64,11 @@ export class Flight3d implements AfterViewInit, OnDestroy {
   private readonly replayRenderer = inject(Flight3dReplayRendererService);
   private readonly positionService = inject(Flight3dPositionService);
   private readonly replayCamera = inject(Flight3dReplayCameraService);
+  private readonly pickingService = inject(Flight3dPickingService);
 
   private viewer: Viewer | null = null;
   private lastTrackReference: TrackArrays | null = null;
   private lastTrackRenderKey = '';
-
-  private mouseMoveHandler: ScreenSpaceEventHandler | null = null;
 
   private lastCameraFollowEnabled = false;
 
@@ -80,6 +78,7 @@ export class Flight3d implements AfterViewInit, OnDestroy {
     this.registerSelectedClimbRenderEffect();
     this.registerReplayRenderEffect();
   }
+
   private registerTrackRenderEffect(): void {
     effect(() => {
       const track = this.store.track();
@@ -247,6 +246,37 @@ export class Flight3d implements AfterViewInit, OnDestroy {
       speedKmh: metrics.speedKmh[index],
     };
   });
+  private handleTrackHover(mousePosition: Cartesian2): void {
+    if (this.store.replay.active()) {
+      return;
+    }
+
+    const track = this.store.track();
+
+    if (!this.viewer || !track) {
+      this.store.setCursorIndex(null);
+      return;
+    }
+
+    const nearestIndex = this.pickingService.findNearestTrackIndexByScreenPosition(
+      track,
+      mousePosition,
+      {
+        ...this.buildPositionOptions(),
+        renderStep: this.settingsStore.threeDRenderStep(),
+        maxPixelDistance: 18,
+      }
+    );
+
+    if (nearestIndex === null) {
+      this.store.setCursorIndex(null);
+      return;
+    }
+
+    if (this.store.cursorIndex() !== nearestIndex) {
+      this.store.setCursorIndex(nearestIndex);
+    }
+  }
 
   async ngAfterViewInit(): Promise<void> {
     Ion.defaultAccessToken = environment.cesiumToken;
@@ -270,8 +300,9 @@ export class Flight3d implements AfterViewInit, OnDestroy {
     this.selectedClimbRenderer.attach(this.viewer);
     this.replayRenderer.attach(this.viewer);
     this.replayCamera.attach(this.viewer);
-
-    this.registerCursorPicking();
+    this.pickingService.attach(this.viewer, (mousePosition) => {
+      this.handleTrackHover(mousePosition);
+    });
 
     this.viewer.terrainProvider = await createWorldTerrainAsync({
       requestVertexNormals: true,
@@ -310,8 +341,6 @@ export class Flight3d implements AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this.mouseMoveHandler?.destroy();
-    this.mouseMoveHandler = null;
     this.cursorRenderer.clear();
     this.replayRenderer.clear();
     this.selectedClimbRenderer.clear();
@@ -321,6 +350,8 @@ export class Flight3d implements AfterViewInit, OnDestroy {
     this.lastTrackReference = null;
     this.lastTrackRenderKey = '';
     this.lastCameraFollowEnabled = false;
+
+    this.pickingService.destroy();
   }
 
   formatAltitude(value: number): string {
@@ -402,98 +433,5 @@ export class Flight3d implements AfterViewInit, OnDestroy {
       verticalExaggerationRelativeHeight:
         this.settingsStore.threeDVerticalExaggerationRelativeHeight(),
     };
-  }
-
-  private registerCursorPicking(): void {
-    if (!this.viewer) {
-      return;
-    }
-
-    this.mouseMoveHandler = new ScreenSpaceEventHandler(
-      this.viewer.scene.canvas
-    );
-
-    this.mouseMoveHandler.setInputAction((movement: { endPosition: Cartesian2 }) => {
-      if (this.store.replay.active()) {
-        return;
-      }
-
-      const track = this.store.track();
-
-      if (!this.viewer || !track) {
-        this.store.setCursorIndex(null);
-        return;
-      }
-
-      const nearestIndex = this.findNearestTrackIndexByScreenPosition(
-        track,
-        movement.endPosition
-      );
-
-      if (nearestIndex === null) {
-        this.store.setCursorIndex(null);
-        return;
-      }
-
-      if (this.store.cursorIndex() !== nearestIndex) {
-        this.store.setCursorIndex(nearestIndex);
-      }
-    }, ScreenSpaceEventType.MOUSE_MOVE);
-  }
-
-  private findNearestTrackIndexByScreenPosition(
-    track: TrackArrays,
-    mousePosition: Cartesian2
-  ): number | null {
-    if (!this.viewer) {
-      return null;
-    }
-
-    const pointCount = this.positionService.getPointCount(track);
-
-    if (pointCount === 0) {
-      return null;
-    }
-
-    const maxPixelDistance = 18;
-
-    let bestIndex: number | null = null;
-    let bestDistance = Number.POSITIVE_INFINITY;
-
-    for (let i = 0; i < pointCount; i += this.settingsStore.threeDRenderStep()) {
-      const worldPosition = this.positionService.buildPosition(
-        track,
-        i,
-        this.buildPositionOptions()
-      );
-
-      if (!worldPosition) {
-        continue;
-      }
-
-      const screenPosition = SceneTransforms.worldToWindowCoordinates(
-        this.viewer.scene,
-        worldPosition
-      );
-
-      if (!screenPosition) {
-        continue;
-      }
-
-      const dx = screenPosition.x - mousePosition.x;
-      const dy = screenPosition.y - mousePosition.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-
-      if (distance < bestDistance) {
-        bestDistance = distance;
-        bestIndex = i;
-      }
-    }
-
-    if (bestIndex === null || bestDistance > maxPixelDistance) {
-      return null;
-    }
-
-    return bestIndex;
   }
 }
