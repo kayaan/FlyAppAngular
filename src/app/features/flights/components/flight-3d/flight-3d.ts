@@ -11,17 +11,13 @@ import {
 
 import {
   Cartesian2,
-  Cartesian3,
   createWorldTerrainAsync,
   EllipsoidTerrainProvider,
   Ion,
-  Math as CesiumMath,
   SceneTransforms,
   ScreenSpaceEventHandler,
   ScreenSpaceEventType,
   Viewer,
-  HeadingPitchRange,
-  Matrix4,
 } from 'cesium';
 
 import { FlightDetailsStore } from '../../store/flight-details.store';
@@ -37,6 +33,7 @@ import { Flight3dCursorRendererService } from './services/flight-3d-cursor-rende
 import { Flight3dSelectedClimbRendererService } from './services/flight-3d-selected-climb-renderer.service';
 import { Flight3dReplayRendererService, Flight3dReplayRenderOptions } from './services/flight-3d-replay-renderer.service';
 import { Flight3dPositionOptions, Flight3dPositionService } from './services/flight-3d-position.service';
+import { Flight3dReplayCameraService } from './services/flight-3d-replay-camera.service';
 
 @Component({
   selector: 'app-flight-3d',
@@ -50,6 +47,7 @@ import { Flight3dPositionOptions, Flight3dPositionService } from './services/fli
     Flight3dCursorRendererService,
     Flight3dSelectedClimbRendererService,
     Flight3dReplayRendererService,
+    Flight3dReplayCameraService,
   ],
   templateUrl: './flight-3d.html',
   styleUrl: './flight-3d.scss',
@@ -66,14 +64,13 @@ export class Flight3d implements AfterViewInit, OnDestroy {
   private readonly selectedClimbRenderer = inject(Flight3dSelectedClimbRendererService);
   private readonly replayRenderer = inject(Flight3dReplayRendererService);
   private readonly positionService = inject(Flight3dPositionService);
+  private readonly replayCamera = inject(Flight3dReplayCameraService);
 
   private viewer: Viewer | null = null;
   private lastTrackReference: TrackArrays | null = null;
   private lastTrackRenderKey = '';
 
   private mouseMoveHandler: ScreenSpaceEventHandler | null = null;
-
-  private smoothedCameraHeadingRad: number | null = null;
 
   private lastCameraFollowEnabled = false;
 
@@ -198,7 +195,7 @@ export class Flight3d implements AfterViewInit, OnDestroy {
       const cameraFollowEnabled = this.store.replay.cameraFollowEnabled();
 
       if (!this.viewer || !track || !replayActive || replayIndex === null) {
-        this.smoothedCameraHeadingRad = null;
+        this.replayCamera.reset();
         this.lastCameraFollowEnabled = false;
         this.replayRenderer.clear();
         return;
@@ -219,7 +216,10 @@ export class Flight3d implements AfterViewInit, OnDestroy {
       this.lastCameraFollowEnabled = cameraFollowEnabled;
 
       if (cameraFollowEnabled) {
-        this.followReplayCamera(track, replayIndex, cameraFollowJustEnabled);
+        this.replayCamera.follow(track, replayIndex, {
+          ...this.buildPositionOptions(),
+          resetView: cameraFollowJustEnabled,
+        });
       }
     });
   }
@@ -269,6 +269,7 @@ export class Flight3d implements AfterViewInit, OnDestroy {
     this.cursorRenderer.attach(this.viewer);
     this.selectedClimbRenderer.attach(this.viewer);
     this.replayRenderer.attach(this.viewer);
+    this.replayCamera.attach(this.viewer);
 
     this.registerCursorPicking();
 
@@ -319,7 +320,6 @@ export class Flight3d implements AfterViewInit, OnDestroy {
     this.viewer = null;
     this.lastTrackReference = null;
     this.lastTrackRenderKey = '';
-    this.smoothedCameraHeadingRad = null;
     this.lastCameraFollowEnabled = false;
   }
 
@@ -402,107 +402,6 @@ export class Flight3d implements AfterViewInit, OnDestroy {
       verticalExaggerationRelativeHeight:
         this.settingsStore.threeDVerticalExaggerationRelativeHeight(),
     };
-  }
-
-  private followReplayCamera(
-    track: TrackArrays,
-    replayIndex: number,
-    resetView: boolean
-  ): void {
-    if (!this.viewer) {
-      return;
-    }
-
-    const pointCount = this.positionService.getPointCount(track);
-
-    if (pointCount < 2) {
-      return;
-    }
-
-    const safeIndex = Math.max(0, Math.min(replayIndex, pointCount - 1));
-
-    const targetLat = track.latE7[safeIndex] / 10_000_000;
-    const targetLon = track.lonE7[safeIndex] / 10_000_000;
-    const targetAltM = this.positionService.exaggerateHeight(
-      track.altGpsCm[safeIndex] / 100,
-      this.buildPositionOptions()
-    );
-
-    if (
-      !Number.isFinite(targetLat) ||
-      !Number.isFinite(targetLon) ||
-      !Number.isFinite(targetAltM)
-    ) {
-      return;
-    }
-
-    const targetPosition = Cartesian3.fromDegrees(
-      targetLon,
-      targetLat,
-      targetAltM
-    );
-
-    const defaultHeading = this.calculateTrackHeading(track, safeIndex);
-
-    // Schräg von oben auf den aktuellen Replay-Punkt.
-    const defaultPitch = CesiumMath.toRadians(-55);
-
-    // Etwas weiter weg, damit man Umgebung + Track sieht.
-    const defaultRangeM = 2600;
-
-    const currentRangeM = Cartesian3.distance(
-      this.viewer.camera.positionWC,
-      targetPosition
-    );
-
-    const heading = resetView
-      ? defaultHeading
-      : this.viewer.camera.heading;
-
-    const pitch = resetView
-      ? defaultPitch
-      : this.viewer.camera.pitch;
-
-    const range =
-      resetView || !Number.isFinite(currentRangeM) || currentRangeM < 100
-        ? defaultRangeM
-        : currentRangeM;
-
-    this.viewer.camera.lookAt(
-      targetPosition,
-      new HeadingPitchRange(heading, pitch, range)
-    );
-
-    // Wichtig: Kamera nach lookAt wieder freigeben,
-    // sonst bleibt sie an das lokale Transform gebunden.
-    this.viewer.camera.lookAtTransform(Matrix4.IDENTITY);
-  }
-
-  private calculateTrackHeading(track: TrackArrays, index: number): number {
-    const pointCount = Math.min(track.latE7.length, track.lonE7.length);
-
-    const headingWindow = 80;
-
-    const fromIndex = Math.max(0, index - headingWindow);
-    const toIndex = Math.min(pointCount - 1, index + headingWindow);
-
-    if (fromIndex === toIndex) {
-      return this.smoothedCameraHeadingRad ?? this.viewer?.camera.heading ?? 0;
-    }
-
-    const fromLat = CesiumMath.toRadians(track.latE7[fromIndex] / 10_000_000);
-    const fromLon = CesiumMath.toRadians(track.lonE7[fromIndex] / 10_000_000);
-    const toLat = CesiumMath.toRadians(track.latE7[toIndex] / 10_000_000);
-    const toLon = CesiumMath.toRadians(track.lonE7[toIndex] / 10_000_000);
-
-    const dLon = toLon - fromLon;
-
-    const y = Math.sin(dLon) * Math.cos(toLat);
-    const x =
-      Math.cos(fromLat) * Math.sin(toLat) -
-      Math.sin(fromLat) * Math.cos(toLat) * Math.cos(dLon);
-
-    return Math.atan2(y, x);
   }
 
   private registerCursorPicking(): void {
