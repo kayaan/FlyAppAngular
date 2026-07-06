@@ -36,7 +36,7 @@ import { Flight3dTrackRendererService, Flight3dTrackRenderOptions } from './serv
 import { Flight3dCursorRendererService } from './services/flight-3d-cursor-renderer.service';
 import { Flight3dSelectedClimbRendererService } from './services/flight-3d-selected-climb-renderer.service';
 import { Flight3dReplayRendererService, Flight3dReplayRenderOptions } from './services/flight-3d-replay-renderer.service';
-import { Flight3dPositionService } from './services/flight-3d-position.service';
+import { Flight3dPositionOptions, Flight3dPositionService } from './services/flight-3d-position.service';
 
 @Component({
   selector: 'app-flight-3d',
@@ -65,6 +65,7 @@ export class Flight3d implements AfterViewInit, OnDestroy {
   private readonly trackRenderer = inject(Flight3dTrackRendererService);
   private readonly selectedClimbRenderer = inject(Flight3dSelectedClimbRendererService);
   private readonly replayRenderer = inject(Flight3dReplayRendererService);
+  private readonly positionService = inject(Flight3dPositionService);
 
   private viewer: Viewer | null = null;
   private lastTrackReference: TrackArrays | null = null;
@@ -386,6 +387,15 @@ export class Flight3d implements AfterViewInit, OnDestroy {
     };
   }
 
+  private buildPositionOptions(): Flight3dPositionOptions {
+    return {
+      trackAltitudeOffsetM: this.settingsStore.threeDTrackAltitudeOffsetM(),
+      verticalExaggeration: this.settingsStore.threeDVerticalExaggeration(),
+      verticalExaggerationRelativeHeight:
+        this.settingsStore.threeDVerticalExaggerationRelativeHeight(),
+    };
+  }
+
   private followReplayCamera(
     track: TrackArrays,
     replayIndex: number,
@@ -395,7 +405,7 @@ export class Flight3d implements AfterViewInit, OnDestroy {
       return;
     }
 
-    const pointCount = this.getPointCount(track);
+    const pointCount = this.positionService.getPointCount(track);
 
     if (pointCount < 2) {
       return;
@@ -405,7 +415,10 @@ export class Flight3d implements AfterViewInit, OnDestroy {
 
     const targetLat = track.latE7[safeIndex] / 10_000_000;
     const targetLon = track.lonE7[safeIndex] / 10_000_000;
-    const targetAltM = this.exaggerateHeight(track.altGpsCm[safeIndex] / 100);
+    const targetAltM = this.positionService.exaggerateHeight(
+      track.altGpsCm[safeIndex] / 100,
+      this.buildPositionOptions()
+    );
 
     if (
       !Number.isFinite(targetLat) ||
@@ -529,7 +542,7 @@ export class Flight3d implements AfterViewInit, OnDestroy {
       return null;
     }
 
-    const pointCount = this.getPointCount(track);
+    const pointCount = this.positionService.getPointCount(track);
 
     if (pointCount === 0) {
       return null;
@@ -541,7 +554,11 @@ export class Flight3d implements AfterViewInit, OnDestroy {
     let bestDistance = Number.POSITIVE_INFINITY;
 
     for (let i = 0; i < pointCount; i += this.settingsStore.threeDRenderStep()) {
-      const worldPosition = this.buildPosition(track, i);
+      const worldPosition = this.positionService.buildPosition(
+        track,
+        i,
+        this.buildPositionOptions()
+      );
 
       if (!worldPosition) {
         continue;
@@ -571,40 +588,5 @@ export class Flight3d implements AfterViewInit, OnDestroy {
     }
 
     return bestIndex;
-  }
-
-  private buildPosition(track: TrackArrays, index: number): Cartesian3 | null {
-    const lat = track.latE7[index] / 10_000_000;
-    const lon = track.lonE7[index] / 10_000_000;
-    const altM = this.exaggerateHeight(track.altGpsCm[index] / 100);
-
-    if (
-      !Number.isFinite(lat) ||
-      !Number.isFinite(lon) ||
-      !Number.isFinite(altM)
-    ) {
-      return null;
-    }
-
-    return Cartesian3.fromDegrees(lon, lat, altM);
-  }
-
-
-  private exaggerateHeight(heightM: number): number {
-    return (
-      this.settingsStore.threeDTrackAltitudeOffsetM() +
-      this.settingsStore.threeDVerticalExaggerationRelativeHeight() +
-      (heightM - this.settingsStore.threeDVerticalExaggerationRelativeHeight()) *
-      this.settingsStore.threeDVerticalExaggeration()
-    );
-  }
-
-  private getPointCount(track: TrackArrays): number {
-    return Math.min(
-      track.latE7.length,
-      track.lonE7.length,
-      track.altGpsCm.length,
-      track.timeSec.length
-    );
   }
 }
