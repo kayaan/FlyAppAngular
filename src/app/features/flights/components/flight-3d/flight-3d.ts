@@ -43,12 +43,18 @@ import { environment } from '../../../../../environments/environment';
 import { TrackColorService } from '../../services/track-color.service';
 import { TrackMathUtils } from '../../services/track-math-utils';
 import { FlightReplayInfoOverlay } from '../flight-replay-info-overlay/flight-replay-info-overlay';
+import { Flight3dTrackRendererService } from '../../services/flight-3d-track-renderer.service';
+import { Flight3dCursorRendererService } from '../../services/flight-3d-cursor-renderer.service';
 
 @Component({
   selector: 'app-flight-3d',
   standalone: true,
   imports: [
     FlightReplayInfoOverlay
+  ],
+  providers: [
+    Flight3dTrackRendererService,
+    Flight3dCursorRendererService,
   ],
   templateUrl: './flight-3d.html',
   styleUrl: './flight-3d.scss',
@@ -61,6 +67,9 @@ export class Flight3d implements AfterViewInit, OnDestroy {
   private readonly store = inject(FlightDetailsStore);
   private readonly settingsStore = inject(FlightSettingsStore);
   private readonly trackColorService = inject(TrackColorService);
+  private readonly cursorRenderer = inject(Flight3dCursorRendererService);
+  private readonly trackRenderer = inject(Flight3dTrackRendererService);
+
 
   private viewer: Viewer | null = null;
   private flightTrackEntities: Entity[] = [];
@@ -69,7 +78,6 @@ export class Flight3d implements AfterViewInit, OnDestroy {
 
   private selectedClimbEntity: Entity | null = null;
 
-  private cursorEntity: Entity | null = null;
 
   private mouseMoveHandler: ScreenSpaceEventHandler | null = null;
 
@@ -129,16 +137,21 @@ export class Flight3d implements AfterViewInit, OnDestroy {
       const replayActive = this.store.replay.active();
 
       if (replayActive) {
-        this.clearCursorEntity();
+        this.cursorRenderer.clear();
         return;
       }
 
       if (!this.viewer || !track || cursorIndex === null) {
-        this.clearCursorEntity();
+        this.cursorRenderer.clear();
         return;
       }
 
-      this.updateCursorEntity(track, cursorIndex);
+      this.cursorRenderer.update(track, cursorIndex, {
+        trackAltitudeOffsetM: this.settingsStore.threeDTrackAltitudeOffsetM(),
+        verticalExaggeration: this.settingsStore.threeDVerticalExaggeration(),
+        verticalExaggerationRelativeHeight:
+          this.settingsStore.threeDVerticalExaggerationRelativeHeight(),
+      });
     });
 
     effect(() => {
@@ -278,6 +291,9 @@ export class Flight3d implements AfterViewInit, OnDestroy {
       terrainProvider: new EllipsoidTerrainProvider(),
     });
 
+    this.trackRenderer.attach(this.viewer);
+    this.cursorRenderer.attach(this.viewer);
+
     this.registerCursorPicking();
 
     this.viewer.terrainProvider = await createWorldTerrainAsync({
@@ -317,7 +333,8 @@ export class Flight3d implements AfterViewInit, OnDestroy {
     this.mouseMoveHandler?.destroy();
     this.mouseMoveHandler = null;
 
-    this.clearCursorEntity();
+    this.cursorRenderer.clear();
+
     this.clearReplayTrackEntity();
     this.clearReplayStartEntity();
     this.clearReplayEndEntity();
@@ -852,53 +869,6 @@ export class Flight3d implements AfterViewInit, OnDestroy {
     }
 
     return bestIndex;
-  }
-
-  private updateCursorEntity(track: TrackArrays, index: number): void {
-    if (!this.viewer) {
-      return;
-    }
-
-    if (index < 0 || index >= track.latE7.length) {
-      this.clearCursorEntity();
-      return;
-    }
-
-    const position = this.buildPosition(track, index);
-
-    if (!position) {
-      this.clearCursorEntity();
-      return;
-    }
-
-    if (!this.cursorEntity) {
-      this.cursorEntity = this.viewer.entities.add({
-        name: 'Chart cursor position',
-        position,
-        point: new PointGraphics({
-          pixelSize: 12,
-          color: Color.YELLOW,
-          outlineColor: Color.BLACK,
-          outlineWidth: 2,
-          heightReference: HeightReference.NONE,
-          disableDepthTestDistance: Number.POSITIVE_INFINITY,
-        }),
-      });
-
-      return;
-    }
-
-    this.cursorEntity.position = position as any;
-  }
-
-  private clearCursorEntity(): void {
-    if (!this.viewer || !this.cursorEntity) {
-      this.cursorEntity = null;
-      return;
-    }
-
-    this.viewer.entities.remove(this.cursorEntity);
-    this.cursorEntity = null;
   }
 
   private renderTrack(track: TrackArrays | null, shouldCenter: boolean): void {
