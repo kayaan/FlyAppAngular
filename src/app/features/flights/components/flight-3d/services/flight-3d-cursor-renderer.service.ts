@@ -1,7 +1,6 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 
 import {
-  Cartesian3,
   Color,
   ConstantPositionProperty,
   ConstantProperty,
@@ -13,16 +12,19 @@ import {
 import { TrackArrays } from '../../../models/track-arrays.model';
 
 
-export interface Flight3dCursorRenderOptions {
-  trackAltitudeOffsetM: number;
-  verticalExaggeration: number;
-  verticalExaggerationRelativeHeight: number;
-}
+import {
+  Flight3dPositionOptions,
+  Flight3dPositionService,
+} from './flight-3d-position.service';
+
+export interface Flight3dCursorRenderOptions extends Flight3dPositionOptions { }
 
 @Injectable()
 export class Flight3dCursorRendererService {
   private viewer: Viewer | null = null;
   private cursorEntity: Entity | null = null;
+
+  private readonly positionService = inject(Flight3dPositionService);
 
   attach(viewer: Viewer): void {
     this.viewer = viewer;
@@ -47,41 +49,12 @@ export class Flight3dCursorRendererService {
       return;
     }
 
-    const pointCount = Math.min(
-      track.timeSec.length,
-      track.latE7.length,
-      track.lonE7.length,
-      track.altGpsCm.length
-    );
+    const position = this.positionService.buildPosition(track, index, options);
 
-    if (pointCount === 0) {
+    if (!position) {
       this.clear();
       return;
     }
-
-    const safeIndex = Math.max(0, Math.min(index, pointCount - 1));
-
-    const lat = track.latE7[safeIndex] / 10_000_000;
-    const lon = track.lonE7[safeIndex] / 10_000_000;
-
-    const rawAltitudeM = track.altGpsCm[safeIndex] / 100;
-    const altitudeM = this.exaggerateHeight(rawAltitudeM, options);
-
-    if (
-      !Number.isFinite(lat) ||
-      !Number.isFinite(lon) ||
-      !Number.isFinite(altitudeM)
-    ) {
-      this.clear();
-      return;
-    }
-
-    if (lat === 0 && lon === 0) {
-      this.clear();
-      return;
-    }
-
-    const position = Cartesian3.fromDegrees(lon, lat, altitudeM);
 
     if (!this.cursorEntity) {
       this.cursorEntity = this.viewer.entities.add({
@@ -103,17 +76,5 @@ export class Flight3dCursorRendererService {
     }
 
     this.cursorEntity.position = new ConstantPositionProperty(position);
-  }
-
-  private exaggerateHeight(
-    heightM: number,
-    options: Flight3dCursorRenderOptions
-  ): number {
-    return (
-      options.trackAltitudeOffsetM +
-      options.verticalExaggerationRelativeHeight +
-      (heightM - options.verticalExaggerationRelativeHeight) *
-        options.verticalExaggeration
-    );
   }
 }
