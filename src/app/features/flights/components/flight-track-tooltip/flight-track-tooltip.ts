@@ -1,10 +1,18 @@
 import { Component, computed, inject } from '@angular/core';
 
+import { FlightDurationPipe } from '../../pipes/flight-duration.pipe';
+import { FlightNumberPipe } from '../../pipes/flight-number.pipe';
+import { FlightSignedNumberPipe } from '../../pipes/flight-signed-number.pipe';
 import { FlightDetailsStore } from '../../store/flight-details.store';
 
 @Component({
   selector: 'app-flight-track-tooltip',
   standalone: true,
+  imports: [
+    FlightDurationPipe,
+    FlightNumberPipe,
+    FlightSignedNumberPipe,
+  ],
   templateUrl: './flight-track-tooltip.html',
   styleUrl: './flight-track-tooltip.scss',
 })
@@ -40,28 +48,4 @@ export class FlightTrackTooltip {
       speedKmh: metrics.speedKmh[index],
     };
   });
-
-  formatReplayTime(totalSeconds: number): string {
-    const safeSeconds = Math.max(0, Math.floor(totalSeconds));
-
-    const hours = Math.floor(safeSeconds / 3600);
-    const minutes = Math.floor((safeSeconds % 3600) / 60);
-    const seconds = safeSeconds % 60;
-
-    return [
-      hours.toString().padStart(2, '0'),
-      minutes.toString().padStart(2, '0'),
-      seconds.toString().padStart(2, '0'),
-    ].join(':');
-  }
-
-  formatNumber(value: number, digits: number): string {
-    return value.toFixed(digits);
-  }
-
-  formatSignedNumber(value: number, digits: number): string {
-    const sign = value > 0 ? '+' : '';
-
-    return `${sign}${value.toFixed(digits)}`;
-  }
 }

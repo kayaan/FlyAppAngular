@@ -207,7 +207,7 @@
           <td>
             <div class="main-cell">
               <span class="primary-text">
-                {{ formatDate(flight.flightDate) }}
+                {{ flight.flightDate | flightDate }}
               </span>
 
               <span class="secondary-text">
@@ -229,7 +229,7 @@
           </td>
 
           <td class="numeric">
-            {{ formatDuration(flight.durationSec) }}
+            {{ flight.durationSec | flightDuration: false }}
           </td>
 
           <td class="numeric">

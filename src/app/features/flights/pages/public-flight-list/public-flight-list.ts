@@ -9,11 +9,14 @@ import {
   PublicFlightsQuery,
 } from '../../services/public-flights-api.service';
 import { PublicFlight } from '../../models/public-flight.model';
+import { FlightDatePipe } from '../../pipes/flight-date.pipe';
+import { FlightDurationPipe } from '../../pipes/flight-duration.pipe';
 
 @Component({
   selector: 'app-public-flight-list',
   standalone: true,
-  imports: [RouterLink],
+  imports: [RouterLink, FlightDatePipe,
+    FlightDurationPipe,],
   templateUrl: './public-flight-list.html',
   styleUrl: './public-flight-list.scss',
 })
@@ -123,7 +126,7 @@ export class PublicFlightList {
     const input = event.target as HTMLInputElement;
     this.to.set(input.value);
   }
-  
+
   formatDistance(meters: number | null): string {
     if (meters === null) {
       return '—';

@@ -33,6 +33,9 @@ import {
   Matrix4,
 } from 'cesium';
 
+import { FlightDurationPipe } from '../../pipes/flight-duration.pipe';
+import { FlightNumberPipe } from '../../pipes/flight-number.pipe';
+import { FlightSignedNumberPipe } from '../../pipes/flight-signed-number.pipe';
 
 
 import { FlightDetailsStore } from '../../store/flight-details.store';
@@ -49,8 +52,14 @@ import { TrackMathUtils } from '../../services/track-math-utils';
 @Component({
   selector: 'app-flight-3d',
   standalone: true,
+  imports: [
+    FlightDurationPipe,
+    FlightNumberPipe,
+    FlightSignedNumberPipe,
+  ],
   templateUrl: './flight-3d.html',
   styleUrl: './flight-3d.scss',
+
 })
 export class Flight3d implements AfterViewInit, OnDestroy {
   @ViewChild('cesiumContainer', { static: true })
@@ -338,29 +347,6 @@ export class Flight3d implements AfterViewInit, OnDestroy {
     this.lastTrackRenderKey = '';
     this.smoothedCameraHeadingRad = null;
     this.lastCameraFollowEnabled = false;
-  }
-
-  formatNumber(value: number, digits: number): string {
-    return value.toFixed(digits);
-  }
-
-  formatSignedNumber(value: number, digits: number): string {
-    const sign = value > 0 ? '+' : '';
-    return `${sign}${value.toFixed(digits)}`;
-  }
-
-  formatReplayTime(totalSeconds: number): string {
-    const safeSeconds = Math.max(0, Math.floor(totalSeconds));
-
-    const hours = Math.floor(safeSeconds / 3600);
-    const minutes = Math.floor((safeSeconds % 3600) / 60);
-    const seconds = safeSeconds % 60;
-
-    return [
-      hours.toString().padStart(2, '0'),
-      minutes.toString().padStart(2, '0'),
-      seconds.toString().padStart(2, '0'),
-    ].join(':');
   }
 
   formatAltitude(value: number): string {

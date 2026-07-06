@@ -1,13 +1,13 @@
 @if (tooltip(); as info) {
   <div class="track-tooltip">
     <div class="track-tooltip-time">
-      {{ formatReplayTime(info.relativeTimeSec) }}
+      {{ info.relativeTimeSec | flightDuration }}
     </div>
 
     <div class="track-tooltip-row">
       <span class="track-tooltip-label">Altitude</span>
       <strong class="track-tooltip-value">
-        {{ formatNumber(info.altitudeM, 0) }}
+        {{ info.altitudeM | flightNumber: 0 }}
       </strong>
       <span class="track-tooltip-unit">m</span>
     </div>
@@ -15,7 +15,7 @@
     <div class="track-tooltip-row">
       <span class="track-tooltip-label">Vario</span>
       <strong class="track-tooltip-value">
-        {{ formatSignedNumber(info.varioMs, 1) }}
+        {{ info.varioMs | flightSignedNumber: 1 }}
       </strong>
       <span class="track-tooltip-unit">m/s</span>
     </div>
@@ -23,7 +23,7 @@
     <div class="track-tooltip-row">
       <span class="track-tooltip-label">Speed</span>
       <strong class="track-tooltip-value">
-        {{ formatNumber(info.speedKmh, 0) }}
+        {{ info.speedKmh | flightNumber: 0 }}
       </strong>
       <span class="track-tooltip-unit">km/h</span>
     </div>
