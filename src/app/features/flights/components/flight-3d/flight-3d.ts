@@ -69,15 +69,6 @@ export class Flight3d implements AfterViewInit, OnDestroy {
   private readonly settingsStore = inject(FlightSettingsStore);
   private readonly trackColorService = inject(TrackColorService);
 
-  private readonly verticalExaggeration = 2.0;
-  private readonly verticalExaggerationRelativeHeight = 0.0;
-
-  private readonly trackAltitudeOffsetM = 70;
-
-  private readonly renderStep = 3;
-  private readonly varioClassCount = 12;
-  private readonly maxVarioForColorMs = 4;
-
   private viewer: Viewer | null = null;
   private flightTrackEntities: Entity[] = [];
   private lastTrackReference: TrackArrays | null = null;
@@ -308,9 +299,9 @@ export class Flight3d implements AfterViewInit, OnDestroy {
     // otherwise hide parts of it behind the terrain.
     this.viewer.scene.globe.depthTestAgainstTerrain = true;
 
-    this.viewer.scene.verticalExaggeration = this.verticalExaggeration;
+    this.viewer.scene.verticalExaggeration = this.settingsStore.threeDVerticalExaggeration();
     this.viewer.scene.verticalExaggerationRelativeHeight =
-      this.verticalExaggerationRelativeHeight;
+      this.settingsStore.threeDVerticalExaggerationRelativeHeight();
 
     if (this.viewer.scene.skyAtmosphere) {
       this.viewer.scene.skyAtmosphere.show = false;
@@ -363,11 +354,15 @@ export class Flight3d implements AfterViewInit, OnDestroy {
   }
 
   private buildTrackRenderKey(): string {
-    const trackColorMode = this.settingsStore.trackColorMode();
-    const varioResolutionSec = this.settingsStore.varioChartResolutionInSec();
-    const speedResolutionSec = this.settingsStore.speedChartResolutionInSec();
-
-    return `${trackColorMode}:${varioResolutionSec}:${speedResolutionSec}`;
+    return [
+      this.settingsStore.trackColorMode(),
+      this.settingsStore.varioChartResolutionInSec(),
+      this.settingsStore.speedChartResolutionInSec(),
+      this.settingsStore.threeDTrackAltitudeOffsetM(),
+      this.settingsStore.threeDRenderStep(),
+      this.settingsStore.threeDVarioClassCount(),
+      this.settingsStore.threeDMaxVarioForColorMs(),
+    ].join('|');
   }
 
   private updateReplayCurrentEntity(
@@ -568,7 +563,7 @@ export class Flight3d implements AfterViewInit, OnDestroy {
 
     const positions: Cartesian3[] = [];
 
-    for (let i = trailStartIndex; i <= safeReplayIndex; i += this.renderStep) {
+    for (let i = trailStartIndex; i <= safeReplayIndex; i += this.settingsStore.threeDRenderStep()) {
       const position = this.buildPosition(track, i);
 
       if (position) {
@@ -743,7 +738,7 @@ export class Flight3d implements AfterViewInit, OnDestroy {
 
     const positions: Cartesian3[] = [];
 
-    for (let i = start; i <= end; i += this.renderStep) {
+    for (let i = start; i <= end; i += this.settingsStore.threeDRenderStep()) {
       const position = this.buildPosition(track, i);
 
       if (position) {
@@ -833,7 +828,7 @@ export class Flight3d implements AfterViewInit, OnDestroy {
     let bestIndex: number | null = null;
     let bestDistance = Number.POSITIVE_INFINITY;
 
-    for (let i = 0; i < pointCount; i += this.renderStep) {
+    for (let i = 0; i < pointCount; i += this.settingsStore.threeDRenderStep()) {
       const worldPosition = this.buildPosition(track, i);
 
       if (!worldPosition) {
@@ -987,7 +982,7 @@ export class Flight3d implements AfterViewInit, OnDestroy {
     let currentColor: Color | null = null;
     let currentPositions: Cartesian3[] = [];
 
-    for (let i = start; i <= end; i += this.renderStep) {
+    for (let i = start; i <= end; i += this.settingsStore.threeDRenderStep()) {
       const position = this.buildPosition(track, i);
 
       if (!position) {
@@ -1057,7 +1052,7 @@ export class Flight3d implements AfterViewInit, OnDestroy {
     let currentColor: Color | null = null;
     let currentPositions: Cartesian3[] = [];
 
-    for (let i = 0; i < pointCount; i += this.renderStep) {
+    for (let i = 0; i < pointCount; i += this.settingsStore.threeDRenderStep()) {
       const position = this.buildPosition(track, i);
 
       if (!position) {
@@ -1194,17 +1189,17 @@ export class Flight3d implements AfterViewInit, OnDestroy {
     }
 
     const clamped = Math.max(
-      -this.maxVarioForColorMs,
-      Math.min(this.maxVarioForColorMs, varioMs)
+      -this.settingsStore.threeDMaxVarioForColorMs(),
+      Math.min(this.settingsStore.threeDMaxVarioForColorMs(), varioMs)
     );
 
-    const strength = Math.abs(clamped) / this.maxVarioForColorMs;
+    const strength = Math.abs(clamped) / this.settingsStore.threeDMaxVarioForColorMs();
 
     const level = Math.max(
       1,
       Math.min(
-        this.varioClassCount,
-        Math.ceil(strength * this.varioClassCount)
+        this.settingsStore.threeDVarioClassCount(),
+        Math.ceil(strength * this.settingsStore.threeDVarioClassCount())
       )
     );
 
@@ -1218,8 +1213,8 @@ export class Flight3d implements AfterViewInit, OnDestroy {
     const lightRed = Color.fromCssColorString('#ef4444');
     const darkRed = Color.fromCssColorString('#7f1d1d');
 
-    const level = Math.min(this.varioClassCount, Math.abs(varioClass));
-    const t = level / this.varioClassCount;
+    const level = Math.min(this.settingsStore.threeDVarioClassCount(), Math.abs(varioClass));
+    const t = level / this.settingsStore.threeDVarioClassCount();
 
     if (varioClass > 0) {
       return this.interpolateColor(lightGreen, darkGreen, t).withAlpha(1.0);
@@ -1241,10 +1236,10 @@ export class Flight3d implements AfterViewInit, OnDestroy {
 
   private exaggerateHeight(heightM: number): number {
     return (
-      this.trackAltitudeOffsetM +
-      this.verticalExaggerationRelativeHeight +
-      (heightM - this.verticalExaggerationRelativeHeight) *
-      this.verticalExaggeration
+      this.settingsStore.threeDTrackAltitudeOffsetM() +
+      this.settingsStore.threeDVerticalExaggerationRelativeHeight() +
+      (heightM - this.settingsStore.threeDVerticalExaggerationRelativeHeight()) *
+      this.settingsStore.threeDVerticalExaggeration()
     );
   }
 

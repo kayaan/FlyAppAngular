@@ -54,10 +54,56 @@ export const FlightSettingsStore = signalStore(
 
         climbDetectionMinGainM: store.climbDetectionMinGainM(),
         climbDetectionMinSeparationDropM: store.climbDetectionMinSeparationDropM(),
+
+        threeDVerticalExaggeration: store.threeDVerticalExaggeration(),
+        threeDVerticalExaggerationRelativeHeight:
+          store.threeDVerticalExaggerationRelativeHeight(),
+        threeDTrackAltitudeOffsetM: store.threeDTrackAltitudeOffsetM(),
+        threeDRenderStep: store.threeDRenderStep(),
+        threeDVarioClassCount: store.threeDVarioClassCount(),
+        threeDMaxVarioForColorMs: store.threeDMaxVarioForColorMs(),
       });
     }
 
     return {
+
+      setThreeDVisualizationSettings(settings: {
+        verticalExaggeration: number;
+        verticalExaggerationRelativeHeight: number;
+        trackAltitudeOffsetM: number;
+        renderStep: number;
+        varioClassCount: number;
+        maxVarioForColorMs: number;
+      }): void {
+        patchState(store, {
+          threeDVerticalExaggeration: Math.max(
+            0.1,
+            Math.min(10, settings.verticalExaggeration)
+          ),
+          threeDVerticalExaggerationRelativeHeight: Math.max(
+            0,
+            settings.verticalExaggerationRelativeHeight
+          ),
+          threeDTrackAltitudeOffsetM: Math.max(
+            0,
+            Math.round(settings.trackAltitudeOffsetM)
+          ),
+          threeDRenderStep: Math.max(
+            1,
+            Math.round(settings.renderStep)
+          ),
+          threeDVarioClassCount: Math.max(
+            2,
+            Math.round(settings.varioClassCount)
+          ),
+          threeDMaxVarioForColorMs: Math.max(
+            0.5,
+            settings.maxVarioForColorMs
+          ),
+        });
+
+        persist();
+      },
 
       setClimbDetectionSettings(
         minGainM: number,

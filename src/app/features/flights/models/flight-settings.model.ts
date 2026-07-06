@@ -30,6 +30,13 @@ export interface FlightSettings {
 
   climbDetectionMinGainM: number;
   climbDetectionMinSeparationDropM: number;
+
+  threeDVerticalExaggeration: number;
+  threeDVerticalExaggerationRelativeHeight: number;
+  threeDTrackAltitudeOffsetM: number;
+  threeDRenderStep: number;
+  threeDVarioClassCount: number;
+  threeDMaxVarioForColorMs: number;
 }
 
 export const DEFAULT_CLIMB_DETECTION_SETTINGS: ClimbDetectionSettings = {
@@ -58,4 +65,11 @@ export const DEFAULT_FLIGHT_SETTINGS: FlightSettings = {
   climbDetectionMinGainM: DEFAULT_CLIMB_DETECTION_SETTINGS.minGainM,
   climbDetectionMinSeparationDropM:
     DEFAULT_CLIMB_DETECTION_SETTINGS.minSeparationDropM,
+
+  threeDVerticalExaggeration: 2.0,
+  threeDVerticalExaggerationRelativeHeight: 0.0,
+  threeDTrackAltitudeOffsetM: 70,
+  threeDRenderStep: 3,
+  threeDVarioClassCount: 12,
+  threeDMaxVarioForColorMs: 4,
 };
