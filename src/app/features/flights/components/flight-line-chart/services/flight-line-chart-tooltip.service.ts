@@ -1,184 +1,122 @@
-// import { Injectable, inject } from '@angular/core';
+import { Injectable } from '@angular/core';
 
-// import { FlightChartPoint } from '../flight-line-chart';
-// import { FlightLineChartTimeService } from './flight-line-chart-time.service';
+type ChartType = 'altitude' | 'vario' | 'speed';
 
-// interface TooltipItem {
-//   seriesName?: string;
-//   marker?: string;
-//   value?: unknown;
-//   data?: unknown;
-//   dataIndex?: number;
-//   axisValue?: unknown;
-// }
+interface FlightLineChartTooltipItem {
+  data?: [number, number, number, number];
+  seriesName?: string;
+}
 
-// @Injectable()
-// export class FlightLineChartTooltipService {
-//   private readonly timeService = inject(FlightLineChartTimeService);
+@Injectable()
+export class FlightLineChartTooltipService {
+  formatTooltip(params: unknown): string {
+    const items = Array.isArray(params) ? params : [params];
 
-//   formatTooltip(params: unknown, data: FlightChartPoint[]): string {
-//     const items = Array.isArray(params)
-//       ? (params as TooltipItem[])
-//       : [params as TooltipItem];
+    const first = items[0] as FlightLineChartTooltipItem;
+    const data = first.data;
 
-//     if (items.length === 0 || data.length === 0) {
-//       return '';
-//     }
+    if (!data) {
+      return '';
+    }
 
-//     const point = this.getTooltipPoint(items[0], data);
+    const elapsedSec = Number(data[0]);
+    const value = Number(data[1]);
+    const absoluteTimeSec = Number(data[3]);
 
-//     if (!point) {
-//       return '';
-//     }
+    if (
+      !Number.isFinite(elapsedSec) ||
+      !Number.isFinite(value) ||
+      !Number.isFinite(absoluteTimeSec)
+    ) {
+      return '';
+    }
 
-//     const firstTimeSec = this.timeService.getFirstTimeSec(data);
-//     const elapsedSec = point.timeSec - firstTimeSec;
+    const chartType = this.resolveChartType(first.seriesName ?? '');
+    const formattedValue = this.formatTooltipValue(value, chartType);
+    const valueClass = this.resolveTooltipValueClass(value, chartType);
 
-//     const lines = [
-//       `<strong>${this.timeService.formatTime(elapsedSec)}</strong>`,
-//     ];
+    const flightTime = this.formatDuration(elapsedSec);
+    const clockTime = this.formatClockTime(absoluteTimeSec);
 
-//     for (const item of items) {
-//       const value = this.getTooltipValue(item, data);
+    return `
+      <div class="chart-tooltip">
+        <div class="chart-tooltip-value ${valueClass}">
+          ${formattedValue}
+        </div>
+        <div class="chart-tooltip-time">
+          ${flightTime} · ${clockTime}
+        </div>
+      </div>
+    `;
+  }
 
-//       if (value === null) {
-//         continue;
-//       }
+  private formatClockTime(totalSeconds: number): string {
+    const safeSeconds = Math.max(0, Math.floor(totalSeconds));
 
-//       lines.push(
-//         `${item.marker ?? ''}${item.seriesName ?? ''}: ${this.formatValue(
-//           item.seriesName,
-//           value
-//         )}`
-//       );
-//     }
+    const hours = Math.floor((safeSeconds % 86400) / 3600);
+    const minutes = Math.floor((safeSeconds % 3600) / 60);
+    const seconds = safeSeconds % 60;
 
-//     return lines.join('<br>');
-//   }
+    return [
+      hours.toString().padStart(2, '0'),
+      minutes.toString().padStart(2, '0'),
+      seconds.toString().padStart(2, '0'),
+    ].join(':');
+  }
 
-//   private getTooltipPoint(
-//     item: TooltipItem,
-//     data: FlightChartPoint[]
-//   ): FlightChartPoint | null {
-//     if (
-//       typeof item.dataIndex === 'number' &&
-//       item.dataIndex >= 0 &&
-//       item.dataIndex < data.length
-//     ) {
-//       return data[item.dataIndex];
-//     }
+  private resolveChartType(seriesName: string): ChartType {
+    const normalized = seriesName.toLowerCase();
 
-//     const elapsedSec = this.getFirstNumber(item.value) ?? this.getFirstNumber(item.data);
+    if (normalized.includes('vario')) {
+      return 'vario';
+    }
 
-//     if (elapsedSec !== null) {
-//       const dataIndex = this.timeService.findNearestDataIndexByElapsedTime(
-//         data,
-//         elapsedSec
-//       );
+    if (normalized.includes('speed')) {
+      return 'speed';
+    }
 
-//       return dataIndex === null ? null : data[dataIndex];
-//     }
+    return 'altitude';
+  }
 
-//     if (typeof item.axisValue === 'number') {
-//       const dataIndex = this.timeService.findNearestDataIndexByElapsedTime(
-//         data,
-//         item.axisValue
-//       );
+  private formatTooltipValue(value: number, chartType: ChartType): string {
+    if (chartType === 'altitude') {
+      return `${Math.round(value).toLocaleString('en-US')} m`;
+    }
 
-//       return dataIndex === null ? null : data[dataIndex];
-//     }
+    if (chartType === 'vario') {
+      const sign = value > 0 ? '+' : '';
+      return `${sign}${value.toFixed(1)} m/s`;
+    }
 
-//     return null;
-//   }
+    return `${Math.round(value)} km/h`;
+  }
 
-//   private getTooltipValue(
-//     item: TooltipItem,
-//     data: FlightChartPoint[]
-//   ): number | null {
-//     const directValue = this.getSecondNumber(item.value) ?? this.getSecondNumber(item.data);
+  private resolveTooltipValueClass(
+    value: number,
+    chartType: ChartType
+  ): string {
+    if (chartType === 'altitude') {
+      return 'altitude';
+    }
 
-//     if (directValue !== null) {
-//       return directValue;
-//     }
+    if (chartType === 'speed') {
+      return 'speed';
+    }
 
-//     if (
-//       typeof item.dataIndex === 'number' &&
-//       item.dataIndex >= 0 &&
-//       item.dataIndex < data.length
-//     ) {
-//       const point = data[item.dataIndex];
+    return value >= 0 ? 'vario-positive' : 'vario-negative';
+  }
 
-// switch (item.seriesName) {
-//   case 'Altitude':
-//   case 'GPS Altitude':
-//   case 'Baro Altitude':
-//     return point.altitudeM;
+  private formatDuration(totalSeconds: number): string {
+    const safeSeconds = Math.max(0, Math.floor(totalSeconds));
 
-//   case 'Vario':
-//   case 'Vertical speed':
-//   case 'Vario m/s':
-//     return point.varioMs;
+    const hours = Math.floor(safeSeconds / 3600);
+    const minutes = Math.floor((safeSeconds % 3600) / 60);
+    const seconds = safeSeconds % 60;
 
-//   case 'Speed':
-//   case 'Speed km/h':
-//     return point.speedKmh;
-
-//   default:
-//     return null;
-// }
-//     }
-
-//     return null;
-//   }
-
-
-
-//   private getFirstNumber(value: unknown): number | null {
-//     if (typeof value === 'number') {
-//       return value;
-//     }
-
-//     if (Array.isArray(value)) {
-//       const first = value[0];
-//       return typeof first === 'number' ? first : null;
-//     }
-
-//     return null;
-//   }
-
-//   private getSecondNumber(value: unknown): number | null {
-//     if (typeof value === 'number') {
-//       return value;
-//     }
-
-//     if (Array.isArray(value)) {
-//       const second = value[1];
-//       return typeof second === 'number' ? second : null;
-//     }
-
-//     return null;
-//   }
-
-//   private formatValue(seriesName: string | undefined, value: number): string {
-//     switch (seriesName) {
-//       case 'Altitude':
-//       case 'GPS Altitude':
-//       case 'Baro Altitude':
-//         return `${Math.round(value)} m`;
-
-//       case 'Vario':
-//       case 'Vertical speed':
-//       case 'Vario m/s':
-//         return `${value > 0 ? '+' : ''}${value.toFixed(1)} m/s`;
-
-//       case 'Speed':
-//       case 'Speed km/h':
-//         return `${Math.round(value)} km/h`;
-
-//       default:
-//         return Number.isInteger(value)
-//           ? value.toString()
-//           : value.toFixed(1);
-//     }
-//   }
-// }
+    return [
+      hours.toString().padStart(2, '0'),
+      minutes.toString().padStart(2, '0'),
+      seconds.toString().padStart(2, '0'),
+    ].join(':');
+  }
+}
