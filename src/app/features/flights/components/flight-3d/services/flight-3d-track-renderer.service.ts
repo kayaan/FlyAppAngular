@@ -10,9 +10,10 @@ import {
     Viewer,
     ConstantProperty
 } from 'cesium';
-import { Climb } from '../models/climb.model';
-import { TrackColorService } from './track-color.service';
-import { TrackArrays } from '../models/track-arrays.model';
+import { Climb } from '../../../models/climb.model';
+import { TrackColorService } from '../../../services/track-color.service';
+import { TrackArrays } from '../../../models/track-arrays.model';
+
 
 
 

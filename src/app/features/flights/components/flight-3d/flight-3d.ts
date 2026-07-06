@@ -43,8 +43,9 @@ import { environment } from '../../../../../environments/environment';
 import { TrackColorService } from '../../services/track-color.service';
 import { TrackMathUtils } from '../../services/track-math-utils';
 import { FlightReplayInfoOverlay } from '../flight-replay-info-overlay/flight-replay-info-overlay';
-import { Flight3dTrackRendererService } from '../../services/flight-3d-track-renderer.service';
-import { Flight3dCursorRendererService } from '../../services/flight-3d-cursor-renderer.service';
+import { Flight3dTrackRendererService } from './services/flight-3d-track-renderer.service';
+import { Flight3dCursorRendererService } from './services/flight-3d-cursor-renderer.service';
+import { Flight3dSelectedClimbRendererService } from './services/flight-3d-selected-climb-renderer.service';
 
 @Component({
   selector: 'app-flight-3d',
@@ -55,6 +56,7 @@ import { Flight3dCursorRendererService } from '../../services/flight-3d-cursor-r
   providers: [
     Flight3dTrackRendererService,
     Flight3dCursorRendererService,
+    Flight3dSelectedClimbRendererService,
   ],
   templateUrl: './flight-3d.html',
   styleUrl: './flight-3d.scss',
@@ -69,15 +71,12 @@ export class Flight3d implements AfterViewInit, OnDestroy {
   private readonly trackColorService = inject(TrackColorService);
   private readonly cursorRenderer = inject(Flight3dCursorRendererService);
   private readonly trackRenderer = inject(Flight3dTrackRendererService);
-
+  private readonly selectedClimbRenderer = inject(Flight3dSelectedClimbRendererService);
 
   private viewer: Viewer | null = null;
   private flightTrackEntities: Entity[] = [];
   private lastTrackReference: TrackArrays | null = null;
   private lastTrackRenderKey = '';
-
-  private selectedClimbEntity: Entity | null = null;
-
 
   private mouseMoveHandler: ScreenSpaceEventHandler | null = null;
 
@@ -111,7 +110,7 @@ export class Flight3d implements AfterViewInit, OnDestroy {
 
       if (replayActive) {
         this.setFlightTrackGhostMode(true);
-        this.clearSelectedClimbEntity();
+        this.selectedClimbRenderer.clear();
         return;
       }
 
@@ -167,21 +166,28 @@ export class Flight3d implements AfterViewInit, OnDestroy {
         selectedClimbId === null ||
         showOnlySelectedClimbIn3d
       ) {
-        this.clearSelectedClimbEntity();
+        this.selectedClimbRenderer.clear();
         return;
       }
 
       const selectedClimb = climbs.find((climb) => climb.id === selectedClimbId);
 
       if (!selectedClimb) {
-        this.clearSelectedClimbEntity();
+        this.selectedClimbRenderer.clear();
         return;
       }
 
-      this.renderSelectedClimbHighlight(
+      this.selectedClimbRenderer.render(
         track,
         selectedClimb.startIndex,
-        selectedClimb.endIndex
+        selectedClimb.endIndex,
+        {
+          renderStep: this.settingsStore.threeDRenderStep(),
+          trackAltitudeOffsetM: this.settingsStore.threeDTrackAltitudeOffsetM(),
+          verticalExaggeration: this.settingsStore.threeDVerticalExaggeration(),
+          verticalExaggerationRelativeHeight:
+            this.settingsStore.threeDVerticalExaggerationRelativeHeight(),
+        }
       );
     });
 
@@ -204,7 +210,7 @@ export class Flight3d implements AfterViewInit, OnDestroy {
 
       // During replay, the selected climb is represented by the replay range.
       // The yellow climb highlight would be a duplicate visual marker.
-      this.clearSelectedClimbEntity();
+      this.selectedClimbRenderer.clear();
 
       this.updateReplayStartEntity(track, replayRange);
       this.updateReplayEndEntity(track, replayRange);
@@ -293,6 +299,7 @@ export class Flight3d implements AfterViewInit, OnDestroy {
 
     this.trackRenderer.attach(this.viewer);
     this.cursorRenderer.attach(this.viewer);
+    this.selectedClimbRenderer.attach(this.viewer);
 
     this.registerCursorPicking();
 
@@ -339,7 +346,7 @@ export class Flight3d implements AfterViewInit, OnDestroy {
     this.clearReplayStartEntity();
     this.clearReplayEndEntity();
     this.clearReplayCurrentEntity();
-    this.clearSelectedClimbEntity();
+    this.selectedClimbRenderer.clear();
     this.clearTrackEntities();
 
     this.viewer?.destroy();
@@ -721,66 +728,7 @@ export class Flight3d implements AfterViewInit, OnDestroy {
     return Math.atan2(y, x);
   }
 
-  private renderSelectedClimbHighlight(
-    track: TrackArrays,
-    startIndex: number,
-    endIndex: number
-  ): void {
-    if (this.store.showOnlySelectedClimbTrack()) {
-      this.clearSelectedClimbEntity();
-      return;
-    }
 
-    if (!this.viewer) {
-      return;
-    }
-
-    this.clearSelectedClimbEntity();
-
-    const pointCount = this.getPointCount(track);
-
-    if (pointCount < 2) {
-      return;
-    }
-
-    const start = Math.max(0, Math.min(startIndex, endIndex));
-    const end = Math.min(pointCount - 1, Math.max(startIndex, endIndex));
-
-    const positions: Cartesian3[] = [];
-
-    for (let i = start; i <= end; i += this.settingsStore.threeDRenderStep()) {
-      const position = this.buildPosition(track, i);
-
-      if (position) {
-        positions.push(position);
-      }
-    }
-
-    if (positions.length < 2) {
-      return;
-    }
-
-    this.selectedClimbEntity = this.viewer.entities.add({
-      name: 'Selected climb highlight',
-      polyline: {
-        positions,
-        width: 6,
-        material: Color.YELLOW.withAlpha(0.95),
-        clampToGround: false,
-        arcType: ArcType.NONE,
-      },
-    });
-  }
-
-  private clearSelectedClimbEntity(): void {
-    if (!this.viewer || !this.selectedClimbEntity) {
-      this.selectedClimbEntity = null;
-      return;
-    }
-
-    this.viewer.entities.remove(this.selectedClimbEntity);
-    this.selectedClimbEntity = null;
-  }
 
   private registerCursorPicking(): void {
     if (!this.viewer) {
@@ -887,7 +835,7 @@ export class Flight3d implements AfterViewInit, OnDestroy {
 
     const selectedClimbId = this.store.selectedClimbId();
 
-    this.clearSelectedClimbEntity();
+    this.selectedClimbRenderer.clear();
 
     if (showOnlySelectedClimbIn3d && selectedClimbId !== null) {
       this.flightTrackEntities = this.buildSelectedClimbTrackBlocks(track);

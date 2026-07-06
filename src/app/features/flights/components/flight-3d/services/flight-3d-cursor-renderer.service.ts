@@ -10,7 +10,7 @@ import {
   PointGraphics,
   Viewer,
 } from 'cesium';
-import { TrackArrays } from '../models/track-arrays.model';
+import { TrackArrays } from '../../../models/track-arrays.model';
 
 
 export interface Flight3dCursorRenderOptions {
