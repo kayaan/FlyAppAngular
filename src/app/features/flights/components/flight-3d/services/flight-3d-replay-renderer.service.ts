@@ -3,13 +3,14 @@ import { Injectable } from '@angular/core';
 import {
     ArcType,
     Cartesian3,
+    CallbackProperty,
     Color,
-    ColorMaterialProperty,
     ConstantPositionProperty,
     ConstantProperty,
     Entity,
     HeightReference,
     PointGraphics,
+    Property,
     Viewer,
 } from 'cesium';
 
@@ -32,15 +33,15 @@ export class Flight3dReplayRendererService {
     private viewer: Viewer | null = null;
 
     private replayTrackEntity: Entity | null = null;
+    private replayTrackPositions: Cartesian3[] = [];
 
     private replayStartEntity: Entity | null = null;
+    private replayStartPositionProperty: ConstantPositionProperty | null = null;
+
     private replayCurrentEntity: Entity | null = null;
-    private replayEndEntity: Entity | null = null;
     private replayCurrentPositionProperty: ConstantPositionProperty | null = null;
 
-    private replayTrackPositionsProperty: ConstantProperty | null = null;
-
-    private replayStartPositionProperty: ConstantPositionProperty | null = null;
+    private replayEndEntity: Entity | null = null;
     private replayEndPositionProperty: ConstantPositionProperty | null = null;
 
     attach(viewer: Viewer): void {
@@ -61,7 +62,7 @@ export class Flight3dReplayRendererService {
 
         this.updateReplayStartEntity(track, options);
         this.updateReplayEndEntity(track, options);
-        // this.updateReplayTrackEntity(track, options);
+        this.updateReplayTrackEntity(track, options);
         this.updateReplayCurrentEntity(track, options);
     }
 
@@ -176,8 +177,6 @@ export class Flight3dReplayRendererService {
 
         this.replayStartPositionProperty.setValue(position);
         this.replayStartEntity.show = true;
-
-        // this.replayStartEntity.position = new ConstantPositionProperty(position);
     }
 
     private clearReplayStartEntity(): void {
@@ -238,8 +237,6 @@ export class Flight3dReplayRendererService {
 
         this.replayEndPositionProperty.setValue(position);
         this.replayEndEntity.show = true;
-
-        // this.replayEndEntity.position = new ConstantPositionProperty(position);
     }
 
     private clearReplayEndEntity(): void {
@@ -306,37 +303,31 @@ export class Flight3dReplayRendererService {
         }
 
         if (positions.length < 2) {
+            this.replayTrackPositions = [];
             return;
         }
 
-        if (!this.replayTrackEntity || !this.replayTrackPositionsProperty) {
-            this.replayTrackPositionsProperty = new ConstantProperty(positions);
+        this.replayTrackPositions = positions;
 
+        if (!this.replayTrackEntity) {
             this.replayTrackEntity = this.viewer.entities.add({
                 name: 'Replay track',
                 polyline: {
-                    positions: this.replayTrackPositionsProperty,
-                    width: new ConstantProperty(4),
-                    material: new ColorMaterialProperty(
-                        Color.fromCssColorString('#ff7a00').withAlpha(1.0)
-                    ),
+                    positions: new CallbackProperty(
+                        () => this.replayTrackPositions,
+                        false
+                    ) as unknown as Property,
+                    width: 4,
+                    material: Color.fromCssColorString('#ff7a00').withAlpha(1.0),
                     clampToGround: false,
                     arcType: ArcType.NONE,
                 },
             });
-
-            return;
         }
-
-        this.replayTrackPositionsProperty.setValue(positions);
-        this.replayTrackEntity.show = true;
-
-        // this.replayTrackEntity.polyline!.positions =
-        //     new ConstantProperty(positions);
     }
 
     private clearReplayTrackEntity(): void {
-        this.replayTrackPositionsProperty = null;
+        this.replayTrackPositions = [];
 
         if (!this.viewer || !this.replayTrackEntity) {
             this.replayTrackEntity = null;
