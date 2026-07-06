@@ -31,7 +31,6 @@ import { ReplayRange } from '../../models/replay-state.model';
 
 import { environment } from '../../../../../environments/environment';
 
-import { TrackColorService } from '../../services/track-color.service';
 import { FlightReplayInfoOverlay } from '../flight-replay-info-overlay/flight-replay-info-overlay';
 import { Flight3dTrackRendererService, Flight3dTrackRenderOptions } from './services/flight-3d-track-renderer.service';
 import { Flight3dCursorRendererService } from './services/flight-3d-cursor-renderer.service';
@@ -60,7 +59,6 @@ export class Flight3d implements AfterViewInit, OnDestroy {
 
   private readonly store = inject(FlightDetailsStore);
   private readonly settingsStore = inject(FlightSettingsStore);
-  private readonly trackColorService = inject(TrackColorService);
   private readonly cursorRenderer = inject(Flight3dCursorRendererService);
   private readonly trackRenderer = inject(Flight3dTrackRendererService);
   private readonly selectedClimbRenderer = inject(Flight3dSelectedClimbRendererService);
