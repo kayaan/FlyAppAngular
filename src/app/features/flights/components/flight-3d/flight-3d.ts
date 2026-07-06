@@ -43,7 +43,7 @@ import { environment } from '../../../../../environments/environment';
 import { TrackColorService } from '../../services/track-color.service';
 import { TrackMathUtils } from '../../services/track-math-utils';
 import { FlightReplayInfoOverlay } from '../flight-replay-info-overlay/flight-replay-info-overlay';
-import { Flight3dTrackRendererService } from './services/flight-3d-track-renderer.service';
+import { Flight3dTrackRendererService, Flight3dTrackRenderOptions } from './services/flight-3d-track-renderer.service';
 import { Flight3dCursorRendererService } from './services/flight-3d-cursor-renderer.service';
 import { Flight3dSelectedClimbRendererService } from './services/flight-3d-selected-climb-renderer.service';
 
@@ -124,7 +124,10 @@ export class Flight3d implements AfterViewInit, OnDestroy {
         this.flightTrackEntities.length === 0;
 
       if (shouldRenderTrack) {
-        this.renderTrack(track, shouldCenter);
+        this.trackRenderer.render(
+          track,
+          this.buildTrackRenderOptions(shouldCenter, replayActive)
+        );
         this.lastTrackReference = track;
         this.lastTrackRenderKey = trackRenderKey;
       }
@@ -331,7 +334,10 @@ export class Flight3d implements AfterViewInit, OnDestroy {
       this.viewer.scene.moon.show = false;
     }
 
-    this.renderTrack(this.store.track(), true);
+    this.trackRenderer.render(
+      this.store.track(),
+      this.buildTrackRenderOptions(true)
+    );
     this.lastTrackReference = this.store.track();
     this.lastTrackRenderKey = this.buildTrackRenderKey();
   }
@@ -380,6 +386,36 @@ export class Flight3d implements AfterViewInit, OnDestroy {
       this.settingsStore.threeDVarioClassCount(),
       this.settingsStore.threeDMaxVarioForColorMs(),
     ].join('|');
+  }
+
+  private buildTrackRenderOptions(
+    shouldCenter: boolean,
+    replayActive = this.store.replay.active()
+  ): Flight3dTrackRenderOptions {
+    return {
+      trackColorMode: this.settingsStore.trackColorMode(),
+
+      varioChartResolutionInSec:
+        this.settingsStore.varioChartResolutionInSec(),
+
+      renderStep: this.settingsStore.threeDRenderStep(),
+      varioClassCount: this.settingsStore.threeDVarioClassCount(),
+      maxVarioForColorMs: this.settingsStore.threeDMaxVarioForColorMs(),
+
+      trackAltitudeOffsetM: this.settingsStore.threeDTrackAltitudeOffsetM(),
+      verticalExaggeration: this.settingsStore.threeDVerticalExaggeration(),
+      verticalExaggerationRelativeHeight:
+        this.settingsStore.threeDVerticalExaggerationRelativeHeight(),
+
+      showOnlySelectedClimbTrack: this.store.showOnlySelectedClimbTrack(),
+      selectedClimbId: this.store.selectedClimbId(),
+      climbs: this.store.climbs(),
+
+      metrics: this.store.trackMetrics(),
+
+      replayActive,
+      shouldCenter,
+    };
   }
 
   private updateReplayCurrentEntity(
@@ -728,8 +764,6 @@ export class Flight3d implements AfterViewInit, OnDestroy {
     return Math.atan2(y, x);
   }
 
-
-
   private registerCursorPicking(): void {
     if (!this.viewer) {
       return;
@@ -817,125 +851,6 @@ export class Flight3d implements AfterViewInit, OnDestroy {
     }
 
     return bestIndex;
-  }
-
-  private renderTrack(track: TrackArrays | null, shouldCenter: boolean): void {
-    if (!this.viewer) {
-      return;
-    }
-
-    this.clearTrackEntities();
-
-    if (!track || track.latE7.length < 2) {
-      return;
-    }
-
-    const showOnlySelectedClimbIn3d =
-      this.store.showOnlySelectedClimbTrack();
-
-    const selectedClimbId = this.store.selectedClimbId();
-
-    this.selectedClimbRenderer.clear();
-
-    if (showOnlySelectedClimbIn3d && selectedClimbId !== null) {
-      this.flightTrackEntities = this.buildSelectedClimbTrackBlocks(track);
-    } else {
-      this.flightTrackEntities = this.buildColoredTrackBlocks(track);
-    }
-
-    if (this.flightTrackEntities.length === 0) {
-      return;
-    }
-
-    this.setFlightTrackGhostMode(this.store.replay.active());
-
-    if (shouldCenter) {
-      this.viewer.flyTo(this.flightTrackEntities, {
-        duration: 0.8,
-      });
-    }
-  }
-
-  private buildSelectedClimbTrackBlocks(track: TrackArrays): Entity[] {
-    if (!this.viewer) {
-      return [];
-    }
-
-    const selectedClimbId = this.store.selectedClimbId();
-
-    if (selectedClimbId === null) {
-      return this.buildColoredTrackBlocks(track);
-    }
-
-    const selectedClimb = this.store
-      .climbs()
-      .find((climb) => climb.id === selectedClimbId);
-
-    if (!selectedClimb) {
-      return this.buildColoredTrackBlocks(track);
-    }
-
-    const pointCount = this.getPointCount(track);
-
-    const start = Math.max(
-      0,
-      Math.min(selectedClimb.startIndex, selectedClimb.endIndex)
-    );
-
-    const end = Math.min(
-      pointCount - 1,
-      Math.max(selectedClimb.startIndex, selectedClimb.endIndex)
-    );
-
-    const entities: Entity[] = [];
-
-    let currentColorKey: string | null = null;
-    let currentColor: Color | null = null;
-    let currentPositions: Cartesian3[] = [];
-
-    for (let i = start; i <= end; i += this.settingsStore.threeDRenderStep()) {
-      const position = this.buildPosition(track, i);
-
-      if (!position) {
-        continue;
-      }
-
-      if (currentPositions.length === 0) {
-        currentPositions.push(position);
-        continue;
-      }
-
-      const nextColorInfo = this.getTrackColorInfo(track, i);
-
-      if (currentColorKey === null || currentColor === null) {
-        currentColorKey = nextColorInfo.key;
-        currentColor = nextColorInfo.color;
-        currentPositions.push(position);
-        continue;
-      }
-
-      if (nextColorInfo.key === currentColorKey) {
-        currentPositions.push(position);
-        continue;
-      }
-
-      if (currentPositions.length >= 2) {
-        entities.push(this.addTrackBlockEntity(currentPositions, currentColor));
-      }
-
-      currentColorKey = nextColorInfo.key;
-      currentColor = nextColorInfo.color;
-      currentPositions = [
-        currentPositions[currentPositions.length - 1],
-        position,
-      ];
-    }
-
-    if (currentColor !== null && currentPositions.length >= 2) {
-      entities.push(this.addTrackBlockEntity(currentPositions, currentColor));
-    }
-
-    return entities;
   }
 
   private clearTrackEntities(): void {
