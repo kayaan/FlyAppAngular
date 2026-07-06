@@ -123,30 +123,7 @@ export class PublicFlightList {
     const input = event.target as HTMLInputElement;
     this.to.set(input.value);
   }
-
-  formatDate(value: string | null): string {
-    if (!value) {
-      return '—';
-    }
-
-    return new Date(value).toLocaleDateString();
-  }
-
-  formatDuration(seconds: number | null): string {
-    if (seconds === null) {
-      return '—';
-    }
-
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-
-    if (hours > 0) {
-      return `${hours}h ${minutes}m`;
-    }
-
-    return `${minutes}m`;
-  }
-
+  
   formatDistance(meters: number | null): string {
     if (meters === null) {
       return '—';
