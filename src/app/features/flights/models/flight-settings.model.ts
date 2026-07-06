@@ -5,11 +5,18 @@ export type ChartHeightMode = 'auto' | 'compact' | 'large';
 
 export type TrackColorMode = 'vario' | 'speed';
 
+export interface ClimbDetectionSettings {
+  minGainM: number;
+  minSeparationDropM: number;
+}
+
 export interface FlightSettings {
   mapTileMode: MapTileMode;
+
   showAltitudeChart: boolean;
   showVarioChart: boolean;
   showSpeedChart: boolean;
+
   chartHeightMode: ChartHeightMode;
 
   altitudeChartResolutionInSec: number;
@@ -20,13 +27,23 @@ export interface FlightSettings {
 
   showStatsPanel: boolean;
   showClimbsOnCharts: boolean;
+
+  climbDetectionMinGainM: number;
+  climbDetectionMinSeparationDropM: number;
 }
+
+export const DEFAULT_CLIMB_DETECTION_SETTINGS: ClimbDetectionSettings = {
+  minGainM: 50,
+  minSeparationDropM: 80,
+};
 
 export const DEFAULT_FLIGHT_SETTINGS: FlightSettings = {
   mapTileMode: 'topo',
+
   showAltitudeChart: true,
   showVarioChart: true,
   showSpeedChart: true,
+
   chartHeightMode: 'auto',
 
   altitudeChartResolutionInSec: 2,
@@ -37,4 +54,8 @@ export const DEFAULT_FLIGHT_SETTINGS: FlightSettings = {
 
   showStatsPanel: false,
   showClimbsOnCharts: false,
+
+  climbDetectionMinGainM: DEFAULT_CLIMB_DETECTION_SETTINGS.minGainM,
+  climbDetectionMinSeparationDropM:
+    DEFAULT_CLIMB_DETECTION_SETTINGS.minSeparationDropM,
 };

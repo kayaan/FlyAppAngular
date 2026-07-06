@@ -51,10 +51,28 @@ export const FlightSettingsStore = signalStore(
 
         showStatsPanel: store.showStatsPanel(),
         showClimbsOnCharts: store.showClimbsOnCharts(),
+
+        climbDetectionMinGainM: store.climbDetectionMinGainM(),
+        climbDetectionMinSeparationDropM: store.climbDetectionMinSeparationDropM(),
       });
     }
 
     return {
+
+      setClimbDetectionSettings(
+        minGainM: number,
+        minSeparationDropM: number
+      ): void {
+        patchState(store, {
+          climbDetectionMinGainM: Math.max(1, Math.round(minGainM)),
+          climbDetectionMinSeparationDropM: Math.max(
+            1,
+            Math.round(minSeparationDropM)
+          ),
+        });
+
+        persist();
+      },
 
       setShowStatsPanel(show: boolean): void {
         patchState(store, {

@@ -1,23 +1,20 @@
 import { Injectable } from '@angular/core';
-import { TrackArrays } from '../models/track-arrays.model';
+
+import {
+  ClimbDetectionSettings,
+  DEFAULT_CLIMB_DETECTION_SETTINGS,
+} from '../models/flight-settings.model';
 import { DetectedClimb } from '../models/detected-climb.model';
+import { TrackArrays } from '../models/track-arrays.model';
 
 @Injectable({
   providedIn: 'root',
 })
 export class ClimbDetectorService {
-  private readonly minGainM = 50;
-  private readonly minSeparationDropM = 80;
-
-  /**
-   * Detects major climb phases based on GPS altitude.
-   *
-   * Rules:
-   * - a climb must gain at least minGainM
-   * - a climb ends only after a real drop from the peak
-   * - small bumps inside a larger climb are ignored
-   */
-  detectClimbs(track: TrackArrays): DetectedClimb[] {
+  detectClimbs(
+    track: TrackArrays,
+    settings: ClimbDetectionSettings = DEFAULT_CLIMB_DETECTION_SETTINGS
+  ): DetectedClimb[] {
     const climbs: DetectedClimb[] = [];
 
     if (track.timeSec.length < 2) {
@@ -36,8 +33,7 @@ export class ClimbDetectorService {
       const gainM = (peakAltCm - startAltCm) / 100;
       const dropFromPeakM = (peakAltCm - currentAltCm) / 100;
 
-      // No valid climb yet: search for the lowest start point.
-      if (gainM < this.minGainM) {
+      if (gainM < settings.minGainM) {
         if (currentAltCm < startAltCm) {
           startIndex = i;
           startAltCm = currentAltCm;
@@ -55,18 +51,15 @@ export class ClimbDetectorService {
         continue;
       }
 
-      // Valid climb exists: keep extending peak.
       if (currentAltCm > peakAltCm) {
         peakIndex = i;
         peakAltCm = currentAltCm;
         continue;
       }
 
-      // End climb only after a real separation drop.
-      if (dropFromPeakM >= this.minSeparationDropM) {
-        this.addClimbIfValid(climbs, track, startIndex, peakIndex);
+      if (dropFromPeakM >= settings.minSeparationDropM) {
+        this.addClimbIfValid(climbs, track, startIndex, peakIndex, settings);
 
-        // Restart from current point after the separation drop.
         startIndex = i;
         startAltCm = currentAltCm;
 
@@ -75,26 +68,22 @@ export class ClimbDetectorService {
       }
     }
 
-    // Final unfinished climb.
-    this.addClimbIfValid(climbs, track, startIndex, peakIndex);
+    this.addClimbIfValid(climbs, track, startIndex, peakIndex, settings);
 
-
-
-    const allClimbs = climbs.filter((climb) => climb.gainM >= this.minGainM);
-
-    return allClimbs;
+    return climbs.filter((climb) => climb.gainM >= settings.minGainM);
   }
 
   private addClimbIfValid(
     climbs: DetectedClimb[],
     track: TrackArrays,
     startIndex: number,
-    peakIndex: number
+    peakIndex: number,
+    settings: ClimbDetectionSettings
   ): void {
     const gainM =
       (track.altGpsCm[peakIndex] - track.altGpsCm[startIndex]) / 100;
 
-    if (gainM < this.minGainM) {
+    if (gainM < settings.minGainM) {
       return;
     }
 

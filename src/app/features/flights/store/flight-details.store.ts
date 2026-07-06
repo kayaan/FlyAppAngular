@@ -257,8 +257,12 @@ export const FlightDetailsStore = signalStore(
         return [];
       }
 
-      return climbDetector.detectClimbs(track).map(
-        (climb: DetectedClimb, index): Climb => ({
+      return climbDetector
+        .detectClimbs(track, {
+          minGainM: settings.climbDetectionMinGainM(),
+          minSeparationDropM: settings.climbDetectionMinSeparationDropM(),
+        })
+        .map((climb: DetectedClimb, index): Climb => ({
           id: index + 1,
           flightId,
 
@@ -273,8 +277,7 @@ export const FlightDetailsStore = signalStore(
           gainM: climb.gainM,
           avgClimbMs: climb.avgClimbMs,
           maxClimbMs: climb.maxClimbMs,
-        })
-      );
+        }));
     }
 
     function calculateTrackMetrics(
