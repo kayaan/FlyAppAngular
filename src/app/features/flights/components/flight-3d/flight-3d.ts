@@ -50,7 +50,6 @@ import { Flight3dPickingService } from './services/flight-3d-picking.service';
   ],
   templateUrl: './flight-3d.html',
   styleUrl: './flight-3d.scss',
-
 })
 export class Flight3d implements AfterViewInit, OnDestroy {
   @ViewChild('cesiumContainer', { static: true })
