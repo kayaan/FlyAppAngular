@@ -1,17 +1,18 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { FlightReplayInfoOverlay  } from './flight-replay-info-overlay';
 
-import { FlightReplayInfoOverlayData } from './flight-replay-info-overlay-data';
+
 
 describe('FlightReplayInfoOverlayData', () => {
-  let component: FlightReplayInfoOverlayData;
-  let fixture: ComponentFixture<FlightReplayInfoOverlayData>;
+  let component: FlightReplayInfoOverlay;
+  let fixture: ComponentFixture<FlightReplayInfoOverlay>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [FlightReplayInfoOverlayData],
+      imports: [FlightReplayInfoOverlay],
     }).compileComponents();
 
-    fixture = TestBed.createComponent(FlightReplayInfoOverlayData);
+    fixture = TestBed.createComponent(FlightReplayInfoOverlay);
     component = fixture.componentInstance;
     await fixture.whenStable();
   });
