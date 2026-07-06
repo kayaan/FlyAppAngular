@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { inject, Injectable } from '@angular/core';
 
 import {
   ArcType,
@@ -11,16 +11,17 @@ import {
 } from 'cesium';
 
 import { TrackArrays } from '../../../models/track-arrays.model';
+import { Flight3dPositionOptions, Flight3dPositionService } from './flight-3d-position.service';
 
-export interface Flight3dSelectedClimbRenderOptions {
+export interface Flight3dSelectedClimbRenderOptions
+  extends Flight3dPositionOptions {
   renderStep: number;
-  trackAltitudeOffsetM: number;
-  verticalExaggeration: number;
-  verticalExaggerationRelativeHeight: number;
 }
 
 @Injectable()
 export class Flight3dSelectedClimbRendererService {
+  private readonly positionService = inject(Flight3dPositionService);
+
   private viewer: Viewer | null = null;
   private selectedClimbEntity: Entity | null = null;
 
@@ -50,7 +51,7 @@ export class Flight3dSelectedClimbRendererService {
 
     this.clear();
 
-    const pointCount = this.getPointCount(track);
+    const pointCount = this.positionService.getPointCount(track);
 
     if (pointCount < 2) {
       return;
@@ -63,14 +64,14 @@ export class Flight3dSelectedClimbRendererService {
     const step = Math.max(1, Math.round(options.renderStep));
 
     for (let i = start; i <= end; i += step) {
-      const position = this.buildPosition(track, i, options);
+      const position = this.positionService.buildPosition(track, i, options);
 
       if (position) {
         positions.push(position);
       }
     }
 
-    const lastPosition = this.buildPosition(track, end, options);
+    const lastPosition = this.positionService.buildPosition(track, end, options);
 
     if (lastPosition && positions[positions.length - 1] !== lastPosition) {
       positions.push(lastPosition);
@@ -90,51 +91,5 @@ export class Flight3dSelectedClimbRendererService {
         arcType: ArcType.NONE,
       },
     });
-  }
-
-  private buildPosition(
-    track: TrackArrays,
-    index: number,
-    options: Flight3dSelectedClimbRenderOptions
-  ): Cartesian3 | null {
-    const lat = track.latE7[index] / 10_000_000;
-    const lon = track.lonE7[index] / 10_000_000;
-    const rawAltitudeM = track.altGpsCm[index] / 100;
-    const altitudeM = this.exaggerateHeight(rawAltitudeM, options);
-
-    if (
-      !Number.isFinite(lat) ||
-      !Number.isFinite(lon) ||
-      !Number.isFinite(altitudeM)
-    ) {
-      return null;
-    }
-
-    if (lat === 0 && lon === 0) {
-      return null;
-    }
-
-    return Cartesian3.fromDegrees(lon, lat, altitudeM);
-  }
-
-  private exaggerateHeight(
-    heightM: number,
-    options: Flight3dSelectedClimbRenderOptions
-  ): number {
-    return (
-      options.trackAltitudeOffsetM +
-      options.verticalExaggerationRelativeHeight +
-      (heightM - options.verticalExaggerationRelativeHeight) *
-        options.verticalExaggeration
-    );
-  }
-
-  private getPointCount(track: TrackArrays): number {
-    return Math.min(
-      track.latE7.length,
-      track.lonE7.length,
-      track.altGpsCm.length,
-      track.timeSec.length
-    );
   }
 }
