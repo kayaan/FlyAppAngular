@@ -61,7 +61,6 @@ export class Flight3d implements AfterViewInit, OnDestroy {
   private readonly trackRenderer = inject(Flight3dTrackRendererService);
   private readonly selectedClimbRenderer = inject(Flight3dSelectedClimbRendererService);
   private readonly replayRenderer = inject(Flight3dReplayRendererService);
-  private readonly positionService = inject(Flight3dPositionService);
   private readonly replayCamera = inject(Flight3dReplayCameraService);
   private readonly pickingService = inject(Flight3dPickingService);
 

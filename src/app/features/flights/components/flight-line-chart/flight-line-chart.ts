@@ -26,6 +26,7 @@ import type { ECharts, EChartsCoreOption } from 'echarts/core';
 
 import { FlightDetailsStore } from '../../store/flight-details.store';
 import { FlightSettingsStore } from '../../store/flight-settings.store';
+import { FlightLineChartTimeService } from './services/flight-line-chart-time.service';
 
 echarts.use([
   LineChart,
@@ -45,6 +46,7 @@ export interface FlightChartPoint {
 
 @Component({
   selector: 'app-flight-line-chart',
+  providers: [FlightLineChartTimeService],
   standalone: true,
   templateUrl: './flight-line-chart.html',
   styleUrl: './flight-line-chart.scss',
@@ -63,6 +65,7 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
 
   private readonly store = inject(FlightDetailsStore);
   private readonly settingsStore = inject(FlightSettingsStore);
+  private readonly timeService = inject(FlightLineChartTimeService);
 
   private readonly climbBoundaryColors = [
     '#2563eb',
@@ -255,7 +258,7 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
       return;
     }
 
-    const firstTimeSec = this.getFirstTimeSec();
+    const firstTimeSec = this.timeService.getFirstTimeSec(this.data);
 
     const lastTimeSec =
       this.data.length > 0
@@ -552,8 +555,8 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
         continue;
       }
 
-      const startElapsedSec = this.getElapsedSecForTrackIndex(climb.startIndex);
-      const endElapsedSec = this.getElapsedSecForTrackIndex(climb.endIndex);
+      const startElapsedSec = this.timeService. getElapsedSecForTrackIndex(this.data, climb.startIndex);
+      const endElapsedSec = this.timeService.getElapsedSecForTrackIndex(this.data, climb.endIndex);
 
       if (startElapsedSec === null || endElapsedSec === null) {
         continue;
@@ -593,7 +596,7 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
     }
 
     if (cursorTrackIndex !== null) {
-      const cursorElapsedSec = this.getElapsedSecForTrackIndex(cursorTrackIndex);
+      const cursorElapsedSec = this.timeService.getElapsedSecForTrackIndex(this.data, cursorTrackIndex);
 
       if (cursorElapsedSec !== null) {
         data.push({
@@ -679,15 +682,15 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
       return;
     }
 
-    const climbStartX = this.getElapsedSecForTrackIndex(selectedClimb.startIndex);
-    const climbEndX = this.getElapsedSecForTrackIndex(selectedClimb.endIndex);
+    const climbStartX = this.timeService.getElapsedSecForTrackIndex(this.data, selectedClimb.startIndex);
+    const climbEndX = this.timeService.getElapsedSecForTrackIndex(this.data, selectedClimb.endIndex);
 
     if (climbStartX === null || climbEndX === null) {
       return;
     }
 
     const fullStartX = 0;
-    const fullEndX = this.getMaxElapsedSec();
+    const fullEndX = this.timeService.getMaxElapsedSec(this.data);
 
     const climbSize = climbEndX - climbStartX;
     const paddingSec = Math.max(30, climbSize * 0.2);
@@ -726,7 +729,7 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
       endValue: endX,
     });
 
-    const fullRange = this.getMaxElapsedSec();
+    const fullRange = this.timeService.getMaxElapsedSec(this.data);
 
     if (fullRange > 0) {
       this.currentZoomStartPercent = (startX / fullRange) * 100;
@@ -734,33 +737,12 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
     }
   }
 
-  private getElapsedSecForTrackIndex(trackIndex: number): number | null {
-    const point = this.data.find((item) => item.index === trackIndex);
-
-    if (!point) {
-      return null;
-    }
-
-    return point.timeSec - this.getFirstTimeSec();
-  }
-
-  private getMaxElapsedSec(): number {
-    if (this.data.length === 0) {
-      return 0;
-    }
-
-    const firstTimeSec = this.getFirstTimeSec();
-    const lastTimeSec = this.data[this.data.length - 1].timeSec;
-
-    return Math.max(0, lastTimeSec - firstTimeSec);
-  }
-
   private findNearestDataIndexByElapsedTime(elapsedSec: number): number | null {
     if (this.data.length === 0) {
       return null;
     }
 
-    const firstTimeSec = this.getFirstTimeSec();
+    const firstTimeSec = this.timeService.getFirstTimeSec(this.data);
 
     let bestIndex = 0;
     let bestDistance = Number.POSITIVE_INFINITY;
@@ -776,10 +758,6 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
     }
 
     return bestIndex;
-  }
-
-  private getFirstTimeSec(): number {
-    return this.data.length > 0 ? this.data[0].timeSec : 0;
   }
 
   private formatTime(timeSec: number): string {
