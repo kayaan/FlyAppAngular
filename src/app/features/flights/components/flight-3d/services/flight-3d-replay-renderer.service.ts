@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 
 import {
     ArcType,
@@ -14,18 +14,20 @@ import {
     Viewer,
 } from 'cesium';
 
+import {
+    Flight3dPositionOptions,
+    Flight3dPositionService,
+} from './flight-3d-position.service';
+
 import { ReplayRange } from '../../../models/replay-state.model';
 import { TrackArrays } from '../../../models/track-arrays.model';
 
-export interface Flight3dReplayRenderOptions {
+export interface Flight3dReplayRenderOptions extends Flight3dPositionOptions {
     replayIndex: number;
     replayRange: ReplayRange | null;
     replayTrailDurationSec: number | null;
 
     renderStep: number;
-    trackAltitudeOffsetM: number;
-    verticalExaggeration: number;
-    verticalExaggerationRelativeHeight: number;
 }
 
 @Injectable()
@@ -43,6 +45,8 @@ export class Flight3dReplayRendererService {
 
     private replayEndEntity: Entity | null = null;
     private replayEndPositionProperty: ConstantPositionProperty | null = null;
+
+    private readonly positionService = inject(Flight3dPositionService);
 
     attach(viewer: Viewer): void {
         this.viewer = viewer;
@@ -74,7 +78,7 @@ export class Flight3dReplayRendererService {
             return;
         }
 
-        const pointCount = this.getPointCount(track);
+        const pointCount = this.positionService.getPointCount(track);
 
         if (pointCount === 0) {
             this.clearReplayCurrentEntity();
@@ -86,7 +90,12 @@ export class Flight3dReplayRendererService {
             Math.min(options.replayIndex, pointCount - 1)
         );
 
-        const position = this.buildPosition(track, safeReplayIndex, options);
+
+        const position = this.positionService.buildPosition(
+            track,
+            safeReplayIndex,
+            options
+        );
 
         if (!position) {
             this.clearReplayCurrentEntity();
@@ -139,7 +148,7 @@ export class Flight3dReplayRendererService {
             return;
         }
 
-        const pointCount = this.getPointCount(track);
+        const pointCount = this.positionService.getPointCount(track);
 
         if (pointCount === 0) {
             this.clearReplayStartEntity();
@@ -147,7 +156,10 @@ export class Flight3dReplayRendererService {
         }
 
         const range = this.normalizeReplayRange(options.replayRange, pointCount);
-        const position = this.buildPosition(track, range.startIndex, options);
+        const position = this.positionService.buildPosition(track, range.startIndex, options);
+
+
+
 
         if (!position) {
             this.clearReplayStartEntity();
@@ -199,7 +211,7 @@ export class Flight3dReplayRendererService {
             return;
         }
 
-        const pointCount = this.getPointCount(track);
+        const pointCount = this.positionService.getPointCount(track);
 
         if (pointCount === 0) {
             this.clearReplayEndEntity();
@@ -207,7 +219,7 @@ export class Flight3dReplayRendererService {
         }
 
         const range = this.normalizeReplayRange(options.replayRange, pointCount);
-        const position = this.buildPosition(track, range.endIndex, options);
+        const position = this.positionService.buildPosition(track, range.endIndex, options);
 
         if (!position) {
             this.clearReplayEndEntity();
@@ -259,7 +271,7 @@ export class Flight3dReplayRendererService {
             return;
         }
 
-        const pointCount = this.getPointCount(track);
+        const pointCount = this.positionService.getPointCount(track);
 
         if (pointCount < 2) {
             this.clearReplayTrackEntity();
@@ -289,14 +301,14 @@ export class Flight3dReplayRendererService {
         const step = Math.max(1, Math.round(options.renderStep));
 
         for (let i = trailStartIndex; i <= safeReplayIndex; i += step) {
-            const position = this.buildPosition(track, i, options);
+            const position = this.positionService.buildPosition(track, i, options);
 
             if (position) {
                 positions.push(position);
             }
         }
 
-        const lastPosition = this.buildPosition(track, safeReplayIndex, options);
+        const lastPosition = this.positionService.buildPosition(track, safeReplayIndex, options);
 
         if (lastPosition) {
             positions.push(lastPosition);
@@ -336,52 +348,6 @@ export class Flight3dReplayRendererService {
 
         this.viewer.entities.remove(this.replayTrackEntity);
         this.replayTrackEntity = null;
-    }
-
-    private buildPosition(
-        track: TrackArrays,
-        index: number,
-        options: Flight3dReplayRenderOptions
-    ): Cartesian3 | null {
-        const lat = track.latE7[index] / 10_000_000;
-        const lon = track.lonE7[index] / 10_000_000;
-        const rawAltitudeM = track.altGpsCm[index] / 100;
-        const altitudeM = this.exaggerateHeight(rawAltitudeM, options);
-
-        if (
-            !Number.isFinite(lat) ||
-            !Number.isFinite(lon) ||
-            !Number.isFinite(altitudeM)
-        ) {
-            return null;
-        }
-
-        if (lat === 0 && lon === 0) {
-            return null;
-        }
-
-        return Cartesian3.fromDegrees(lon, lat, altitudeM);
-    }
-
-    private exaggerateHeight(
-        heightM: number,
-        options: Flight3dReplayRenderOptions
-    ): number {
-        return (
-            options.trackAltitudeOffsetM +
-            options.verticalExaggerationRelativeHeight +
-            (heightM - options.verticalExaggerationRelativeHeight) *
-            options.verticalExaggeration
-        );
-    }
-
-    private getPointCount(track: TrackArrays): number {
-        return Math.min(
-            track.latE7.length,
-            track.lonE7.length,
-            track.altGpsCm.length,
-            track.timeSec.length
-        );
     }
 
     private findIndexAtOrAfterTime(

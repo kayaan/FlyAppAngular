@@ -36,6 +36,7 @@ import { Flight3dTrackRendererService, Flight3dTrackRenderOptions } from './serv
 import { Flight3dCursorRendererService } from './services/flight-3d-cursor-renderer.service';
 import { Flight3dSelectedClimbRendererService } from './services/flight-3d-selected-climb-renderer.service';
 import { Flight3dReplayRendererService, Flight3dReplayRenderOptions } from './services/flight-3d-replay-renderer.service';
+import { Flight3dPositionService } from './services/flight-3d-position.service';
 
 @Component({
   selector: 'app-flight-3d',
@@ -44,6 +45,7 @@ import { Flight3dReplayRendererService, Flight3dReplayRenderOptions } from './se
     FlightReplayInfoOverlay
   ],
   providers: [
+    Flight3dPositionService,
     Flight3dTrackRendererService,
     Flight3dCursorRendererService,
     Flight3dSelectedClimbRendererService,
