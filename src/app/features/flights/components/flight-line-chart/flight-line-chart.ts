@@ -301,7 +301,7 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
         max: maxX,
         boundaryGap: false,
         axisLabel: {
-          formatter: (value: number) => this.formatTime(Number(value)),
+          formatter: (value: number) => this.timeService.formatTime(Number(value)),
         },
       },
 
@@ -501,7 +501,7 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
         return;
       }
 
-      const nearestDataIndex = this.findNearestDataIndexByElapsedTime(elapsedSec);
+      const nearestDataIndex = this.timeService.findNearestDataIndexByElapsedTime(this.data, elapsedSec);
 
       if (nearestDataIndex === null) {
         return;
@@ -735,38 +735,5 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
       this.currentZoomStartPercent = (startX / fullRange) * 100;
       this.currentZoomEndPercent = (endX / fullRange) * 100;
     }
-  }
-
-  private findNearestDataIndexByElapsedTime(elapsedSec: number): number | null {
-    if (this.data.length === 0) {
-      return null;
-    }
-
-    const firstTimeSec = this.timeService.getFirstTimeSec(this.data);
-
-    let bestIndex = 0;
-    let bestDistance = Number.POSITIVE_INFINITY;
-
-    for (let i = 0; i < this.data.length; i++) {
-      const pointElapsedSec = this.data[i].timeSec - firstTimeSec;
-      const distance = Math.abs(pointElapsedSec - elapsedSec);
-
-      if (distance < bestDistance) {
-        bestDistance = distance;
-        bestIndex = i;
-      }
-    }
-
-    return bestIndex;
-  }
-
-  private formatTime(timeSec: number): string {
-    const hours = Math.floor(timeSec / 3600);
-    const minutes = Math.floor((timeSec % 3600) / 60);
-    const seconds = Math.floor(timeSec % 60);
-
-    return `${hours.toString().padStart(2, '0')}:${minutes
-      .toString()
-      .padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   }
 }
