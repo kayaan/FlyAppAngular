@@ -78,9 +78,6 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
   private readonly markLineService = inject(FlightLineChartMarkLineService);
   private readonly zoomService = inject(FlightLineChartZoomService);
 
-  private currentZoomStartPercent = 0;
-  private currentZoomEndPercent = 100;
-
   private lastZoomToSelectedClimbRequest = 0;
   private lastResetChartZoomRequest = 0;
 
@@ -131,8 +128,6 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
     this.chart = null;
   }
 
-
-
   private setupCursorEffect(): void {
     effect(() => {
       const replay = this.store.replay();
@@ -157,22 +152,6 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
     });
   }
 
-  private hideTooltip(): void {
-    if (!this.chart) {
-      return;
-    }
-
-    this.chart.dispatchAction({ type: 'hideTip' });
-
-    // ECharts can keep axisPointer/tooltip visually alive after programmatic showTip.
-    // This forces the linked chart group to clear the axis pointer too.
-    this.chart.dispatchAction({
-      type: 'updateAxisPointer',
-      currTrigger: 'leave',
-    } as any);
-  }
-
-
   private setupZoomToSelectedClimbEffect(): void {
     effect(() => {
       const request = this.store.zoomToSelectedClimbRequest();
@@ -193,22 +172,13 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
         return;
       }
 
-      this.zoomToSelectedClimb(selectedClimbId);
+      this.zoomService.zoomToSelectedClimb(
+        this.chart,
+        this.data,
+        this.store.climbs(),
+        selectedClimbId
+      );
     });
-  }
-  
-  private zoomToSelectedClimb(selectedClimbId: number): void {
-    const range = this.zoomService.getSelectedClimbZoomRange(
-      this.data,
-      this.store.climbs(),
-      selectedClimbId
-    );
-
-    if (!range) {
-      return;
-    }
-
-    this.zoomToRange(range.startX, range.endX);
   }
 
   private setupResetChartZoomEffect(): void {
@@ -225,7 +195,7 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
 
       this.lastResetChartZoomRequest = request;
 
-      this.zoomToFullFlight();
+      this.zoomService.zoomToFullFlight(this.chart);
     });
   }
 
@@ -308,7 +278,8 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
         borderWidth: 0,
         padding: 0,
         extraCssText: 'box-shadow: none;',
-        formatter: (params: unknown) => this.tooltipService.formatTooltip(params),
+        formatter: (params: unknown) =>
+          this.tooltipService.formatTooltip(params),
       },
 
       xAxis: {
@@ -317,7 +288,8 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
         max: maxX,
         boundaryGap: false,
         axisLabel: {
-          formatter: (value: number) => this.timeService.formatTime(Number(value)),
+          formatter: (value: number) =>
+            this.timeService.formatTime(Number(value)),
         },
       },
 
@@ -367,16 +339,6 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
     this.chart.setOption(option, true);
   }
 
-  private getDisplayedTrackIndex(): number | null {
-    const replay = this.store.replay();
-
-    if (replay.active && replay.index !== null) {
-      return replay.index;
-    }
-
-    return this.store.cursorIndex();
-  }
-
   private registerChartHoverEvents(): void {
     if (this.store.replay().active) {
       return;
@@ -399,7 +361,11 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
         return;
       }
 
-      const nearestDataIndex = this.timeService.findNearestDataIndexByElapsedTime(this.data, elapsedSec);
+      const nearestDataIndex =
+        this.timeService.findNearestDataIndexByElapsedTime(
+          this.data,
+          elapsedSec
+        );
 
       if (nearestDataIndex === null) {
         return;
@@ -412,16 +378,8 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
       }
     });
 
-    this.chart.on('dataZoom', (event: any) => {
-      const zoom = event.batch?.[0] ?? event;
-
-      if (typeof zoom.start === 'number') {
-        this.currentZoomStartPercent = zoom.start;
-      }
-
-      if (typeof zoom.end === 'number') {
-        this.currentZoomEndPercent = zoom.end;
-      }
+    this.chart.on('dataZoom', (event: unknown) => {
+      this.zoomService.rememberDataZoomEvent(event);
     });
 
     this.chartContainer.nativeElement.addEventListener('mouseleave', () => {
@@ -431,6 +389,16 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
 
       this.store.setCursorIndex(null);
     });
+  }
+
+  private getDisplayedTrackIndex(): number | null {
+    const replay = this.store.replay();
+
+    if (replay.active && replay.index !== null) {
+      return replay.index;
+    }
+
+    return this.store.cursorIndex();
   }
 
   private buildMarkLineData(cursorTrackIndex: number | null): unknown[] {
@@ -499,39 +467,18 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
     });
   }
 
-  private zoomToFullFlight(): void {
+  private hideTooltip(): void {
     if (!this.chart) {
       return;
     }
 
+    this.chart.dispatchAction({ type: 'hideTip' });
+
+    // ECharts can keep axisPointer/tooltip visually alive after programmatic showTip.
+    // This forces the linked chart group to clear the axis pointer too.
     this.chart.dispatchAction({
-      type: 'dataZoom',
-      xAxisIndex: 0,
-      start: 0,
-      end: 100,
-    });
-
-    this.currentZoomStartPercent = 0;
-    this.currentZoomEndPercent = 100;
-  }
-
-  private zoomToRange(startX: number, endX: number): void {
-    if (!this.chart) {
-      return;
-    }
-
-    this.chart.dispatchAction({
-      type: 'dataZoom',
-      xAxisIndex: 0,
-      startValue: startX,
-      endValue: endX,
-    });
-
-    const fullRange = this.timeService.getMaxElapsedSec(this.data);
-
-    if (fullRange > 0) {
-      this.currentZoomStartPercent = (startX / fullRange) * 100;
-      this.currentZoomEndPercent = (endX / fullRange) * 100;
-    }
+      type: 'updateAxisPointer',
+      currTrigger: 'leave',
+    } as any);
   }
 }
