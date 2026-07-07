@@ -15,13 +15,18 @@ import { TrackArrays } from '../../models/track-arrays.model';
 import { Climb } from '../../models/climb.model';
 import { FlightMapPointService } from './services/flight-map-point.service';
 import { FlightMapSelectedClimbRendererService } from './services/flight-map-selected-climb-renderer.service';
+import { FlightMapTrackRendererService } from './services/flight-map-track-renderer.service';
 
 @Component({
   selector: 'app-flight-map',
   standalone: true,
   templateUrl: './flight-map.html',
   styleUrl: './flight-map.scss',
-  providers: [FlightMapPointService, FlightMapSelectedClimbRendererService]
+  providers: [
+    FlightMapPointService,
+    FlightMapSelectedClimbRendererService,
+    FlightMapTrackRendererService
+  ]
 })
 export class FlightMap implements AfterViewInit, OnDestroy {
   private readonly store = inject(FlightDetailsStore);
@@ -29,14 +34,12 @@ export class FlightMap implements AfterViewInit, OnDestroy {
   private readonly selectedClimbRenderer = inject(
     FlightMapSelectedClimbRendererService
   );
+  private readonly trackRenderer = inject(FlightMapTrackRendererService);
 
   @ViewChild('mapContainer', { static: true })
   private mapContainer!: ElementRef<HTMLDivElement>;
 
   private map: L.Map | null = null;
-
-  private trackLayers: L.Polyline[] = [];
-  private didFitBounds = false;
 
   private readonly hoverTolerancePx = 16;
 
@@ -428,13 +431,13 @@ export class FlightMap implements AfterViewInit, OnDestroy {
       return;
     }
 
-    this.clearTrackLayers();
-
     const showOnlySelectedClimbTrack = this.store.showOnlySelectedClimbTrack();
 
     const track = this.store.track();
     const climbs = this.store.climbs();
     const selectedClimbId = this.store.selectedClimbId();
+
+    this.clearTrackLayers();
 
     if (showOnlySelectedClimbTrack && track && selectedClimbId !== null) {
       const climb = climbs.find((x) => x.id === selectedClimbId);
@@ -465,51 +468,10 @@ export class FlightMap implements AfterViewInit, OnDestroy {
 
       return;
     }
-
-    const segments = this.store.coloredTrackSegments();
-
-    if (segments.length === 0) {
-      return;
-    }
-
-    const boundsPoints: L.LatLngExpression[] = [];
-
-    for (const segment of segments) {
-      const validPoints = segment.points.filter(([lat, lon]) => {
-        if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-          return false;
-        }
-
-        return !(lat === 0 && lon === 0);
-      });
-
-      if (validPoints.length < 2) {
-        continue;
-      }
-
-      const layer = L.polyline(validPoints, {
-        pane: 'trackPane',
-        color: segment.color,
-        weight: 5,
-        opacity: 0.95,
-        interactive: false,
-      }).addTo(this.map);
-
-      this.trackLayers.push(layer);
-      boundsPoints.push(...validPoints);
-    }
-
-    if (!this.didFitBounds && boundsPoints.length > 0) {
-      this.map.fitBounds(L.latLngBounds(boundsPoints), {
-        padding: [24, 24],
-      });
-
-      this.didFitBounds = true;
-    }
-
-    setTimeout(() => {
-      this.map?.invalidateSize();
-    }, 0);
+    this.trackRenderer.renderColoredSegments(
+      this.map,
+      this.store.coloredTrackSegments()
+    );
   }
 
   private renderSelectedClimbTrackColored(
@@ -557,15 +519,11 @@ export class FlightMap implements AfterViewInit, OnDestroy {
         interactive: false,
       }).addTo(this.map);
 
-      this.trackLayers.push(layer);
+      this.trackRenderer.addLayer(layer);
     }
   }
 
   private clearTrackLayers(): void {
-    for (const layer of this.trackLayers) {
-      layer.remove();
-    }
-
-    this.trackLayers = [];
+    this.trackRenderer.clear();
   }
 }
