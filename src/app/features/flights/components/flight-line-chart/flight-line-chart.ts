@@ -31,6 +31,7 @@ import { FlightLineChartTooltipService } from './services/flight-line-chart-tool
 import { FlightLineChartMarkLineService } from './services/flight-line-chart-mark-line.service';
 import { FlightLineChartZoomService } from './services/flight-line-chart-zoom.service';
 import { FlightLineChartCursorService } from './services/flight-line-chart-cursor.service';
+import { FlightLineChartOptionService } from './services/flight-line-chart-option.service';
 
 echarts.use([
   LineChart,
@@ -56,6 +57,7 @@ export interface FlightChartPoint {
     FlightLineChartMarkLineService,
     FlightLineChartZoomService,
     FlightLineChartCursorService,
+    FlightLineChartOptionService,
   ],
   standalone: true,
   templateUrl: './flight-line-chart.html',
@@ -80,6 +82,7 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
   private readonly markLineService = inject(FlightLineChartMarkLineService);
   private readonly zoomService = inject(FlightLineChartZoomService);
   private readonly cursorService = inject(FlightLineChartCursorService);
+  private readonly optionService = inject(FlightLineChartOptionService);
 
   private lastZoomToSelectedClimbRequest = 0;
   private lastResetChartZoomRequest = 0;
@@ -242,119 +245,25 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
       return;
     }
 
-    this.chart.setOption({
-      series: [
-        {
-          id: 'main',
-          markLine: {
-            silent: true,
-            symbol: 'none',
-            label: {
-              show: false,
-            },
-            data: this.buildMarkLineData(this.cursorService.getDisplayedTrackIndex()),
-          },
-        },
-      ],
-    });
+    this.chart.setOption(
+      this.optionService.buildMarkLineUpdateOption(
+        this.buildMarkLineData(this.cursorService.getDisplayedTrackIndex())
+      )
+    );
   }
+
 
   private updateChart(): void {
     if (!this.chart) {
       return;
     }
 
-    const firstTimeSec = this.timeService.getFirstTimeSec(this.data);
-
-    const lastTimeSec =
-      this.data.length > 0
-        ? this.data[this.data.length - 1].timeSec
-        : firstTimeSec;
-
-    const minX = 0;
-    const maxX = Math.max(0, lastTimeSec - firstTimeSec);
-
-    const seriesData = this.data.map((p) => [
-      p.timeSec - firstTimeSec,
-      p.value,
-      p.index,
-      p.timeSec,
-    ]);
-
-    const option: EChartsCoreOption = {
-      animation: false,
-
-      grid: {
-        left: 48,
-        right: 18,
-        top: 18,
-        bottom: 28,
-      },
-
-      tooltip: {
-        trigger: 'axis',
-        confine: true,
-        backgroundColor: 'transparent',
-        borderWidth: 0,
-        padding: 0,
-        extraCssText: 'box-shadow: none;',
-        formatter: (params: unknown) =>
-          this.tooltipService.formatTooltip(params),
-      },
-
-      xAxis: {
-        type: 'value',
-        min: minX,
-        max: maxX,
-        boundaryGap: false,
-        axisLabel: {
-          formatter: (value: number) =>
-            this.timeService.formatTime(Number(value)),
-        },
-      },
-
-      yAxis: {
-        type: 'value',
-        scale: true,
-        axisLabel: {
-          formatter: `{value} ${this.unit}`,
-        },
-      },
-
-      dataZoom: [
-        {
-          type: 'inside',
-          xAxisIndex: 0,
-        },
-      ],
-
-      series: [
-        {
-          id: 'main',
-          name: this.title,
-          type: 'line',
-          showSymbol: false,
-          data: seriesData,
-
-          lineStyle: {
-            width: 1.5,
-          },
-
-          emphasis: {
-            disabled: true,
-          },
-
-          markLine: {
-            silent: true,
-            symbol: 'none',
-            label: {
-              show: false,
-            },
-            data: this.buildMarkLineData(this.store.cursorIndex()),
-          },
-        },
-      ],
-    };
+    const option = this.optionService.buildChartOption({
+      title: this.title,
+      unit: this.unit,
+      data: this.data,
+      markLineData: this.buildMarkLineData(this.store.cursorIndex()),
+    });
 
     this.chart.setOption(option, true);
   }
