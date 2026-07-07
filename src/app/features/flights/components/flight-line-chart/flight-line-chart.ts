@@ -13,19 +13,21 @@ import {
 } from '@angular/core';
 
 import * as echarts from 'echarts/core';
+import type { ECharts } from 'echarts/core';
+
 import { LineChart } from 'echarts/charts';
 import {
-  GridComponent,
-  TooltipComponent,
-  DataZoomComponent,
   AxisPointerComponent,
+  DataZoomComponent,
+  GridComponent,
   MarkLineComponent,
+  TooltipComponent,
 } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
-import type { ECharts, EChartsCoreOption } from 'echarts/core';
 
 import { FlightDetailsStore } from '../../store/flight-details.store';
 import { FlightSettingsStore } from '../../store/flight-settings.store';
+
 import { FlightLineChartTimeService } from './services/flight-line-chart-time.service';
 import { FlightLineChartTooltipService } from './services/flight-line-chart-tooltip.service';
 import { FlightLineChartMarkLineService } from './services/flight-line-chart-mark-line.service';
@@ -100,6 +102,7 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
     this.chart.group = this.groupId;
 
     this.updateChart();
+
     this.zoomService.attach(this.chart);
 
     this.cursorService.attachHoverEvents(

@@ -25,8 +25,8 @@ export class FlightLineChartZoomService {
   private currentZoomStartPercent = 0;
   private currentZoomEndPercent = 100;
 
-  private dataZoomHandler: ((event: unknown) => void) | null = null;
   private chart: ECharts | null = null;
+  private dataZoomHandler: ((event: unknown) => void) | null = null;
 
   attach(chart: ECharts): void {
     this.detach();
@@ -121,14 +121,19 @@ export class FlightLineChartZoomService {
 
     const fullRange = this.timeService.getMaxElapsedSec(data);
 
-    if (fullRange > 0) {
-      this.currentZoomStartPercent = this.clampPercent(
-        (safeStartX / fullRange) * 100
-      );
-      this.currentZoomEndPercent = this.clampPercent(
-        (safeEndX / fullRange) * 100
-      );
+    if (fullRange <= 0) {
+      this.currentZoomStartPercent = 0;
+      this.currentZoomEndPercent = 100;
+      return;
     }
+
+    this.currentZoomStartPercent = this.clampPercent(
+      (safeStartX / fullRange) * 100
+    );
+
+    this.currentZoomEndPercent = this.clampPercent(
+      (safeEndX / fullRange) * 100
+    );
   }
 
   private getSelectedClimbZoomRange(

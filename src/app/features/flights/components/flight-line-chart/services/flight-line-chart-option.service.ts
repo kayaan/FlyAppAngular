@@ -2,7 +2,10 @@ import { Injectable, inject } from '@angular/core';
 
 import type { EChartsCoreOption } from 'echarts/core';
 
-import { FlightChartPoint, FlightLineChartType } from '../flight-line-chart';
+import {
+  FlightChartPoint,
+  FlightLineChartType,
+} from '../flight-line-chart';
 import { FlightLineChartTimeService } from './flight-line-chart-time.service';
 import { FlightLineChartTooltipService } from './flight-line-chart-tooltip.service';
 
