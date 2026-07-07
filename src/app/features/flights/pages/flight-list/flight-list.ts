@@ -6,6 +6,7 @@ import { AuthStore } from '../../../auth/store/auth.store';
 import { FlightSyncEventsService } from '../../services/flight-sync-events.service';
 import { FlightsStore } from '../../store/flights.store';
 import { FlightSortKey } from '../../models/flight-list-sort';
+import { BackendAvailabilityService } from '../../../../core/layout/app-shell/services/backend-availability.service';
 
 @Component({
   selector: 'app-flight-list',
@@ -17,6 +18,7 @@ import { FlightSortKey } from '../../models/flight-list-sort';
 export class FlightList implements OnInit, OnDestroy {
   public readonly store = inject(FlightsStore);
   public readonly authStore = inject(AuthStore);
+  private readonly backendAvailability = inject(BackendAvailabilityService);
 
   private readonly syncEvents = inject(FlightSyncEventsService);
 
@@ -24,6 +26,13 @@ export class FlightList implements OnInit, OnDestroy {
 
   private readonly authEffect = effect(() => {
     const authenticated = this.authStore.authenticated();
+    const backendAvailable = this.backendAvailability.available();
+
+    if (!backendAvailable) {
+      this.closeSyncEvents();
+      this.store.clearBackendState();
+      return;
+    }
 
     if (authenticated) {
       void this.store.loadBackendFlights();

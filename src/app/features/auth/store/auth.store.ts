@@ -11,6 +11,7 @@ import { firstValueFrom } from 'rxjs';
 
 import { CurrentUser } from '../models/current-user.model';
 import { AuthApiService } from '../services/auth-api.service';
+import { BackendAvailabilityService } from '../../../core/layout/app-shell/services/backend-availability.service';
 
 type AuthState = {
   user: CurrentUser | null;
@@ -36,8 +37,25 @@ export const AuthStore = signalStore(
     displayName: computed(() => store.user()?.displayName ?? store.user()?.email ?? null),
   })),
 
-  withMethods((store, authApi = inject(AuthApiService)) => ({
+  withMethods((
+    store,
+    authApi = inject(AuthApiService),
+    backendAvailability = inject(BackendAvailabilityService)
+  ) => ({
     async loadMe(): Promise<void> {
+      const backendAvailable = await backendAvailability.check();
+
+      if (!backendAvailable) {
+        patchState(store, {
+          user: null,
+          loading: false,
+          checked: true,
+          error: null,
+        });
+
+        return;
+      }
+
       patchState(store, {
         loading: true,
         error: null,

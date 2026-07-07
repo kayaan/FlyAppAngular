@@ -17,6 +17,7 @@ import { FlightListMergeService } from '../services/flight-list-merge.service';
 import { FlightSaveService } from '../services/flight-save.service';
 import { DEFAULT_FLIGHT_LIST_SORT, FlightListSort, FlightSortKey } from '../models/flight-list-sort';
 import { FlightListSortService } from '../services/flight-list-sort.service';
+import { BackendAvailabilityService } from '../../../core/layout/app-shell/services/backend-availability.service';
 
 type FlightsState = {
   localFlightListItems: LocalFlightListItem[];
@@ -101,6 +102,7 @@ export const FlightsStore = signalStore(
     const flightSaveService = inject(FlightSaveService);
     const backendFlightsApi = inject(BackendFlightsApiService);
     const backendSync = inject(FlightBackendSyncService);
+    const backendAvailability = inject(BackendAvailabilityService);
 
 
     function clearSyncError(flightId: string): void {
@@ -186,11 +188,10 @@ export const FlightsStore = signalStore(
           syncErrorByFlightId: {},
         });
       },
-
       async loadFlights(): Promise<void> {
         patchState(store, {
           loading: true,
-          backendFlightsLoading: true,
+          backendFlightsLoading: false,
           error: null,
           backendFlightsError: null,
         });
@@ -210,23 +211,19 @@ export const FlightsStore = signalStore(
           });
         }
 
-        try {
-          const backendFlights = await firstValueFrom(
-            backendFlightsApi.getFlights()
-          );
+        const backendAvailable = await backendAvailability.check();
 
-          patchState(store, {
-            backendFlights,
-            backendFlightsLoading: false,
-            backendFlightsError: null,
-          });
-        } catch {
+        if (!backendAvailable) {
           patchState(store, {
             backendFlights: [],
             backendFlightsLoading: false,
             backendFlightsError: null,
           });
+
+          return;
         }
+
+        await this.loadBackendFlights();
       },
 
       async deleteRemoteFlight(flightId: string): Promise<void> {
@@ -278,6 +275,18 @@ export const FlightsStore = signalStore(
       },
 
       async loadBackendFlights(): Promise<void> {
+        const backendAvailable = await backendAvailability.check();
+
+        if (!backendAvailable) {
+          patchState(store, {
+            backendFlights: [],
+            backendFlightsLoading: false,
+            backendFlightsError: null,
+          });
+
+          return;
+        }
+
         patchState(store, {
           backendFlightsLoading: true,
           backendFlightsError: null,
