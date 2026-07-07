@@ -14,17 +14,21 @@ import { FlightDetailsStore } from '../../store/flight-details.store';
 import { TrackArrays } from '../../models/track-arrays.model';
 import { Climb } from '../../models/climb.model';
 import { FlightMapPointService } from './services/flight-map-point.service';
+import { FlightMapSelectedClimbRendererService } from './services/flight-map-selected-climb-renderer.service';
 
 @Component({
   selector: 'app-flight-map',
   standalone: true,
   templateUrl: './flight-map.html',
   styleUrl: './flight-map.scss',
-  providers: [FlightMapPointService]
+  providers: [FlightMapPointService, FlightMapSelectedClimbRendererService]
 })
 export class FlightMap implements AfterViewInit, OnDestroy {
   private readonly store = inject(FlightDetailsStore);
   private readonly pointService = inject(FlightMapPointService);
+  private readonly selectedClimbRenderer = inject(
+    FlightMapSelectedClimbRendererService
+  );
 
   @ViewChild('mapContainer', { static: true })
   private mapContainer!: ElementRef<HTMLDivElement>;
@@ -38,8 +42,6 @@ export class FlightMap implements AfterViewInit, OnDestroy {
 
   private hoverPointMarker: L.CircleMarker | null = null;
   private hoverHaloMarker: L.CircleMarker | null = null;
-
-  private selectedClimbHaloLayer: L.Polyline | null = null;
 
   private handledZoomToSelectedClimbRequest = 0;
 
@@ -86,11 +88,16 @@ export class FlightMap implements AfterViewInit, OnDestroy {
       }
 
       if (showOnlySelectedClimbTrack) {
-        this.clearSelectedClimbHalo();
+        this.selectedClimbRenderer.clearHalo();
         return;
       }
 
-      this.renderSelectedClimbHalo(track, climbs, selectedClimbId);
+      this.selectedClimbRenderer.renderHalo(
+        this.map,
+        track,
+        climbs,
+        selectedClimbId
+      );
     });
 
     effect(() => {
@@ -127,7 +134,7 @@ export class FlightMap implements AfterViewInit, OnDestroy {
     this.store.setCursorIndex(null);
 
     this.hideHoverPoint();
-    this.clearSelectedClimbHalo();
+    this.selectedClimbRenderer.clearHalo();
     this.clearTrackLayers();
 
     this.map?.remove();
@@ -362,11 +369,6 @@ export class FlightMap implements AfterViewInit, OnDestroy {
     }
   }
 
-  private clearSelectedClimbHalo(): void {
-    this.selectedClimbHaloLayer?.remove();
-    this.selectedClimbHaloLayer = null;
-  }
-
   private fitMapToSelection(
     track: TrackArrays,
     climbs: Climb[],
@@ -419,60 +421,6 @@ export class FlightMap implements AfterViewInit, OnDestroy {
       padding: [24, 24],
       animate: true,
     });
-  }
-
-  private renderSelectedClimbHalo(
-    track: TrackArrays,
-    climbs: Climb[],
-    selectedClimbId: number | null,
-  ): void {
-    if (!this.map) {
-      return;
-    }
-
-    this.selectedClimbHaloLayer?.remove();
-    this.selectedClimbHaloLayer = null;
-
-    if (selectedClimbId === null) {
-      return;
-    }
-
-    const climb = climbs.find((x) => x.id === selectedClimbId);
-
-    if (!climb) {
-      return;
-    }
-
-    const points: L.LatLngExpression[] = [];
-
-    for (let i = climb.startIndex; i <= climb.endIndex; i++) {
-      const lat = track.latE7[i] / 10_000_000;
-      const lon = track.lonE7[i] / 10_000_000;
-
-      if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-        continue;
-      }
-
-      if (lat === 0 && lon === 0) {
-        continue;
-      }
-
-      points.push([lat, lon]);
-    }
-
-    if (points.length < 2) {
-      return;
-    }
-
-    this.selectedClimbHaloLayer = L.polyline(points, {
-      pane: 'selectedClimbHaloPane',
-      color: '#0b26f5',
-      weight: 16,
-      opacity: 0.96,
-      lineCap: 'round',
-      lineJoin: 'round',
-      interactive: false,
-    }).addTo(this.map);
   }
 
   private renderTrack(): void {
