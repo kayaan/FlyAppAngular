@@ -30,6 +30,7 @@ import { FlightLineChartTimeService } from './services/flight-line-chart-time.se
 import { FlightLineChartTooltipService } from './services/flight-line-chart-tooltip.service';
 import { FlightLineChartMarkLineService } from './services/flight-line-chart-mark-line.service';
 import { FlightLineChartZoomService } from './services/flight-line-chart-zoom.service';
+import { FlightLineChartCursorService } from './services/flight-line-chart-cursor.service';
 
 echarts.use([
   LineChart,
@@ -54,6 +55,7 @@ export interface FlightChartPoint {
     FlightLineChartTooltipService,
     FlightLineChartMarkLineService,
     FlightLineChartZoomService,
+    FlightLineChartCursorService,
   ],
   standalone: true,
   templateUrl: './flight-line-chart.html',
@@ -77,6 +79,7 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
   private readonly tooltipService = inject(FlightLineChartTooltipService);
   private readonly markLineService = inject(FlightLineChartMarkLineService);
   private readonly zoomService = inject(FlightLineChartZoomService);
+  private readonly cursorService = inject(FlightLineChartCursorService);
 
   private lastZoomToSelectedClimbRequest = 0;
   private lastResetChartZoomRequest = 0;
@@ -94,7 +97,11 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
 
     this.updateChart();
 
-    this.registerChartHoverEvents();
+    this.cursorService.attachHoverEvents(
+      this.chart,
+      this.chartContainer.nativeElement,
+      () => this.data
+    );
 
     echarts.connect(this.groupId);
 
@@ -113,10 +120,15 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
     if (changes['data'] || changes['title'] || changes['unit']) {
       this.updateChart();
 
-      const displayedIndex = this.getDisplayedTrackIndex();
+      const displayedIndex = this.cursorService.getDisplayedTrackIndex();
 
       if (displayedIndex !== null) {
-        this.showCursorAtIndex(displayedIndex);
+        this.cursorService.showCursorAtIndex(
+          this.chart,
+          this.data,
+          displayedIndex,
+          (cursorTrackIndex) => this.buildMarkLineData(cursorTrackIndex)
+        );
       }
     }
   }
@@ -124,31 +136,39 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
   ngOnDestroy(): void {
     this.resizeObserver?.disconnect();
 
+    this.cursorService.detachHoverEvents();
+
     this.chart?.dispose();
     this.chart = null;
   }
 
   private setupCursorEffect(): void {
     effect(() => {
-      const replay = this.store.replay();
-      const cursorIndex = this.store.cursorIndex();
+      this.store.replay();
+      this.store.cursorIndex();
 
       if (!this.chart) {
         return;
       }
 
-      const displayedIndex =
-        replay.active && replay.index !== null
-          ? replay.index
-          : cursorIndex;
+      const displayedIndex = this.cursorService.getDisplayedTrackIndex();
 
       if (displayedIndex === null) {
-        this.hideCursorLine();
-        this.hideTooltip();
+        this.cursorService.hideCursorLine(
+          this.chart,
+          (cursorTrackIndex) => this.buildMarkLineData(cursorTrackIndex)
+        );
+
+        this.cursorService.hideTooltip(this.chart);
         return;
       }
 
-      this.showCursorAtIndex(displayedIndex);
+      this.cursorService.showCursorAtIndex(
+        this.chart,
+        this.data,
+        displayedIndex,
+        (cursorTrackIndex) => this.buildMarkLineData(cursorTrackIndex)
+      );
     });
   }
 
@@ -232,7 +252,7 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
             label: {
               show: false,
             },
-            data: this.buildMarkLineData(this.getDisplayedTrackIndex()),
+            data: this.buildMarkLineData(this.cursorService.getDisplayedTrackIndex()),
           },
         },
       ],
@@ -339,68 +359,6 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
     this.chart.setOption(option, true);
   }
 
-  private registerChartHoverEvents(): void {
-    if (this.store.replay().active) {
-      return;
-    }
-
-    if (!this.chart) {
-      return;
-    }
-
-    this.chart.on('updateAxisPointer', (event: any) => {
-      const axisInfo = event.axesInfo?.[0];
-
-      if (!axisInfo) {
-        return;
-      }
-
-      const elapsedSec = Number(axisInfo.value);
-
-      if (!Number.isFinite(elapsedSec)) {
-        return;
-      }
-
-      const nearestDataIndex =
-        this.timeService.findNearestDataIndexByElapsedTime(
-          this.data,
-          elapsedSec
-        );
-
-      if (nearestDataIndex === null) {
-        return;
-      }
-
-      const trackIndex = this.data[nearestDataIndex].index;
-
-      if (this.store.cursorIndex() !== trackIndex) {
-        this.store.setCursorIndex(trackIndex);
-      }
-    });
-
-    this.chart.on('dataZoom', (event: unknown) => {
-      this.zoomService.rememberDataZoomEvent(event);
-    });
-
-    this.chartContainer.nativeElement.addEventListener('mouseleave', () => {
-      if (this.store.replay().active) {
-        return;
-      }
-
-      this.store.setCursorIndex(null);
-    });
-  }
-
-  private getDisplayedTrackIndex(): number | null {
-    const replay = this.store.replay();
-
-    if (replay.active && replay.index !== null) {
-      return replay.index;
-    }
-
-    return this.store.cursorIndex();
-  }
-
   private buildMarkLineData(cursorTrackIndex: number | null): unknown[] {
     return this.markLineService.buildMarkLineData({
       data: this.data,
@@ -409,76 +367,5 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
       showAllClimbs: this.settingsStore.showClimbsOnCharts(),
       cursorTrackIndex,
     });
-  }
-
-  private showCursorAtIndex(trackIndex: number): void {
-    if (!this.chart) {
-      return;
-    }
-
-    const dataIndex = this.data.findIndex((point) => point.index === trackIndex);
-
-    if (dataIndex < 0) {
-      return;
-    }
-
-    this.chart.setOption({
-      series: [
-        {
-          id: 'main',
-          markLine: {
-            silent: true,
-            symbol: 'none',
-            label: {
-              show: false,
-            },
-            data: this.buildMarkLineData(trackIndex),
-          },
-        },
-      ],
-    });
-
-    this.chart.dispatchAction({
-      type: 'showTip',
-      seriesIndex: 0,
-      dataIndex,
-    });
-  }
-
-  private hideCursorLine(): void {
-    if (!this.chart) {
-      return;
-    }
-
-    this.chart.setOption({
-      series: [
-        {
-          id: 'main',
-          markLine: {
-            silent: true,
-            symbol: 'none',
-            label: {
-              show: false,
-            },
-            data: this.buildMarkLineData(null),
-          },
-        },
-      ],
-    });
-  }
-
-  private hideTooltip(): void {
-    if (!this.chart) {
-      return;
-    }
-
-    this.chart.dispatchAction({ type: 'hideTip' });
-
-    // ECharts can keep axisPointer/tooltip visually alive after programmatic showTip.
-    // This forces the linked chart group to clear the axis pointer too.
-    this.chart.dispatchAction({
-      type: 'updateAxisPointer',
-      currTrigger: 'leave',
-    } as any);
   }
 }

@@ -17,8 +17,13 @@ export class FlightClimbsPanel {
     const input = event.target as HTMLInputElement;
 
     this.settingsStore.setShowClimbsOnCharts(input.checked);
-  }
 
+    if (!input.checked) {
+      this.detailsStore.clearSelectedClimb();
+      this.detailsStore.setShowOnlySelectedClimbIn3d(false);
+    }
+  }
+  
   protected showFullFlight(): void {
     this.detailsStore.clearSelectedClimb();
     this.detailsStore.zoomToSelectedClimb();

@@ -32,10 +32,8 @@ export class FlightLineChartMarkLineService {
 
     const visibleClimbs = options.showAllClimbs
       ? options.climbs
-      : options.selectedClimbId !== null
-        ? options.climbs.filter((climb) => climb.id === options.selectedClimbId)
-        : [];
-
+      : [];
+      
     for (const climb of visibleClimbs) {
       const climbIndex = options.climbs.findIndex(
         (item) => item.id === climb.id
