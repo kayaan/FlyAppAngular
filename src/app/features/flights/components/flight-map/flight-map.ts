@@ -13,15 +13,18 @@ import * as L from 'leaflet';
 import { FlightDetailsStore } from '../../store/flight-details.store';
 import { TrackArrays } from '../../models/track-arrays.model';
 import { Climb } from '../../models/climb.model';
+import { FlightMapPointService } from './services/flight-map-point.service';
 
 @Component({
   selector: 'app-flight-map',
   standalone: true,
   templateUrl: './flight-map.html',
   styleUrl: './flight-map.scss',
+  providers: [FlightMapPointService]
 })
 export class FlightMap implements AfterViewInit, OnDestroy {
   private readonly store = inject(FlightDetailsStore);
+  private readonly pointService = inject(FlightMapPointService);
 
   @ViewChild('mapContainer', { static: true })
   private mapContainer!: ElementRef<HTMLDivElement>;
@@ -384,7 +387,7 @@ export class FlightMap implements AfterViewInit, OnDestroy {
       return;
     }
 
-    const points = this.buildTrackPoints(
+    const points = this.pointService.buildTrackPoints(
       track,
       climb.startIndex,
       climb.endIndex,
@@ -406,7 +409,7 @@ export class FlightMap implements AfterViewInit, OnDestroy {
       return;
     }
 
-    const points = this.buildTrackPoints(track, 0, track.latE7.length - 1);
+    const points = this.pointService.buildTrackPoints(track, 0, track.latE7.length - 1);
 
     if (points.length < 2) {
       return;
@@ -416,34 +419,6 @@ export class FlightMap implements AfterViewInit, OnDestroy {
       padding: [24, 24],
       animate: true,
     });
-  }
-
-  private buildTrackPoints(
-    track: TrackArrays,
-    startIndex: number,
-    endIndex: number,
-  ): L.LatLngExpression[] {
-    const points: L.LatLngExpression[] = [];
-
-    const safeStartIndex = Math.max(0, startIndex);
-    const safeEndIndex = Math.min(track.latE7.length - 1, endIndex);
-
-    for (let i = safeStartIndex; i <= safeEndIndex; i++) {
-      const lat = track.latE7[i] / 10_000_000;
-      const lon = track.lonE7[i] / 10_000_000;
-
-      if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-        continue;
-      }
-
-      if (lat === 0 && lon === 0) {
-        continue;
-      }
-
-      points.push([lat, lon]);
-    }
-
-    return points;
   }
 
   private renderSelectedClimbHalo(
@@ -520,7 +495,7 @@ export class FlightMap implements AfterViewInit, OnDestroy {
         return;
       }
 
-      const points = this.buildTrackPoints(
+      const points = this.pointService.buildTrackPoints(
         track,
         climb.startIndex,
         climb.endIndex,
