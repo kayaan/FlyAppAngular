@@ -11,12 +11,13 @@ export class FlightLineChartTooltipService {
   formatTooltip(params: unknown, chartType: FlightLineChartType): string {
     const items = Array.isArray(params) ? params : [params];
 
-    const first = items[0] as FlightLineChartTooltipItem;
-    const data = first.data;
+    const first = items[0] as FlightLineChartTooltipItem | undefined;
 
-    if (!data) {
+    if (!first?.data) {
       return '';
     }
+
+    const data = first.data;
 
     const elapsedSec = Number(data[0]);
     const value = Number(data[1]);

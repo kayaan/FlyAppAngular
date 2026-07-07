@@ -80,8 +80,6 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
 
   private readonly store = inject(FlightDetailsStore);
   private readonly settingsStore = inject(FlightSettingsStore);
-  private readonly timeService = inject(FlightLineChartTimeService);
-  private readonly tooltipService = inject(FlightLineChartTooltipService);
   private readonly markLineService = inject(FlightLineChartMarkLineService);
   private readonly zoomService = inject(FlightLineChartZoomService);
   private readonly cursorService = inject(FlightLineChartCursorService);
@@ -123,7 +121,12 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
       return;
     }
 
-    if (changes['data'] || changes['title'] || changes['unit']) {
+    if (
+      changes['data'] ||
+      changes['title'] ||
+      changes['unit'] ||
+      changes['chartType']
+    ) {
       this.updateChart();
 
       const displayedIndex = this.cursorService.getDisplayedTrackIndex();
@@ -255,21 +258,21 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
     );
   }
 
-private updateChart(): void {
-  if (!this.chart) {
-    return;
+  private updateChart(): void {
+    if (!this.chart) {
+      return;
+    }
+
+    const option = this.optionService.buildChartOption({
+      title: this.title,
+      unit: this.unit,
+      chartType: this.chartType,
+      data: this.data,
+      markLineData: this.buildMarkLineData(this.store.cursorIndex()),
+    });
+
+    this.chart.setOption(option, true);
   }
-
-  const option = this.optionService.buildChartOption({
-    title: this.title,
-    unit: this.unit,
-    chartType: this.chartType,
-    data: this.data,
-    markLineData: this.buildMarkLineData(this.store.cursorIndex()),
-  });
-
-  this.chart.setOption(option, true);
-}
 
   private buildMarkLineData(cursorTrackIndex: number | null): unknown[] {
     return this.markLineService.buildMarkLineData({
