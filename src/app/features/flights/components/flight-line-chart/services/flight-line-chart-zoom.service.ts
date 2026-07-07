@@ -11,12 +11,42 @@ export interface FlightLineChartZoomRange {
   endX: number;
 }
 
+type DataZoomPayload = {
+  start?: number;
+  end?: number;
+  startValue?: number;
+  endValue?: number;
+};
+
 @Injectable()
 export class FlightLineChartZoomService {
   private readonly timeService = inject(FlightLineChartTimeService);
 
   private currentZoomStartPercent = 0;
   private currentZoomEndPercent = 100;
+
+  private dataZoomHandler: ((event: unknown) => void) | null = null;
+  private chart: ECharts | null = null;
+
+  attach(chart: ECharts): void {
+    this.detach();
+
+    this.chart = chart;
+    this.dataZoomHandler = (event: unknown) => {
+      this.rememberDataZoomEvent(event);
+    };
+
+    chart.on('dataZoom', this.dataZoomHandler as never);
+  }
+
+  detach(): void {
+    if (this.chart && this.dataZoomHandler) {
+      this.chart.off('dataZoom', this.dataZoomHandler as never);
+    }
+
+    this.chart = null;
+    this.dataZoomHandler = null;
+  }
 
   getCurrentZoomStartPercent(): number {
     return this.currentZoomStartPercent;
@@ -33,12 +63,12 @@ export class FlightLineChartZoomService {
       return;
     }
 
-    if (typeof zoom['start'] === 'number') {
-      this.currentZoomStartPercent = zoom['start'];
+    if (typeof zoom.start === 'number') {
+      this.currentZoomStartPercent = this.clampPercent(zoom.start);
     }
 
-    if (typeof zoom['end'] === 'number') {
-      this.currentZoomEndPercent = zoom['end'];
+    if (typeof zoom.end === 'number') {
+      this.currentZoomEndPercent = this.clampPercent(zoom.end);
     }
   }
 
@@ -79,18 +109,25 @@ export class FlightLineChartZoomService {
     startX: number,
     endX: number
   ): void {
+    const safeStartX = Math.min(startX, endX);
+    const safeEndX = Math.max(startX, endX);
+
     chart.dispatchAction({
       type: 'dataZoom',
       xAxisIndex: 0,
-      startValue: startX,
-      endValue: endX,
+      startValue: safeStartX,
+      endValue: safeEndX,
     });
 
     const fullRange = this.timeService.getMaxElapsedSec(data);
 
     if (fullRange > 0) {
-      this.currentZoomStartPercent = (startX / fullRange) * 100;
-      this.currentZoomEndPercent = (endX / fullRange) * 100;
+      this.currentZoomStartPercent = this.clampPercent(
+        (safeStartX / fullRange) * 100
+      );
+      this.currentZoomEndPercent = this.clampPercent(
+        (safeEndX / fullRange) * 100
+      );
     }
   }
 
@@ -119,36 +156,45 @@ export class FlightLineChartZoomService {
       return null;
     }
 
-    const fullStartX = 0;
-    const fullEndX = this.timeService.getMaxElapsedSec(data);
+    const fullRange = this.timeService.getMaxElapsedSec(data);
 
-    const climbSize = climbEndX - climbStartX;
-    const paddingSec = Math.max(30, climbSize * 0.2);
+    if (fullRange <= 0) {
+      return {
+        startX: 0,
+        endX: 0,
+      };
+    }
+
+    const climbDurationX = Math.max(0, climbEndX - climbStartX);
+    const paddingX = Math.max(30, climbDurationX * 0.25);
 
     return {
-      startX: Math.max(fullStartX, climbStartX - paddingSec),
-      endX: Math.min(fullEndX, climbEndX + paddingSec),
+      startX: Math.max(0, climbStartX - paddingX),
+      endX: Math.min(fullRange, climbEndX + paddingX),
     };
   }
 
-  private extractDataZoomPayload(
-    event: unknown
-  ): Record<string, unknown> | null {
+  private extractDataZoomPayload(event: unknown): DataZoomPayload | null {
     if (!event || typeof event !== 'object') {
       return null;
     }
 
-    const eventObject = event as Record<string, unknown>;
-    const batch = eventObject['batch'];
+    const eventObject = event as DataZoomPayload & {
+      batch?: DataZoomPayload[];
+    };
 
-    if (Array.isArray(batch) && batch.length > 0) {
-      const firstBatchItem = batch[0];
-
-      return firstBatchItem && typeof firstBatchItem === 'object'
-        ? (firstBatchItem as Record<string, unknown>)
-        : null;
+    if (Array.isArray(eventObject.batch) && eventObject.batch.length > 0) {
+      return eventObject.batch[0];
     }
 
     return eventObject;
+  }
+
+  private clampPercent(value: number): number {
+    if (!Number.isFinite(value)) {
+      return 0;
+    }
+
+    return Math.max(0, Math.min(100, value));
   }
 }

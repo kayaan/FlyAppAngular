@@ -100,6 +100,7 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
     this.chart.group = this.groupId;
 
     this.updateChart();
+    this.zoomService.attach(this.chart);
 
     this.cursorService.attachHoverEvents(
       this.chart,
@@ -146,6 +147,7 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
     this.resizeObserver?.disconnect();
 
     this.cursorService.detachHoverEvents();
+    this.zoomService.detach();
 
     this.chart?.dispose();
     this.chart = null;
@@ -269,6 +271,8 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
       chartType: this.chartType,
       data: this.data,
       markLineData: this.buildMarkLineData(this.store.cursorIndex()),
+      zoomStartPercent: this.zoomService.getCurrentZoomStartPercent(),
+      zoomEndPercent: this.zoomService.getCurrentZoomEndPercent(),
     });
 
     this.chart.setOption(option, true);

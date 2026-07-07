@@ -12,7 +12,10 @@ export interface FlightLineChartOptionOptions {
   chartType: FlightLineChartType;
   data: FlightChartPoint[];
   markLineData: unknown[];
+  zoomStartPercent: number;
+  zoomEndPercent: number;
 }
+
 @Injectable()
 export class FlightLineChartOptionService {
   private readonly timeService = inject(FlightLineChartTimeService);
@@ -80,6 +83,8 @@ export class FlightLineChartOptionService {
         {
           type: 'inside',
           xAxisIndex: 0,
+          start: options.zoomStartPercent,
+          end: options.zoomEndPercent,
         },
       ],
 
