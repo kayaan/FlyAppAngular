@@ -29,6 +29,7 @@ import { FlightSettingsStore } from '../../store/flight-settings.store';
 import { FlightLineChartTimeService } from './services/flight-line-chart-time.service';
 import { FlightLineChartTooltipService } from './services/flight-line-chart-tooltip.service';
 import { FlightLineChartMarkLineService } from './services/flight-line-chart-mark-line.service';
+import { FlightLineChartZoomService } from './services/flight-line-chart-zoom.service';
 
 echarts.use([
   LineChart,
@@ -51,7 +52,9 @@ export interface FlightChartPoint {
   providers: [
     FlightLineChartTimeService,
     FlightLineChartTooltipService,
-    FlightLineChartMarkLineService],
+    FlightLineChartMarkLineService,
+    FlightLineChartZoomService,
+  ],
   standalone: true,
   templateUrl: './flight-line-chart.html',
   styleUrl: './flight-line-chart.scss',
@@ -73,7 +76,7 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
   private readonly timeService = inject(FlightLineChartTimeService);
   private readonly tooltipService = inject(FlightLineChartTooltipService);
   private readonly markLineService = inject(FlightLineChartMarkLineService);
-
+  private readonly zoomService = inject(FlightLineChartZoomService);
 
   private currentZoomStartPercent = 0;
   private currentZoomEndPercent = 100;
@@ -192,6 +195,20 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
 
       this.zoomToSelectedClimb(selectedClimbId);
     });
+  }
+  
+  private zoomToSelectedClimb(selectedClimbId: number): void {
+    const range = this.zoomService.getSelectedClimbZoomRange(
+      this.data,
+      this.store.climbs(),
+      selectedClimbId
+    );
+
+    if (!range) {
+      return;
+    }
+
+    this.zoomToRange(range.startX, range.endX);
   }
 
   private setupResetChartZoomEffect(): void {
@@ -480,34 +497,6 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
         },
       ],
     });
-  }
-
-  private zoomToSelectedClimb(selectedClimbId: number): void {
-    const selectedClimb = this.store
-      .climbs()
-      .find((climb) => climb.id === selectedClimbId);
-
-    if (!selectedClimb) {
-      return;
-    }
-
-    const climbStartX = this.timeService.getElapsedSecForTrackIndex(this.data, selectedClimb.startIndex);
-    const climbEndX = this.timeService.getElapsedSecForTrackIndex(this.data, selectedClimb.endIndex);
-
-    if (climbStartX === null || climbEndX === null) {
-      return;
-    }
-
-    const fullStartX = 0;
-    const fullEndX = this.timeService.getMaxElapsedSec(this.data);
-
-    const climbSize = climbEndX - climbStartX;
-    const paddingSec = Math.max(30, climbSize * 0.2);
-
-    const startX = Math.max(fullStartX, climbStartX - paddingSec);
-    const endX = Math.min(fullEndX, climbEndX + paddingSec);
-
-    this.zoomToRange(startX, endX);
   }
 
   private zoomToFullFlight(): void {
