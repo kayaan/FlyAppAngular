@@ -1,15 +1,14 @@
 import { Injectable } from '@angular/core';
 
-type ChartType = 'altitude' | 'vario' | 'speed';
+import { FlightLineChartType } from '../flight-line-chart';
 
 interface FlightLineChartTooltipItem {
   data?: [number, number, number, number];
-  seriesName?: string;
 }
 
 @Injectable()
 export class FlightLineChartTooltipService {
-  formatTooltip(params: unknown): string {
+  formatTooltip(params: unknown, chartType: FlightLineChartType): string {
     const items = Array.isArray(params) ? params : [params];
 
     const first = items[0] as FlightLineChartTooltipItem;
@@ -31,7 +30,6 @@ export class FlightLineChartTooltipService {
       return '';
     }
 
-    const chartType = this.resolveChartType(first.seriesName ?? '');
     const formattedValue = this.formatTooltipValue(value, chartType);
     const valueClass = this.resolveTooltipValueClass(value, chartType);
 
@@ -50,41 +48,17 @@ export class FlightLineChartTooltipService {
     `;
   }
 
-  private formatClockTime(totalSeconds: number): string {
-    const safeSeconds = Math.max(0, Math.floor(totalSeconds));
-
-    const hours = Math.floor((safeSeconds % 86400) / 3600);
-    const minutes = Math.floor((safeSeconds % 3600) / 60);
-    const seconds = safeSeconds % 60;
-
-    return [
-      hours.toString().padStart(2, '0'),
-      minutes.toString().padStart(2, '0'),
-      seconds.toString().padStart(2, '0'),
-    ].join(':');
-  }
-
-  private resolveChartType(seriesName: string): ChartType {
-    const normalized = seriesName.toLowerCase();
-
-    if (normalized.includes('vario')) {
-      return 'vario';
-    }
-
-    if (normalized.includes('speed')) {
-      return 'speed';
-    }
-
-    return 'altitude';
-  }
-
-  private formatTooltipValue(value: number, chartType: ChartType): string {
+  private formatTooltipValue(
+    value: number,
+    chartType: FlightLineChartType
+  ): string {
     if (chartType === 'altitude') {
-      return `${Math.round(value).toLocaleString('en-US')} m`;
+      return `${Math.round(value)} m`;
     }
 
     if (chartType === 'vario') {
       const sign = value > 0 ? '+' : '';
+
       return `${sign}${value.toFixed(1)} m/s`;
     }
 
@@ -93,7 +67,7 @@ export class FlightLineChartTooltipService {
 
   private resolveTooltipValueClass(
     value: number,
-    chartType: ChartType
+    chartType: FlightLineChartType
   ): string {
     if (chartType === 'altitude') {
       return 'altitude';
@@ -110,6 +84,20 @@ export class FlightLineChartTooltipService {
     const safeSeconds = Math.max(0, Math.floor(totalSeconds));
 
     const hours = Math.floor(safeSeconds / 3600);
+    const minutes = Math.floor((safeSeconds % 3600) / 60);
+    const seconds = safeSeconds % 60;
+
+    return [
+      hours.toString().padStart(2, '0'),
+      minutes.toString().padStart(2, '0'),
+      seconds.toString().padStart(2, '0'),
+    ].join(':');
+  }
+
+  private formatClockTime(totalSeconds: number): string {
+    const safeSeconds = Math.max(0, Math.floor(totalSeconds));
+
+    const hours = Math.floor((safeSeconds % 86400) / 3600);
     const minutes = Math.floor((safeSeconds % 3600) / 60);
     const seconds = safeSeconds % 60;
 

@@ -49,6 +49,8 @@ export interface FlightChartPoint {
   value: number;
 }
 
+export type FlightLineChartType = 'altitude' | 'vario' | 'speed';
+
 @Component({
   selector: 'app-flight-line-chart',
   providers: [
@@ -67,6 +69,7 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
   @Input({ required: true }) title = '';
   @Input({ required: true }) unit = '';
   @Input({ required: true }) data: FlightChartPoint[] = [];
+  @Input({ required: true }) chartType: FlightLineChartType = 'altitude';
   @Input() groupId = 'flight-detail-charts';
 
   @ViewChild('chartContainer', { static: true })
@@ -252,21 +255,21 @@ export class FlightLineChart implements AfterViewInit, OnChanges, OnDestroy {
     );
   }
 
-
-  private updateChart(): void {
-    if (!this.chart) {
-      return;
-    }
-
-    const option = this.optionService.buildChartOption({
-      title: this.title,
-      unit: this.unit,
-      data: this.data,
-      markLineData: this.buildMarkLineData(this.store.cursorIndex()),
-    });
-
-    this.chart.setOption(option, true);
+private updateChart(): void {
+  if (!this.chart) {
+    return;
   }
+
+  const option = this.optionService.buildChartOption({
+    title: this.title,
+    unit: this.unit,
+    chartType: this.chartType,
+    data: this.data,
+    markLineData: this.buildMarkLineData(this.store.cursorIndex()),
+  });
+
+  this.chart.setOption(option, true);
+}
 
   private buildMarkLineData(cursorTrackIndex: number | null): unknown[] {
     return this.markLineService.buildMarkLineData({

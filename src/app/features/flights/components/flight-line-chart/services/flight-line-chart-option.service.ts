@@ -2,17 +2,17 @@ import { Injectable, inject } from '@angular/core';
 
 import type { EChartsCoreOption } from 'echarts/core';
 
-import { FlightChartPoint } from '../flight-line-chart';
+import { FlightChartPoint, FlightLineChartType } from '../flight-line-chart';
 import { FlightLineChartTimeService } from './flight-line-chart-time.service';
 import { FlightLineChartTooltipService } from './flight-line-chart-tooltip.service';
 
 export interface FlightLineChartOptionOptions {
   title: string;
   unit: string;
+  chartType: FlightLineChartType;
   data: FlightChartPoint[];
   markLineData: unknown[];
 }
-
 @Injectable()
 export class FlightLineChartOptionService {
   private readonly timeService = inject(FlightLineChartTimeService);
@@ -54,7 +54,7 @@ export class FlightLineChartOptionService {
         padding: 0,
         extraCssText: 'box-shadow: none;',
         formatter: (params: unknown) =>
-          this.tooltipService.formatTooltip(params),
+          this.tooltipService.formatTooltip(params, options.chartType),
       },
 
       xAxis: {
