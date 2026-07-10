@@ -371,12 +371,18 @@ export class Flight3d implements AfterViewInit, OnDestroy {
       this.settingsStore.varioChartResolutionInSec(),
       this.settingsStore.speedChartResolutionInSec(),
       this.settingsStore.threeDTrackAltitudeOffsetM(),
+      this.settingsStore.threeDVerticalExaggeration(),
+      this.settingsStore.threeDVerticalExaggerationRelativeHeight(),
       this.settingsStore.threeDRenderStep(),
       this.settingsStore.threeDVarioClassCount(),
       this.settingsStore.threeDMaxVarioForColorMs(),
+
+      // Wichtig: beeinflusst den tatsächlich gezeichneten 3D-Track
+      this.store.showOnlySelectedClimbTrack(),
+      this.store.selectedClimbId(),
     ].join('|');
   }
-
+  
   private buildTrackRenderOptions(
     shouldCenter: boolean,
     replayActive = this.store.replay.active()
