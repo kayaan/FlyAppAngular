@@ -76,7 +76,7 @@ export class Flight3dTrackRendererService {
         continue;
       }
 
-      polyline.width = new ConstantProperty(enabled ? 1.0 : 1.5);
+      polyline.width = new ConstantProperty(enabled ? 1.5 : 3);
 
       const colorCss = entity.properties?.getValue()?.['colorCss'] as
         | string
@@ -87,7 +87,7 @@ export class Flight3dTrackRendererService {
       }
 
       const color = Color.fromCssColorString(colorCss).withAlpha(
-        enabled ? 0.35 : 1.0
+        enabled ? 0.8 : 1.0
       );
 
       polyline.material = new ColorMaterialProperty(color);
@@ -284,7 +284,7 @@ export class Flight3dTrackRendererService {
       },
       polyline: {
         positions,
-        width: new ConstantProperty(1.5),
+        width: new ConstantProperty(3),
         material: new ColorMaterialProperty(color),
         clampToGround: false,
         arcType: ArcType.NONE,
