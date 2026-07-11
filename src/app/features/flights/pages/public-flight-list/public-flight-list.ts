@@ -2,26 +2,31 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 
-import {
-  PublicFlightsApiService,
-  PublicFlightSort,
-  PublicFlightSortDirection,
-  PublicFlightsQuery,
-} from '../../services/public-flights-api.service';
+import { AppErrorService } from '../../../../core/errors/app-error.service';
 import { PublicFlight } from '../../models/public-flight.model';
 import { FlightDatePipe } from '../../pipes/flight-date.pipe';
 import { FlightDurationPipe } from '../../pipes/flight-duration.pipe';
+import {
+  PublicFlightsApiService,
+  PublicFlightsQuery,
+  PublicFlightSort,
+  PublicFlightSortDirection,
+} from '../../services/public-flights-api.service';
 
 @Component({
   selector: 'app-public-flight-list',
   standalone: true,
-  imports: [RouterLink, FlightDatePipe,
-    FlightDurationPipe,],
+  imports: [
+    RouterLink,
+    FlightDatePipe,
+    FlightDurationPipe,
+  ],
   templateUrl: './public-flight-list.html',
   styleUrl: './public-flight-list.scss',
 })
 export class PublicFlightList {
   private readonly api = inject(PublicFlightsApiService);
+  private readonly errorService = inject(AppErrorService);
 
   readonly flights = signal<PublicFlight[]>([]);
   readonly loading = signal(false);
@@ -35,9 +40,12 @@ export class PublicFlightList {
   readonly from = signal('');
   readonly to = signal('');
   readonly sort = signal<PublicFlightSort>('date');
-  readonly direction = signal<PublicFlightSortDirection>('desc');
+  readonly direction =
+    signal<PublicFlightSortDirection>('desc');
 
-  readonly hasFlights = computed(() => this.flights().length > 0);
+  readonly hasFlights = computed(
+    () => this.flights().length > 0
+  );
 
   readonly hasActiveFilters = computed(
     () =>
@@ -67,15 +75,26 @@ export class PublicFlightList {
     };
 
     try {
-      const result = await firstValueFrom(this.api.getPublicFlights(query));
+      const result = await firstValueFrom(
+        this.api.getPublicFlights(query)
+      );
 
       this.flights.set(result.items);
       this.totalItems.set(result.totalItems);
       this.page.set(result.page);
       this.totalPages.set(result.totalPages);
     } catch (error) {
-      console.error('Failed to load public flights', error);
-      this.error.set('Public flights could not be loaded.');
+      this.flights.set([]);
+      this.totalItems.set(0);
+      this.page.set(0);
+      this.totalPages.set(0);
+
+      this.error.set(
+        this.errorService.getMessage(
+          error,
+          'Public flights could not be loaded.'
+        )
+      );
     } finally {
       this.loading.set(false);
     }
@@ -111,7 +130,6 @@ export class PublicFlightList {
     await this.load(this.page() - 1);
   }
 
-
   onSearchInput(event: Event): void {
     const input = event.target as HTMLInputElement;
     this.q.set(input.value);
@@ -145,16 +163,22 @@ export class PublicFlightList {
 
   async setSort(sort: PublicFlightSort): Promise<void> {
     if (this.sort() === sort) {
-      this.direction.set(this.direction() === 'asc' ? 'desc' : 'asc');
+      this.direction.set(
+        this.direction() === 'asc' ? 'desc' : 'asc'
+      );
     } else {
       this.sort.set(sort);
-      this.direction.set(this.defaultDirectionFor(sort));
+      this.direction.set(
+        this.defaultDirectionFor(sort)
+      );
     }
 
     await this.load(0);
   }
 
-  sortDirectionLabel(sort: PublicFlightSort): string {
+  sortDirectionLabel(
+    sort: PublicFlightSort
+  ): string {
     if (this.sort() !== sort) {
       return '';
     }
@@ -162,7 +186,13 @@ export class PublicFlightList {
     return this.direction() === 'asc' ? '↑' : '↓';
   }
 
-  private defaultDirectionFor(sort: PublicFlightSort): PublicFlightSortDirection {
+  clearError(): void {
+    this.error.set(null);
+  }
+
+  private defaultDirectionFor(
+    sort: PublicFlightSort
+  ): PublicFlightSortDirection {
     switch (sort) {
       case 'date':
       case 'duration':

@@ -8,16 +8,24 @@ import {
 } from '@ngrx/signals';
 import { firstValueFrom } from 'rxjs';
 
+import { AppErrorService } from '../../../core/errors/app-error.service';
+import { BackendAvailabilityService } from '../../../core/layout/app-shell/services/backend-availability.service';
 import { FlightIndexedDbService } from '../data-access/flight-indexeddb.service';
 import { LocalFlightListItem } from '../data-access/flight-storage.interface';
-import { BackendFlight, FlightVisibility } from '../models/backend-flight.model';
+import {
+  BackendFlight,
+  FlightVisibility,
+} from '../models/backend-flight.model';
+import {
+  DEFAULT_FLIGHT_LIST_SORT,
+  FlightListSort,
+  FlightSortKey,
+} from '../models/flight-list-sort';
 import { BackendFlightsApiService } from '../services/backend-flights-api.service';
 import { FlightBackendSyncService } from '../services/flight-backend-sync.service';
 import { FlightListMergeService } from '../services/flight-list-merge.service';
-import { FlightSaveService } from '../services/flight-save.service';
-import { DEFAULT_FLIGHT_LIST_SORT, FlightListSort, FlightSortKey } from '../models/flight-list-sort';
 import { FlightListSortService } from '../services/flight-list-sort.service';
-import { BackendAvailabilityService } from '../../../core/layout/app-shell/services/backend-availability.service';
+import { FlightSaveService } from '../services/flight-save.service';
 
 type FlightsState = {
   localFlightListItems: LocalFlightListItem[];
@@ -32,13 +40,11 @@ type FlightsState = {
 
   uploadingFlightId: string | null;
   downloadingFlightId: string | null;
+  deletingRemoteFlightId: string | null;
+  updatingVisibilityFlightId: string | null;
+
   syncErrorByFlightId: Record<string, string>;
   uploadingAll: boolean;
-
-
-  deletingRemoteFlightId: string | null;
-
-  updatingVisibilityFlightId: string | null;
 
   sort: FlightListSort;
 };
@@ -56,14 +62,13 @@ const initialState: FlightsState = {
 
   uploadingFlightId: null,
   downloadingFlightId: null,
+  deletingRemoteFlightId: null,
+  updatingVisibilityFlightId: null,
+
   syncErrorByFlightId: {},
   uploadingAll: false,
 
-  deletingRemoteFlightId: null,
-
-  updatingVisibilityFlightId: null,
-
-  sort: DEFAULT_FLIGHT_LIST_SORT
+  sort: DEFAULT_FLIGHT_LIST_SORT,
 };
 
 export const FlightsStore = signalStore(
@@ -76,12 +81,18 @@ export const FlightsStore = signalStore(
     const sortService = inject(FlightListSortService);
 
     const mergedFlightListItems = computed(() =>
-      mergeService.merge(store.localFlightListItems(), store.backendFlights())
+      mergeService.merge(
+        store.localFlightListItems(),
+        store.backendFlights()
+      )
     );
 
     return {
       flightListItems: computed(() =>
-        sortService.sort(mergedFlightListItems(), store.sort())
+        sortService.sort(
+          mergedFlightListItems(),
+          store.sort()
+        )
       ),
 
       localOnlyFlightIds: computed(() =>
@@ -90,9 +101,11 @@ export const FlightsStore = signalStore(
           .map((item) => item.id)
       ),
 
-      localOnlyCount: computed(() =>
-        mergedFlightListItems()
-          .filter((item) => item.syncStatus === 'localOnly').length
+      localOnlyCount: computed(
+        () =>
+          mergedFlightListItems().filter(
+            (item) => item.syncStatus === 'localOnly'
+          ).length
       ),
     };
   }),
@@ -102,22 +115,29 @@ export const FlightsStore = signalStore(
     const flightSaveService = inject(FlightSaveService);
     const backendFlightsApi = inject(BackendFlightsApiService);
     const backendSync = inject(FlightBackendSyncService);
-    const backendAvailability = inject(BackendAvailabilityService);
-
+    const backendAvailability = inject(
+      BackendAvailabilityService
+    );
+    const errorService = inject(AppErrorService);
 
     function clearSyncError(flightId: string): void {
-      const current = store.syncErrorByFlightId();
-      const { [flightId]: _, ...rest } = current;
+      const currentErrors = store.syncErrorByFlightId();
+      const {
+        [flightId]: removedError,
+        ...remainingErrors
+      } = currentErrors;
+
+      void removedError;
 
       patchState(store, {
-        syncErrorByFlightId: rest,
+        syncErrorByFlightId: remainingErrors,
       });
     }
 
-
-
-
-    function setSyncError(flightId: string, message: string): void {
+    function setSyncError(
+      flightId: string,
+      message: string
+    ): void {
       patchState(store, {
         syncErrorByFlightId: {
           ...store.syncErrorByFlightId(),
@@ -128,66 +148,20 @@ export const FlightsStore = signalStore(
 
     return {
       setSort(key: FlightSortKey): void {
-        const current = store.sort();
+        const currentSort = store.sort();
 
         patchState(store, {
           sort: {
             key,
             direction:
-              current.key === key && current.direction === 'asc'
+              currentSort.key === key &&
+              currentSort.direction === 'asc'
                 ? 'desc'
                 : 'asc',
           },
         });
       },
 
-      async updateRemoteVisibility(
-        flightId: string,
-        visibility: FlightVisibility
-      ): Promise<void> {
-        patchState(store, {
-          updatingVisibilityFlightId: flightId,
-        });
-
-        clearSyncError(flightId);
-
-        try {
-          const updatedFlight = await firstValueFrom(
-            backendFlightsApi.updateVisibility(flightId, visibility)
-          );
-
-          patchState(store, {
-            backendFlights: store.backendFlights().map((flight) =>
-              flight.id === updatedFlight.id ? updatedFlight : flight
-            ),
-            updatingVisibilityFlightId: null,
-          });
-        } catch (error) {
-          console.error('Failed to update flight visibility', error);
-
-          setSyncError(flightId, 'Visibility update failed.');
-
-          patchState(store, {
-            updatingVisibilityFlightId: null,
-          });
-        }
-      },
-
-      clearBackendState(): void {
-        patchState(store, {
-          backendFlights: [],
-          backendFlightsLoading: false,
-          backendFlightsError: null,
-
-          uploadingFlightId: null,
-          uploadingAll: false,
-          downloadingFlightId: null,
-          deletingRemoteFlightId: null,
-          updatingVisibilityFlightId: null,
-
-          syncErrorByFlightId: {},
-        });
-      },
       async loadFlights(): Promise<void> {
         patchState(store, {
           loading: true,
@@ -197,21 +171,26 @@ export const FlightsStore = signalStore(
         });
 
         try {
-          const localFlightListItems = await storage.getFlightListItems();
+          const localFlightListItems =
+            await storage.getFlightListItems();
 
           patchState(store, {
             localFlightListItems,
             loading: false,
           });
-        } catch {
+        } catch (error) {
           patchState(store, {
             localFlightListItems: [],
             loading: false,
-            error: 'Could not load local flights.',
+            error: errorService.getMessage(
+              error,
+              'Could not load local flights.'
+            ),
           });
         }
 
-        const backendAvailable = await backendAvailability.check();
+        const backendAvailable =
+          await backendAvailability.check();
 
         if (!backendAvailable) {
           patchState(store, {
@@ -226,32 +205,6 @@ export const FlightsStore = signalStore(
         await this.loadBackendFlights();
       },
 
-      async deleteRemoteFlight(flightId: string): Promise<void> {
-        patchState(store, {
-          deletingRemoteFlightId: flightId,
-        });
-
-        clearSyncError(flightId);
-
-        try {
-          await firstValueFrom(backendFlightsApi.deleteFlight(flightId));
-
-          await this.loadBackendFlights();
-
-          patchState(store, {
-            deletingRemoteFlightId: null,
-          });
-        } catch (error) {
-          console.error('Failed to delete remote flight', error);
-
-          setSyncError(flightId, 'Remote delete failed.');
-
-          patchState(store, {
-            deletingRemoteFlightId: null,
-          });
-        }
-      },
-
       async loadLocalFlights(): Promise<void> {
         patchState(store, {
           loading: true,
@@ -259,23 +212,28 @@ export const FlightsStore = signalStore(
         });
 
         try {
-          const localFlightListItems = await storage.getFlightListItems();
+          const localFlightListItems =
+            await storage.getFlightListItems();
 
           patchState(store, {
             localFlightListItems,
             loading: false,
           });
-        } catch {
+        } catch (error) {
           patchState(store, {
             localFlightListItems: [],
             loading: false,
-            error: 'Could not load local flights.',
+            error: errorService.getMessage(
+              error,
+              'Could not load local flights.'
+            ),
           });
         }
       },
 
       async loadBackendFlights(): Promise<void> {
-        const backendAvailable = await backendAvailability.check();
+        const backendAvailable =
+          await backendAvailability.check();
 
         if (!backendAvailable) {
           patchState(store, {
@@ -302,11 +260,15 @@ export const FlightsStore = signalStore(
             backendFlightsLoading: false,
             backendFlightsError: null,
           });
-        } catch {
+        } catch (error) {
           patchState(store, {
             backendFlights: [],
             backendFlightsLoading: false,
-            backendFlightsError: null,
+            backendFlightsError:
+              errorService.getMessage(
+                error,
+                'Could not load remote flights.'
+              ),
           });
         }
       },
@@ -315,7 +277,9 @@ export const FlightsStore = signalStore(
         await this.importFiles([file]);
       },
 
-      async importFiles(files: FileList | File[]): Promise<void> {
+      async importFiles(
+        files: FileList | File[]
+      ): Promise<void> {
         const fileArray = Array.from(files);
 
         if (fileArray.length === 0) {
@@ -333,7 +297,8 @@ export const FlightsStore = signalStore(
           let duplicateCount = 0;
 
           for (const file of fileArray) {
-            const result = await flightSaveService.saveFile(file);
+            const result =
+              await flightSaveService.saveFile(file);
 
             if (result.duplicate) {
               duplicateCount++;
@@ -343,7 +308,8 @@ export const FlightsStore = signalStore(
             lastImportedFlightId = result.flightId;
           }
 
-          const localFlightListItems = await storage.getFlightListItems();
+          const localFlightListItems =
+            await storage.getFlightListItems();
 
           patchState(store, {
             localFlightListItems,
@@ -354,15 +320,20 @@ export const FlightsStore = signalStore(
                 ? `${duplicateCount} file(s) were already imported.`
                 : null,
           });
-        } catch {
+        } catch (error) {
           patchState(store, {
             loading: false,
-            error: 'Could not import flights.',
+            error: errorService.getMessage(
+              error,
+              'Could not import flights.'
+            ),
           });
         }
       },
 
-      async syncUploadFlight(flightId: string): Promise<void> {
+      async syncUploadFlight(
+        flightId: string
+      ): Promise<void> {
         patchState(store, {
           uploadingFlightId: flightId,
         });
@@ -371,16 +342,19 @@ export const FlightsStore = signalStore(
 
         try {
           await backendSync.uploadFlight(flightId);
-
           await this.loadBackendFlights();
 
           patchState(store, {
             uploadingFlightId: null,
           });
         } catch (error) {
-          console.error('Failed to upload flight to backend', error);
-
-          setSyncError(flightId, 'Upload failed.');
+          setSyncError(
+            flightId,
+            errorService.getMessage(
+              error,
+              'Flight upload failed.'
+            )
+          );
 
           patchState(store, {
             uploadingFlightId: null,
@@ -397,6 +371,7 @@ export const FlightsStore = signalStore(
 
         patchState(store, {
           uploadingAll: true,
+          uploadingFlightId: null,
           error: null,
         });
 
@@ -412,10 +387,15 @@ export const FlightsStore = signalStore(
           try {
             await backendSync.uploadFlight(flightId);
           } catch (error) {
-            console.error('Failed to upload flight to backend', error);
-
             failedCount++;
-            setSyncError(flightId, 'Upload failed.');
+
+            setSyncError(
+              flightId,
+              errorService.getMessage(
+                error,
+                'Flight upload failed.'
+              )
+            );
           }
         }
 
@@ -431,7 +411,9 @@ export const FlightsStore = signalStore(
         });
       },
 
-      async syncDownloadFlight(flightId: string): Promise<void> {
+      async syncDownloadFlight(
+        flightId: string
+      ): Promise<void> {
         patchState(store, {
           downloadingFlightId: flightId,
         });
@@ -441,7 +423,8 @@ export const FlightsStore = signalStore(
         try {
           await backendSync.downloadFlight(flightId);
 
-          const localFlightListItems = await storage.getFlightListItems();
+          const localFlightListItems =
+            await storage.getFlightListItems();
 
           patchState(store, {
             localFlightListItems,
@@ -450,9 +433,13 @@ export const FlightsStore = signalStore(
 
           await this.loadBackendFlights();
         } catch (error) {
-          console.error('Failed to download flight from backend', error);
-
-          setSyncError(flightId, 'Download failed.');
+          setSyncError(
+            flightId,
+            errorService.getMessage(
+              error,
+              'Flight download failed.'
+            )
+          );
 
           patchState(store, {
             downloadingFlightId: null,
@@ -460,7 +447,9 @@ export const FlightsStore = signalStore(
         }
       },
 
-      async deleteFlight(flightId: string): Promise<void> {
+      async deleteFlight(
+        flightId: string
+      ): Promise<void> {
         patchState(store, {
           loading: true,
           error: null,
@@ -469,18 +458,121 @@ export const FlightsStore = signalStore(
         try {
           await storage.deleteFlight(flightId);
 
-          const localFlightListItems = await storage.getFlightListItems();
+          const localFlightListItems =
+            await storage.getFlightListItems();
+
+          clearSyncError(flightId);
 
           patchState(store, {
             localFlightListItems,
             loading: false,
           });
-        } catch {
+        } catch (error) {
           patchState(store, {
             loading: false,
-            error: 'Could not delete flight.',
+            error: errorService.getMessage(
+              error,
+              'Local flight could not be deleted.'
+            ),
           });
         }
+      },
+
+      async deleteRemoteFlight(
+        flightId: string
+      ): Promise<void> {
+        patchState(store, {
+          deletingRemoteFlightId: flightId,
+        });
+
+        clearSyncError(flightId);
+
+        try {
+          await firstValueFrom(
+            backendFlightsApi.deleteFlight(flightId)
+          );
+
+          await this.loadBackendFlights();
+
+          patchState(store, {
+            deletingRemoteFlightId: null,
+          });
+        } catch (error) {
+          setSyncError(
+            flightId,
+            errorService.isNotFound(error)
+              ? 'The remote flight no longer exists.'
+              : errorService.getMessage(
+                  error,
+                  'Remote flight could not be deleted.'
+                )
+          );
+
+          patchState(store, {
+            deletingRemoteFlightId: null,
+          });
+        }
+      },
+
+      async updateRemoteVisibility(
+        flightId: string,
+        visibility: FlightVisibility
+      ): Promise<void> {
+        patchState(store, {
+          updatingVisibilityFlightId: flightId,
+        });
+
+        clearSyncError(flightId);
+
+        try {
+          const updatedFlight = await firstValueFrom(
+            backendFlightsApi.updateVisibility(
+              flightId,
+              visibility
+            )
+          );
+
+          patchState(store, {
+            backendFlights: store
+              .backendFlights()
+              .map((flight) =>
+                flight.id === updatedFlight.id
+                  ? updatedFlight
+                  : flight
+              ),
+            updatingVisibilityFlightId: null,
+          });
+        } catch (error) {
+          setSyncError(
+            flightId,
+            errorService.isNotFound(error)
+              ? 'The remote flight no longer exists.'
+              : errorService.getMessage(
+                  error,
+                  'Visibility update failed.'
+                )
+          );
+
+          patchState(store, {
+            updatingVisibilityFlightId: null,
+          });
+        }
+      },
+
+      clearBackendState(): void {
+        patchState(store, {
+          backendFlights: [],
+          backendFlightsLoading: false,
+          backendFlightsError: null,
+
+          uploadingFlightId: null,
+          downloadingFlightId: null,
+          deletingRemoteFlightId: null,
+          updatingVisibilityFlightId: null,
+
+          uploadingAll: false,
+          syncErrorByFlightId: {},
+        });
       },
 
       clearError(): void {
@@ -493,6 +585,10 @@ export const FlightsStore = signalStore(
         patchState(store, {
           backendFlightsError: null,
         });
+      },
+
+      clearSyncError(flightId: string): void {
+        clearSyncError(flightId);
       },
     };
   })

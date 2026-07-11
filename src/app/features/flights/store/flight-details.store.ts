@@ -8,6 +8,8 @@ import {
 } from '@ngrx/signals';
 import { firstValueFrom } from 'rxjs';
 
+import { AppErrorService } from '../../../core/errors/app-error.service';
+
 import { Flight } from '../models/flight.model';
 import { TrackArrays } from '../models/track-arrays.model';
 import { Climb } from '../models/climb.model';
@@ -157,6 +159,7 @@ export const FlightDetailsStore = signalStore(
 
   withComputed((store) => {
     const settings = inject(FlightSettingsStore);
+    const errorService = inject(AppErrorService);
     const trackColorService = inject(TrackColorService);
 
     return {
@@ -182,6 +185,7 @@ export const FlightDetailsStore = signalStore(
     const climbDetector = inject(ClimbDetectorService);
     const trackMetricsService = inject(TrackMetricsService);
     const settings = inject(FlightSettingsStore);
+    const errorService = inject(AppErrorService);
 
     function resetBeforeLoad(): void {
       patchState(store, {
@@ -612,7 +616,7 @@ export const FlightDetailsStore = signalStore(
             resetChartZoomRequest: store.resetChartZoomRequest() + 1,
             showOnlySelectedClimbTrack: false,
           });
-        } catch {
+        } catch (error) {
           patchState(store, {
             flight: null,
             track: null,
@@ -623,7 +627,10 @@ export const FlightDetailsStore = signalStore(
             selectedRange: null,
             cursorIndex: null,
             loading: false,
-            error: 'Could not load flight details.',
+            error: errorService.getMessage(
+              error,
+              'Could not load flight details.'
+            ),
             resetChartZoomRequest: store.resetChartZoomRequest() + 1,
             showOnlySelectedClimbTrack: false,
           });
@@ -695,7 +702,12 @@ export const FlightDetailsStore = signalStore(
             showOnlySelectedClimbTrack: false,
           });
         } catch (error) {
-          console.error('Could not load public flight details.', error);
+          const message = errorService.isNotFound(error)
+            ? 'The public flight no longer exists or is not public.'
+            : errorService.getMessage(
+                error,
+                'Could not load public flight details.'
+              );
 
           patchState(store, {
             flight: null,
@@ -707,7 +719,7 @@ export const FlightDetailsStore = signalStore(
             selectedRange: null,
             cursorIndex: null,
             loading: false,
-            error: 'Could not load public flight details.',
+            error: message,
             resetChartZoomRequest: store.resetChartZoomRequest() + 1,
             showOnlySelectedClimbTrack: false,
           });

@@ -143,9 +143,13 @@ export class FlightList implements OnInit, OnDestroy {
       return;
     }
 
-    this.eventSource = this.syncEvents.connect(() => {
-      void this.store.loadBackendFlights();
-    });
+    this.eventSource =
+      this.syncEvents.connect({
+        onFlightChanged: (event) => {
+          void this.store.loadBackendFlights();
+        },
+      });
+
   }
 
   private closeSyncEvents(): void {

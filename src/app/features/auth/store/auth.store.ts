@@ -1,4 +1,3 @@
-
 import { computed, inject } from '@angular/core';
 import {
   patchState,
@@ -9,9 +8,10 @@ import {
 } from '@ngrx/signals';
 import { firstValueFrom } from 'rxjs';
 
+import { BackendAvailabilityService } from '../../../core/layout/app-shell/services/backend-availability.service';
+import { AppErrorService } from '../../../core/errors/app-error.service';
 import { CurrentUser } from '../models/current-user.model';
 import { AuthApiService } from '../services/auth-api.service';
-import { BackendAvailabilityService } from '../../../core/layout/app-shell/services/backend-availability.service';
 
 type AuthState = {
   user: CurrentUser | null;
@@ -34,71 +34,109 @@ export const AuthStore = signalStore(
 
   withComputed((store) => ({
     authenticated: computed(() => store.user() !== null),
-    displayName: computed(() => store.user()?.displayName ?? store.user()?.email ?? null),
+
+    displayName: computed(
+      () =>
+        store.user()?.displayName ??
+        store.user()?.email ??
+        null
+    ),
   })),
 
-  withMethods((
-    store,
-    authApi = inject(AuthApiService),
-    backendAvailability = inject(BackendAvailabilityService)
-  ) => ({
-    async loadMe(): Promise<void> {
-      const backendAvailable = await backendAvailability.check();
+  withMethods(
+    (
+      store,
+      authApi = inject(AuthApiService),
+      backendAvailability = inject(BackendAvailabilityService),
+      errorService = inject(AppErrorService)
+    ) => ({
+      async loadMe(): Promise<void> {
+        const backendAvailable =
+          await backendAvailability.check();
 
-      if (!backendAvailable) {
+        if (!backendAvailable) {
+          patchState(store, {
+            user: null,
+            loading: false,
+            checked: true,
+            error: null,
+          });
+
+          return;
+        }
+
         patchState(store, {
-          user: null,
-          loading: false,
-          checked: true,
+          loading: true,
           error: null,
         });
 
-        return;
-      }
+        try {
+          const user = await firstValueFrom(authApi.getMe());
 
-      patchState(store, {
-        loading: true,
-        error: null,
-      });
+          patchState(store, {
+            user,
+            loading: false,
+            checked: true,
+            error: null,
+          });
+        } catch (error) {
+          const notAuthenticated =
+            errorService.isUnauthorized(error) ||
+            errorService.isForbidden(error);
 
-      try {
-        const user = await firstValueFrom(authApi.getMe());
+          patchState(store, {
+            user: null,
+            loading: false,
+            checked: true,
+            error: notAuthenticated
+              ? null
+              : errorService.getMessage(
+                  error,
+                  'Login status could not be loaded.'
+                ),
+          });
+        }
+      },
 
+      loginWithGoogle(): void {
+        authApi.loginWithGoogle();
+      },
+
+      async logout(): Promise<void> {
         patchState(store, {
-          user,
-          loading: false,
-          checked: true,
+          loading: true,
           error: null,
         });
-      } catch {
+
+        try {
+          await firstValueFrom(authApi.logout());
+
+          patchState(store, {
+            user: null,
+            loading: false,
+            checked: true,
+            error: null,
+          });
+        } catch (error) {
+          patchState(store, {
+            loading: false,
+            error: errorService.getMessage(
+              error,
+              'Logout failed.'
+            ),
+          });
+        }
+      },
+
+      clearError(): void {
         patchState(store, {
-          user: null,
-          loading: false,
-          checked: true,
           error: null,
         });
-      }
-    },
+      },
 
-    loginWithGoogle(): void {
-      authApi.loginWithGoogle();
-    },
-
-    async logout(): Promise<void> {
-      try {
-        await firstValueFrom(authApi.logout());
-      } finally {
-        patchState(store, {
-          user: null,
-          loading: false,
-          checked: true,
-          error: null,
-        });
-      }
-    },
-
-    clear(): void {
-      patchState(store, initialState);
-    },
-  }))
+      clear(): void {
+        patchState(store, initialState);
+      },
+    })
+  )
 );
