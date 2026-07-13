@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { TrackArrays } from '../models/track-arrays.model';
 import { TrackColorService } from './track-color.service';
-import { TrackMathUtils } from './track-math-utils';
+import { TrackMathUtils } from '../domain/track-math-utils';
+
 
 describe('TrackColorService', () => {
     let service: TrackColorService;
