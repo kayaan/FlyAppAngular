@@ -1,0 +1,111 @@
+<button
+  type="button"
+  class="settings-button"
+  title="Settings"
+  aria-label="Open settings"
+  (click)="openDrawer()"
+>
+  ⚙
+</button>
+
+@if (open()) {
+  <div
+    class="drawer-backdrop"
+    (click)="closeDrawer()"
+  ></div>
+
+  <aside
+    class="settings-drawer"
+    aria-label="Flight details settings"
+  >
+    <header class="drawer-header">
+      <div>
+        <h2>Settings</h2>
+        <p>Chart visibility and resolution</p>
+      </div>
+
+      <button
+        type="button"
+        class="drawer-close"
+        aria-label="Close settings"
+        (click)="closeDrawer()"
+      >
+        ×
+      </button>
+    </header>
+
+    <section class="drawer-section">
+      <h3>Visible charts</h3>
+
+      <label class="checkbox-row">
+        <input
+          type="checkbox"
+          [checked]="settingsStore.showAltitudeChart()"
+          (change)="setAltitudeChartVisible($event)"
+        />
+        <span>Altitude chart</span>
+      </label>
+
+      <label class="checkbox-row">
+        <input
+          type="checkbox"
+          [checked]="settingsStore.showVarioChart()"
+          (change)="setVarioChartVisible($event)"
+        />
+        <span>Climb chart</span>
+      </label>
+
+      <label class="checkbox-row">
+        <input
+          type="checkbox"
+          [checked]="settingsStore.showSpeedChart()"
+          (change)="setSpeedChartVisible($event)"
+        />
+        <span>Speed chart</span>
+      </label>
+    </section>
+
+    <section class="drawer-section">
+      <h3>Resolution</h3>
+
+      <label class="number-row">
+        <span>Altitude resolution</span>
+
+        <input
+          type="number"
+          min="1"
+          max="60"
+          step="1"
+          [value]="settingsStore.altitudeChartResolutionInSec()"
+          (input)="setAltitudeResolution($event)"
+        />
+      </label>
+
+      <label class="number-row">
+        <span>Climb resolution</span>
+
+        <input
+          type="number"
+          min="1"
+          max="60"
+          step="1"
+          [value]="settingsStore.varioChartResolutionInSec()"
+          (input)="setVarioResolution($event)"
+        />
+      </label>
+
+      <label class="number-row">
+        <span>Speed resolution</span>
+
+        <input
+          type="number"
+          min="1"
+          max="60"
+          step="1"
+          [value]="settingsStore.speedChartResolutionInSec()"
+          (input)="setSpeedResolution($event)"
+        />
+      </label>
+    </section>
+  </aside>
+}

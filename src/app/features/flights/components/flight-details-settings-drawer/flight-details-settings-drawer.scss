@@ -1,0 +1,163 @@
+.settings-button {
+  flex: 0 0 auto;
+
+  width: 38px;
+  height: 38px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  border: 1px solid #d0d5dd;
+  border-radius: 4px;
+  background: #ffffff;
+
+  color: #344054;
+  font-size: 18px;
+  cursor: pointer;
+
+  &:hover {
+    background: #f8fafc;
+  }
+}
+
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+
+  background: rgba(15, 23, 42, 0.25);
+}
+
+.settings-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  z-index: 1001;
+
+  width: min(420px, 100vw);
+  height: 100vh;
+
+  display: flex;
+  flex-direction: column;
+
+  background: #ffffff;
+  border-left: 1px solid #e5e7eb;
+  box-shadow: -20px 0 60px rgba(15, 23, 42, 0.2);
+
+  animation: drawer-slide-in 160ms ease-out;
+}
+
+.drawer-header {
+  flex: 0 0 auto;
+
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+
+  padding: 20px 22px;
+  border-bottom: 1px solid #eef2f7;
+
+  h2 {
+    margin: 0;
+
+    color: #0f172a;
+    font-size: 20px;
+    font-weight: 800;
+  }
+
+  p {
+    margin: 4px 0 0;
+
+    color: #667085;
+    font-size: 13px;
+  }
+}
+
+.drawer-close {
+  width: 34px;
+  height: 34px;
+
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  background: #ffffff;
+
+  color: #475467;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+
+  &:hover {
+    background: #f8fafc;
+  }
+}
+
+.drawer-section {
+  flex: 0 0 auto;
+
+  padding: 20px 22px;
+  border-bottom: 1px solid #eef2f7;
+
+  h3 {
+    margin: 0 0 14px;
+
+    color: #0f172a;
+    font-size: 14px;
+    font-weight: 800;
+  }
+}
+
+.checkbox-row,
+.number-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+
+  padding: 10px 0;
+
+  span {
+    color: #101828;
+    font-size: 14px;
+    font-weight: 600;
+  }
+}
+
+.checkbox-row {
+  justify-content: flex-start;
+
+  input {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+  }
+}
+
+.number-row {
+  input {
+    width: 90px;
+    height: 34px;
+    box-sizing: border-box;
+
+    border: 1px solid #d0d5dd;
+    border-radius: 4px;
+    padding: 0 10px;
+
+    color: #101828;
+    font-size: 14px;
+    font-weight: 650;
+  }
+}
+
+@keyframes drawer-slide-in {
+  from {
+    transform: translateX(32px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}

@@ -9,7 +9,6 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { debounceTime, Subject, takeUntil } from 'rxjs';
 
 import { FlightDetailsStore } from '../../store/flight-details.store';
 import { FlightSettingsStore } from '../../store/flight-settings.store';
@@ -24,9 +23,7 @@ import { FlightClimbsPanel } from '../../components/flight-climbs-panel/flight-c
 import { FlightReplayControls } from '../../components/flight-replay-controls/flight-replay-controls';
 import { TrackColorMode } from '../../models/flight-settings.model';
 import { FlightTrackTooltip } from '../../components/flight-track-tooltip/flight-track-tooltip';
-
-
-const RESOLUTION_INPUT_DEBOUNCE_MS = 350;
+import { FlightDetailsSettingsDrawer } from '../../components/flight-details-settings-drawer/flight-details-settings-drawer';
 
 @Component({
   selector: 'app-flight-details',
@@ -40,6 +37,7 @@ const RESOLUTION_INPUT_DEBOUNCE_MS = 350;
     FlightClimbsPanel,
     FlightReplayControls,
     FlightTrackTooltip,
+    FlightDetailsSettingsDrawer,
   ],
   templateUrl: './flight-details.html',
   styleUrl: './flight-details.scss',
@@ -50,14 +48,6 @@ export class FlightDetails implements OnInit, OnDestroy {
 
   readonly store = inject(FlightDetailsStore);
   readonly settingsStore = inject(FlightSettingsStore);
-
-  readonly settingsDrawerOpen = signal(false);
-
-  private readonly destroy$ = new Subject<void>();
-
-  private readonly altitudeResolutionInput$ = new Subject<number>();
-  private readonly varioResolutionInput$ = new Subject<number>();
-  private readonly speedResolutionInput$ = new Subject<number>();
 
   readonly isPublicFlight = computed(
     () => this.route.snapshot.data['source'] === 'public'
@@ -116,38 +106,6 @@ export class FlightDetails implements OnInit, OnDestroy {
     return this.toChartPoints(track.timeSec, metrics.speedKmh);
   });
 
-  constructor() {
-    this.altitudeResolutionInput$
-      .pipe(
-        debounceTime(RESOLUTION_INPUT_DEBOUNCE_MS),
-        takeUntil(this.destroy$)
-      )
-      .subscribe((value) => {
-        this.settingsStore.setAltitudeChartResolutionInSec(value);
-        this.store.recalculateTrackMetrics();
-      });
-
-    this.varioResolutionInput$
-      .pipe(
-        debounceTime(RESOLUTION_INPUT_DEBOUNCE_MS),
-        takeUntil(this.destroy$)
-      )
-      .subscribe((value) => {
-        this.settingsStore.setVarioChartResolutionInSec(value);
-        this.store.recalculateTrackMetrics();
-      });
-
-    this.speedResolutionInput$
-      .pipe(
-        debounceTime(RESOLUTION_INPUT_DEBOUNCE_MS),
-        takeUntil(this.destroy$)
-      )
-      .subscribe((value) => {
-        this.settingsStore.setSpeedChartResolutionInSec(value);
-        this.store.recalculateTrackMetrics();
-      });
-  }
-
   ngOnInit(): void {
     const flightId = this.route.snapshot.paramMap.get('id');
 
@@ -177,53 +135,18 @@ export class FlightDetails implements OnInit, OnDestroy {
       return;
     }
 
-    const module = await import('../../components/flight-3d/flight-3d');
+    const module = await import(
+      '../../components/flight-3d/flight-3d'
+    );
 
     this.flight3dComponent.set(module.Flight3d);
   }
 
   setTrackColorMode(event: Event): void {
-    const value = (event.target as HTMLSelectElement).value as TrackColorMode;
+    const value = (event.target as HTMLSelectElement)
+      .value as TrackColorMode;
 
     this.settingsStore.setTrackColorMode(value);
-  }
-
-  openSettingsDrawer(): void {
-    this.settingsDrawerOpen.set(true);
-  }
-
-  closeSettingsDrawer(): void {
-    this.settingsDrawerOpen.set(false);
-  }
-
-  setAltitudeChartVisible(event: Event): void {
-    const checked = (event.target as HTMLInputElement).checked;
-    this.settingsStore.setShowAltitudeChart(checked);
-  }
-
-  setVarioChartVisible(event: Event): void {
-    const checked = (event.target as HTMLInputElement).checked;
-    this.settingsStore.setShowVarioChart(checked);
-  }
-
-  setSpeedChartVisible(event: Event): void {
-    const checked = (event.target as HTMLInputElement).checked;
-    this.settingsStore.setShowSpeedChart(checked);
-  }
-
-  setAltitudeResolution(event: Event): void {
-    const value = Number((event.target as HTMLInputElement).value);
-    this.altitudeResolutionInput$.next(value);
-  }
-
-  setVarioResolution(event: Event): void {
-    const value = Number((event.target as HTMLInputElement).value);
-    this.varioResolutionInput$.next(value);
-  }
-
-  setSpeedResolution(event: Event): void {
-    const value = Number((event.target as HTMLInputElement).value);
-    this.speedResolutionInput$.next(value);
   }
 
   private toChartPoints(
@@ -262,7 +185,9 @@ export class FlightDetails implements OnInit, OnDestroy {
     }).format(date);
   }
 
-  formatDuration(durationSec: number | undefined | null): string {
+  formatDuration(
+    durationSec: number | undefined | null
+  ): string {
     if (durationSec == null) {
       return '—';
     }
@@ -277,7 +202,9 @@ export class FlightDetails implements OnInit, OnDestroy {
     return `${minutes}m`;
   }
 
-  formatDistance(distanceM: number | undefined | null): string {
+  formatDistance(
+    distanceM: number | undefined | null
+  ): string {
     if (distanceM == null) {
       return '—';
     }
@@ -285,7 +212,9 @@ export class FlightDetails implements OnInit, OnDestroy {
     return `${(distanceM / 1000).toFixed(1)} km`;
   }
 
-  formatHeight(heightM: number | undefined | null): string {
+  formatHeight(
+    heightM: number | undefined | null
+  ): string {
     if (heightM == null) {
       return '—';
     }
@@ -293,7 +222,9 @@ export class FlightDetails implements OnInit, OnDestroy {
     return `${Math.round(heightM)} m`;
   }
 
-  formatSpeed(speedKmh: number | undefined | null): string {
+  formatSpeed(
+    speedKmh: number | undefined | null
+  ): string {
     if (speedKmh == null) {
       return '—';
     }
@@ -302,9 +233,6 @@ export class FlightDetails implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this.destroy$.next();
-    this.destroy$.complete();
-
     this.store.clear();
   }
 }

@@ -8,262 +8,160 @@
     </a>
 
     @if (store.flight(); as flight) {
-    <div class="title-line">
-      <strong>{{ formatDate(flight.flightDate) }}</strong>
-      <span>·</span>
-      <span>{{ flight.pilot || 'Unknown pilot' }}</span>
-      <span>·</span>
-      <span>{{ flight.glider || 'Unknown glider' }}</span>
-    </div>
+      <div class="title-line">
+        <strong>{{ formatDate(flight.flightDate) }}</strong>
+        <span>·</span>
+        <span>{{ flight.pilot || 'Unknown pilot' }}</span>
+        <span>·</span>
+        <span>{{ flight.glider || 'Unknown glider' }}</span>
+      </div>
     }
 
-    <button
-      type="button"
-      class="settings-button"
-      title="Settings"
-      (click)="openSettingsDrawer()"
-    >
-      ⚙
-    </button>
+    <app-flight-details-settings-drawer />
   </header>
 
   @if (store.loading()) {
-  <div class="loading-box">Loading flight...</div>
+    <div class="loading-box">Loading flight...</div>
   }
 
   @if (store.error()) {
-  <div class="error-box">
-    {{ store.error() }}
-  </div>
+    <div class="error-box">
+      {{ store.error() }}
+    </div>
   }
 
   @if (!store.loading() && store.flight(); as flight) {
+    <div class="details-layout">
+      <section class="left-panel">
+        <app-flight-summary-tags />
 
-  <div class="details-layout">
-    <section class="left-panel">
+        <app-flight-climbs-panel />
 
-      <app-flight-summary-tags />
-      <app-flight-climbs-panel />
+        @if (settingsStore.showAltitudeChart()) {
+          <section class="chart-card">
+            <header>
+              <h2>Altitude</h2>
+            </header>
 
-      @if(settingsStore.showAltitudeChart()){
-      <section class="chart-card">
-        <header>
-          <h2>Altitude</h2>
-        </header>
-
-        <div class="chart-body">
-          <app-flight-line-chart
-            title="Altitude"
-            unit="m"
-            chartType="altitude"
-            [data]="altitudeData()"
-          />
-        </div>
-      </section>
-      }
-
-      @if(settingsStore.showVarioChart()){
-      <section class="chart-card">
-        <header>
-          <h2>Climb</h2>
-        </header>
-
-        <div class="chart-body">
-          <app-flight-line-chart
-            title="Climb"
-            unit="m/s"
-            chartType="vario"
-            [data]="varioData()"
-          />
-        </div>
-      </section>
-      }
-
-      @if(settingsStore.showSpeedChart()){
-      <section class="chart-card">
-        <header>
-          <h2>Speed</h2>
-        </header>
-
-        <div class="chart-body">
-          <app-flight-line-chart
-            title="Speed"
-            unit="km/h"
-            chartType="speed"
-            [data]="speedData()"
-          />
-        </div>
-      </section>
-      }
-
-    </section>
-
-    <section class="right-panel">
-      <div class="map-card">
-        <header>
-          <div class="track-title-row">
-            <h2>Track</h2>
-
-            <select
-              class="track-color-mode-select"
-              [value]="settingsStore.trackColorMode()"
-              (change)="setTrackColorMode($event)"
-              title="Track color mode"
-            >
-              <option value="vario">Vario</option>
-              <option value="speed">Speed</option>
-            </select>
-          </div>
-
-
-          <div
-            class="view-mode-toggle"
-            role="radiogroup"
-            aria-label="View mode"
-          >
-            <label class="view-mode-option">
-              <input
-                type="radio"
-                name="viewMode"
-                value="map"
-                [checked]="viewMode === 'map'"
-                (change)="setViewMode('map')"
+            <div class="chart-body">
+              <app-flight-line-chart
+                title="Altitude"
+                unit="m"
+                chartType="altitude"
+                [data]="altitudeData()"
               />
-              <span>Map</span>
-            </label>
-
-            <label class="view-mode-option">
-              <input
-                type="radio"
-                name="viewMode"
-                value="3d"
-                [checked]="viewMode === '3d'"
-                (change)="setViewMode('3d')"
-              />
-              <span>3D</span>
-            </label>
-          </div>
-        </header>
-
-        @if (viewMode === '3d'){
-        <app-flight-replay-controls />
+            </div>
+          </section>
         }
 
-        <div class="map-placeholder">
-          <div class="view-mode-content">
-            @if (viewMode === 'map') {
-            <app-flight-map />
-            } @else {
-            @if (flight3dComponent(); as component) {
-            <ng-container *ngComponentOutlet="component"></ng-container>
-            } @else {
-            <div class="lazy-3d-placeholder">
-              Loading 3D view...
+        @if (settingsStore.showVarioChart()) {
+          <section class="chart-card">
+            <header>
+              <h2>Climb</h2>
+            </header>
+
+            <div class="chart-body">
+              <app-flight-line-chart
+                title="Climb"
+                unit="m/s"
+                chartType="vario"
+                [data]="varioData()"
+              />
             </div>
-            }
-            }
+          </section>
+        }
+
+        @if (settingsStore.showSpeedChart()) {
+          <section class="chart-card">
+            <header>
+              <h2>Speed</h2>
+            </header>
+
+            <div class="chart-body">
+              <app-flight-line-chart
+                title="Speed"
+                unit="km/h"
+                chartType="speed"
+                [data]="speedData()"
+              />
+            </div>
+          </section>
+        }
+      </section>
+
+      <section class="right-panel">
+        <div class="map-card">
+          <header>
+            <div class="track-title-row">
+              <h2>Track</h2>
+
+              <select
+                class="track-color-mode-select"
+                [value]="settingsStore.trackColorMode()"
+                (change)="setTrackColorMode($event)"
+                title="Track color mode"
+              >
+                <option value="vario">Vario</option>
+                <option value="speed">Speed</option>
+              </select>
+            </div>
+
+            <div
+              class="view-mode-toggle"
+              role="radiogroup"
+              aria-label="View mode"
+            >
+              <label class="view-mode-option">
+                <input
+                  type="radio"
+                  name="viewMode"
+                  value="map"
+                  [checked]="viewMode === 'map'"
+                  (change)="setViewMode('map')"
+                />
+
+                <span>Map</span>
+              </label>
+
+              <label class="view-mode-option">
+                <input
+                  type="radio"
+                  name="viewMode"
+                  value="3d"
+                  [checked]="viewMode === '3d'"
+                  (change)="setViewMode('3d')"
+                />
+
+                <span>3D</span>
+              </label>
+            </div>
+          </header>
+
+          @if (viewMode === '3d') {
+            <app-flight-replay-controls />
+          }
+
+          <div class="map-placeholder">
+            <div class="view-mode-content">
+              @if (viewMode === 'map') {
+                <app-flight-map />
+              } @else {
+                @if (flight3dComponent(); as component) {
+                  <ng-container
+                    *ngComponentOutlet="component"
+                  ></ng-container>
+                } @else {
+                  <div class="lazy-3d-placeholder">
+                    Loading 3D view...
+                  </div>
+                }
+              }
+            </div>
+
+            <app-flight-track-tooltip />
           </div>
-
-          <app-flight-track-tooltip />
         </div>
-      </div>
-    </section>
-  </div>
-  }
-
-
-  @if (settingsDrawerOpen()) {
-  <div
-    class="drawer-backdrop"
-    (click)="closeSettingsDrawer()"
-  ></div>
-
-  <aside class="settings-drawer">
-    <header class="drawer-header">
-      <div>
-        <h2>Settings</h2>
-        <p>Chart visibility and resolution</p>
-      </div>
-
-      <button
-        type="button"
-        class="drawer-close"
-        (click)="closeSettingsDrawer()"
-      >
-        ×
-      </button>
-    </header>
-
-    <section class="drawer-section">
-      <h3>Visible charts</h3>
-
-      <label class="checkbox-row">
-        <input
-          type="checkbox"
-          [checked]="settingsStore.showAltitudeChart()"
-          (change)="setAltitudeChartVisible($event)"
-        />
-        <span>Altitude chart</span>
-      </label>
-
-      <label class="checkbox-row">
-        <input
-          type="checkbox"
-          [checked]="settingsStore.showVarioChart()"
-          (change)="setVarioChartVisible($event)"
-        />
-        <span>Climb chart</span>
-      </label>
-
-      <label class="checkbox-row">
-        <input
-          type="checkbox"
-          [checked]="settingsStore.showSpeedChart()"
-          (change)="setSpeedChartVisible($event)"
-        />
-        <span>Speed chart</span>
-      </label>
-    </section>
-
-    <section class="drawer-section">
-      <h3>Resolution</h3>
-
-      <label class="number-row">
-        <span>Altitude resolution</span>
-        <input
-          type="number"
-          min="1"
-          max="120"
-          step="1"
-          [value]="settingsStore.altitudeChartResolutionInSec()"
-          (change)="setAltitudeResolution($event)"
-        />
-      </label>
-
-      <label class="number-row">
-        <span>Climb resolution</span>
-        <input
-          type="number"
-          min="1"
-          max="120"
-          step="1"
-          [value]="settingsStore.varioChartResolutionInSec()"
-          (change)="setVarioResolution($event)"
-        />
-      </label>
-
-      <label class="number-row">
-        <span>Speed resolution</span>
-        <input
-          type="number"
-          min="1"
-          max="120"
-          step="1"
-          [value]="settingsStore.speedChartResolutionInSec()"
-          (change)="setSpeedResolution($event)"
-        />
-      </label>
-    </section>
-  </aside>
+      </section>
+    </div>
   }
 </section>
