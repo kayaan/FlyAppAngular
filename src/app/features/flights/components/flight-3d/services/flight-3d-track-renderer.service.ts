@@ -15,7 +15,7 @@ import { TrackColorMode } from '../../../models/flight-settings.model';
 import { TrackMetrics } from '../../../models/track-metrics.model';
 import { TrackArrays } from '../../../models/track-arrays.model';
 import { TrackColorService } from '../../../services/track-color.service';
-import { TrackMathUtils } from '../../../services/track-math-utils';
+import { TrackMathUtils } from '../../../domain/track-math-utils';
 import { Flight3dPositionOptions, Flight3dPositionService } from './flight-3d-position.service';
 
 export interface Flight3dTrackRenderOptions extends Flight3dPositionOptions {

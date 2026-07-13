@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 
 import { IgcParserService } from './igc-parser.service';
-import { FlightStatsCalculatorService } from './flight-stats-calculator.service';
+import { FlightStatsCalculatorService } from '../domain/flight-stats-calculator.service';
 import { FileHashService } from './file-hash.service';
 
 import { TrackArrays } from '../models/track-arrays.model';

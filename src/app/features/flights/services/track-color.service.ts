@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 
 import { ColoredTrackSegment } from '../models/colored-track-segment.model';
 import { TrackArrays } from '../models/track-arrays.model';
-import { TrackMathUtils } from './track-math-utils';
+import { TrackMathUtils } from '../domain/track-math-utils';
 
 const MIN_VARIO_MS = -4;
 const MAX_VARIO_MS = 4;

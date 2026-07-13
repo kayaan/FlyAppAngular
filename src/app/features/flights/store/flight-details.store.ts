@@ -15,15 +15,15 @@ import { TrackArrays } from '../models/track-arrays.model';
 import { Climb } from '../models/climb.model';
 import { FlightStats } from '../models/flight-stats.model';
 import { FlightIndexedDbService } from '../data-access/flight-indexeddb.service';
-import { DerivedFlightStatsService } from '../services/derived-flight-stats.service';
+import { DerivedFlightStatsService } from '../domain/derived-flight-stats.service';
 import { StatsSelection } from '../models/derived-flight-stats.model';
 import { FlightSettingsStore } from './flight-settings.store';
 import { TrackColorService } from '../services/track-color.service';
-import { ClimbDetectorService } from '../services/climb-detector.service';
+import { ClimbDetectorService } from '../domain/climb-detector.service';
 import { DetectedClimb } from '../models/detected-climb.model';
 import { ReplayRange, ReplayState } from '../models/replay-state.model';
 import { TrackMetrics } from '../models/track-metrics.model';
-import { TrackMetricsService } from '../services/track-metrics.service';
+import { TrackMetricsService } from '../domain/track-metrics.service';
 import { PublicFlightsApiService } from '../services/public-flights-api.service';
 
 type FlightDetailsState = {

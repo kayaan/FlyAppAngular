@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 
 import { TrackArrays } from '../models/track-arrays.model';
-import { TrackMathUtils } from './track-math-utils';
+import { TrackMathUtils } from '../domain/track-math-utils';
 
 @Injectable({
   providedIn: 'root',
