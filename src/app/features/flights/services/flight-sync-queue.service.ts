@@ -10,7 +10,7 @@ import { AppErrorService } from '../../../core/errors/app-error.service';
 import { BackendAvailabilityService } from '../../../core/layout/app-shell/services/backend-availability.service';
 
 import { FlightIndexedDbService } from '../data-access/flight-indexeddb.service';
-import { FlightSyncOperation } from '../models/flight-sync-operation.model';
+import { FlightSyncOperation, FlightVisibility } from '../models/flight-sync-operation.model';
 
 import { BackendFlightsApiService } from './backend-flights-api.service';
 import { FlightBackendSyncService } from './flight-backend-sync.service';
@@ -297,5 +297,65 @@ export class FlightSyncQueueService {
                 );
                 return;
         }
+    }
+
+    async enqueueVisibilityChange(
+        flightId: string,
+        visibility: FlightVisibility
+    ): Promise<void> {
+        const existingOperations =
+            await this.storage.getSyncOperationsByFlightId(
+                flightId
+            );
+
+        for (const operation of existingOperations) {
+            if (operation.type === 'visibility-change') {
+                await this.storage.removeSyncOperation(
+                    operation.id
+                );
+            }
+        }
+
+        await this.storage.enqueueSyncOperation({
+            type: 'visibility-change',
+            flightId,
+            visibility,
+            changedAtUtc: new Date().toISOString(),
+        });
+
+        await this.refreshQueueState();
+
+        void this.tryProcessInBackground();
+    }
+
+    async enqueueDelete(
+        flightId: string
+    ): Promise<void> {
+        const existingOperations =
+            await this.storage.getSyncOperationsByFlightId(
+                flightId
+            );
+
+        for (const operation of existingOperations) {
+            if (
+                operation.type === 'upload' ||
+                operation.type === 'visibility-change' ||
+                operation.type === 'delete'
+            ) {
+                await this.storage.removeSyncOperation(
+                    operation.id
+                );
+            }
+        }
+
+        await this.storage.enqueueSyncOperation({
+            type: 'delete',
+            flightId,
+            changedAtUtc: new Date().toISOString(),
+        });
+
+        await this.refreshQueueState();
+
+        void this.tryProcessInBackground();
     }
 }

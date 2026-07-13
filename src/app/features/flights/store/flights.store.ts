@@ -374,40 +374,33 @@ export const FlightsStore = signalStore(
           error: null,
         });
 
-        let failedCount = 0;
+        try {
+          for (const flightId of flightIds) {
+            patchState(store, {
+              uploadingFlightId: flightId,
+            });
 
-        for (const flightId of flightIds) {
-          patchState(store, {
-            uploadingFlightId: flightId,
-          });
+            clearSyncError(flightId);
 
-          clearSyncError(flightId);
-
-          try {
-            await backendSync.uploadFlight(flightId);
-          } catch (error) {
-            failedCount++;
-
-            setSyncError(
-              flightId,
-              errorService.getMessage(
-                error,
-                'Flight upload failed.'
-              )
-            );
+            await syncQueue.enqueueUpload(flightId);
           }
+
+          if (backendAvailability.available()) {
+            await syncQueue.processQueue();
+          }
+        } catch (error) {
+          patchState(store, {
+            error: errorService.getMessage(
+              error,
+              'Flights could not be queued for synchronization.'
+            ),
+          });
+        } finally {
+          patchState(store, {
+            uploadingFlightId: null,
+            uploadingAll: false,
+          });
         }
-
-        await this.loadBackendFlights();
-
-        patchState(store, {
-          uploadingFlightId: null,
-          uploadingAll: false,
-          error:
-            failedCount > 0
-              ? `${failedCount} flight(s) could not be uploaded.`
-              : null,
-        });
       },
 
       async syncDownloadFlight(
@@ -487,26 +480,20 @@ export const FlightsStore = signalStore(
         clearSyncError(flightId);
 
         try {
-          await firstValueFrom(
-            backendFlightsApi.deleteFlight(flightId)
-          );
+          await syncQueue.enqueueDelete(flightId);
 
-          await this.loadBackendFlights();
-
-          patchState(store, {
-            deletingRemoteFlightId: null,
-          });
+          if (backendAvailability.available()) {
+            await syncQueue.processQueue();
+          }
         } catch (error) {
           setSyncError(
             flightId,
-            errorService.isNotFound(error)
-              ? 'The remote flight no longer exists.'
-              : errorService.getMessage(
-                error,
-                'Remote flight could not be deleted.'
-              )
+            errorService.getMessage(
+              error,
+              'Remote delete could not be queued.'
+            )
           );
-
+        } finally {
           patchState(store, {
             deletingRemoteFlightId: null,
           });
@@ -524,34 +511,23 @@ export const FlightsStore = signalStore(
         clearSyncError(flightId);
 
         try {
-          const updatedFlight = await firstValueFrom(
-            backendFlightsApi.updateVisibility(
-              flightId,
-              visibility
-            )
+          await syncQueue.enqueueVisibilityChange(
+            flightId,
+            visibility
           );
 
-          patchState(store, {
-            backendFlights: store
-              .backendFlights()
-              .map((flight) =>
-                flight.id === updatedFlight.id
-                  ? updatedFlight
-                  : flight
-              ),
-            updatingVisibilityFlightId: null,
-          });
+          if (backendAvailability.available()) {
+            await syncQueue.processQueue();
+          }
         } catch (error) {
           setSyncError(
             flightId,
-            errorService.isNotFound(error)
-              ? 'The remote flight no longer exists.'
-              : errorService.getMessage(
-                error,
-                'Visibility update failed.'
-              )
+            errorService.getMessage(
+              error,
+              'Visibility update could not be queued.'
+            )
           );
-
+        } finally {
           patchState(store, {
             updatingVisibilityFlightId: null,
           });
