@@ -1,37 +1,80 @@
+@if (vm(); as vm) {
+
 <div class="replay-controls">
   <div class="replay-actions">
-    <button type="button" class="replay-button" title="Play backward"
-      [class.is-active]="replayActive() && !replayPaused() && replayDirection() === -1" [disabled]="!hasTrack()"
-      (click)="playBackward()">
+    <button
+      type="button"
+      class="replay-button"
+      title="Play backward"
+      [class.is-active]="
+          vm.active &&
+          !vm.paused &&
+          vm.direction === -1
+        "
+      [disabled]="!vm.hasTrack"
+      (click)="playBackward()"
+    >
       ◀
     </button>
-
-    <button type="button" class="replay-button" title="Play forward"
-      [class.is-active]="replayActive() && !replayPaused() && replayDirection() === 1" [disabled]="!hasTrack()"
-      (click)="playForward()">
+    <button
+      type="button"
+      class="replay-button"
+      title="Play forward"
+      [class.is-active]="
+      vm.active &&
+      !vm.paused &&
+      vm.direction === 1
+    "
+      [disabled]="!vm.hasTrack"
+      (click)="playForward()"
+    >
       ▶
     </button>
 
-    <button type="button" class="replay-button" title="Pause" (click)="pause()"
-      [disabled]="!replayActive() || replayPaused()">
+    <button
+      type="button"
+      class="replay-button"
+      title="Pause"
+      [disabled]="!vm.active || vm.paused"
+      (click)="pause()"
+    >
       ❚❚
     </button>
 
-    <button type="button" class="replay-button" title="Stop" (click)="stop()"
-      [disabled]="!replayActive() && store.replay().index === null">
+    <button
+      type="button"
+      class="replay-button"
+      title="Stop"
+      [disabled]="
+      !vm.active &&
+      vm.rawIndex === null
+    "
+      (click)="stop()"
+    >
       ■
     </button>
 
-    <select class="replay-speed" [value]="replaySpeedValue()" (change)="onSpeedChange($event)" [disabled]="!hasTrack()"
-      title="Replay speed">
+    <select
+      class="replay-speed"
+      title="Replay speed"
+      [value]="vm.speedValue"
+      [disabled]="!vm.hasTrack"
+      (change)="onSpeedChange($event)"
+    >
       @for (speed of speedOptions; track speed) {
-      <option [value]="speed">{{ speed }}x</option>
+      <option [value]="speed">
+        {{ speed }}x
+      </option>
       }
     </select>
 
     <label class="replay-control-group">
       <span>Trail</span>
-      <select [value]="replayTrailDurationValue()" (change)="onTrailDurationChange($event)">
+
+      <select
+        [value]="vm.trailDurationValue"
+        (change)="onTrailDurationChange($event)"
+      >
         <option value="full">Full</option>
         <option value="60">60s</option>
         <option value="120">120s</option>
@@ -40,27 +83,54 @@
       </select>
     </label>
 
-    @if (showCustomTrailDuration()) {
-    <label class="replay-control-group replay-custom-trail">
+    @if (vm.showCustomTrailDuration) {
+    <label class="
+        replay-control-group
+        replay-custom-trail
+      ">
       <span>Seconds</span>
-      <input type="number" min="1" step="1" [value]="customTrailDurationSec()"
-        (change)="onCustomTrailDurationChange($event)" />
+
+      <input
+        type="number"
+        min="1"
+        step="1"
+        [value]="vm.customTrailDurationSec"
+        (change)="
+          onCustomTrailDurationChange($event)
+        "
+      />
     </label>
     }
 
     <label class="replay-follow-toggle">
-      <input type="checkbox" [checked]="store.replay().cameraFollowEnabled" (change)="toggleCameraFollow($event)" />
+      <input
+        type="checkbox"
+        [checked]="vm.cameraFollowEnabled"
+        (change)="toggleCameraFollow($event)"
+      />
+
       <span>Follow camera</span>
     </label>
   </div>
 
   <div class="replay-slider-area">
-    <input class="replay-slider" type="range" [min]="minIndex()" [max]="maxIndex()" [value]="replayIndex()"
-      (pointerdown)="onSliderPointerDown()" (input)="onSliderInput()" (change)="onSliderCommit($event)"
-      [disabled]="!hasTrack()" />
+    <input
+      class="replay-slider"
+      type="range"
+      [min]="vm.minIndex"
+      [max]="vm.maxIndex"
+      [value]="vm.index"
+      [disabled]="!vm.hasTrack"
+      (pointerdown)="onSliderPointerDown()"
+      (input)="onSliderInput()"
+      (change)="onSliderCommit($event)"
+    />
 
     <span class="replay-index">
-      {{ replayIndex() }} / {{ maxIndex() }}
+      {{ vm.index }} / {{ vm.maxIndex }}
     </span>
   </div>
+  ```
+
 </div>
+}

@@ -1,340 +1,151 @@
-import { Component, computed, inject, OnDestroy } from '@angular/core';
+import {
+  Component,
+  computed,
+  inject,
+  OnDestroy,
+} from '@angular/core';
 
 import { FlightDetailsStore } from '../../store/flight-details.store';
+import { FlightReplayPlayerService } from './services/flight-replay-player.service';
 
-const REPLAY_TICK_MS = 100;
+const PRESET_TRAIL_DURATIONS = [60, 120, 300] as const;
 
 @Component({
   selector: 'app-flight-replay-controls',
   standalone: true,
   templateUrl: './flight-replay-controls.html',
   styleUrl: './flight-replay-controls.scss',
+  providers: [FlightReplayPlayerService],
 })
 export class FlightReplayControls implements OnDestroy {
   readonly store = inject(FlightDetailsStore);
 
-  private replayFlightTimeSec: number | null = null;
+  private readonly player = inject(
+    FlightReplayPlayerService
+  );
 
-  private replayTimerId: number | null = null;
-  private lastTickRealMs = 0;
+  readonly speedOptions = [
+    1,
+    2,
+    5,
+    10,
+    20,
+    50,
+    100,
+  ];
 
-  readonly speedOptions = [1, 2, 5, 10, 20, 50, 100];
-
-  private isDraggingSlider = false;
-
-  readonly replaySpeedValue = computed(() => {
-    return String(this.store.replay().speed ?? 1);
-  });
-
-  readonly replayDirection = computed(() => {
-    return this.store.replay().direction;
-  });
-
-  readonly minIndex = computed(() => {
-    return this.store.replay().range?.startIndex ?? 0;
-  });
-
-  readonly maxIndex = computed(() => {
+  readonly vm = computed(() => {
+    const replay = this.store.replay();
     const track = this.store.track();
-    const lastIndex = track ? Math.max(0, track.timeSec.length - 1) : 0;
 
-    return this.store.replay().range?.endIndex ?? lastIndex;
-  });
+    const lastIndex = track
+      ? Math.max(0, track.timeSec.length - 1)
+      : 0;
 
-  readonly replayIndex = computed(() => {
-    return this.store.replay().index ?? 0;
-  });
+    const trailDurationSec =
+      replay.replayTrailDurationSec;
 
-  readonly replayActive = computed(() => {
-    return this.store.replay().active;
-  });
+    const trailDurationValue =
+      trailDurationSec === null
+        ? 'full'
+        : PRESET_TRAIL_DURATIONS.includes(
+          trailDurationSec as 60 | 120 | 300
+        )
+          ? String(trailDurationSec)
+          : 'custom';
 
-  readonly replayPaused = computed(() => {
-    return this.store.replay().paused;
-  });
+    return {
+      active: replay.active,
+      paused: replay.paused,
+      direction: replay.direction,
 
-  readonly replaySpeed = computed(() => {
-    return this.store.replay().speed;
-  });
+      rawIndex: replay.index,
+      index: replay.index ?? 0,
 
-  readonly hasTrack = computed(() => {
-    const track = this.store.track();
-    return !!track && track.timeSec.length > 0;
+      minIndex: replay.range?.startIndex ?? 0,
+      maxIndex: replay.range?.endIndex ?? lastIndex,
+      speed: replay.speed,
+      speedValue: String(replay.speed ?? 1),
+      hasTrack: !!track && track.timeSec.length > 0,
+      cameraFollowEnabled: replay.cameraFollowEnabled,
+      trailDurationValue,
+      showCustomTrailDuration:
+        trailDurationValue === 'custom',
+      customTrailDurationSec:
+        trailDurationSec ?? 60,
+    };
   });
 
   onSliderPointerDown(): void {
-    this.isDraggingSlider = true;
+    this.player.setDraggingSlider(true);
   }
 
-
-  toggleCameraFollow(event: Event): void {
-    const checked = (event.target as HTMLInputElement).checked;
-    this.store.setReplayCameraFollowEnabled(checked);
-  }
   onSliderInput(): void {
-    // intentionally empty:
-    // store replay.index is updated only on slider commit/release
+    // Intentionally empty:
+    // replay.index is updated only when the slider
+    // is committed or released.
   }
 
   onSliderCommit(event: Event): void {
     const input = event.target as HTMLInputElement;
     const index = Number(input.value);
 
-    this.isDraggingSlider = false;
+    this.player.setDraggingSlider(false);
 
     this.store.setReplayIndex(index);
-
-    const track = this.store.track();
-    if (track && index >= 0 && index < track.timeSec.length) {
-      this.replayFlightTimeSec = track.timeSec[index];
-    }
-
-    if (this.store.replay().active && !this.store.replay().paused) {
-      this.lastTickRealMs = performance.now();
-    }
-  }
-
-  private startTimerFromCurrentIndex(): void {
-    const track = this.store.track();
-
-    if (!track || track.timeSec.length === 0) {
-      return;
-    }
-
-    this.stopTimer();
-
-    const replay = this.store.replay();
-
-    const replayStartIndex = replay.range?.startIndex ?? 0;
-    const replayEndIndex = replay.range?.endIndex ?? track.timeSec.length - 1;
-
-    const replayIndex = replay.index ?? replayStartIndex;
-
-    const safeIndex = Math.max(
-      replayStartIndex,
-      Math.min(replayIndex, replayEndIndex)
-    );
-
-    this.replayFlightTimeSec = track.timeSec[safeIndex];
-    this.lastTickRealMs = performance.now();
-
-    this.replayTimerId = window.setInterval(() => {
-      this.tickReplay();
-    }, REPLAY_TICK_MS);
+    this.player.syncWithIndex(index);
   }
 
   playForward(): void {
     const replay = this.store.replay();
 
-    if (!replay.active) {
+    if (
+      !replay.active ||
+      replay.paused ||
+      replay.direction !== 1
+    ) {
       this.store.playReplayForward();
-      this.startTimerFromCurrentIndex();
-      return;
-    }
-
-    if (replay.paused || replay.direction !== 1) {
-      this.store.playReplayForward();
-      this.startTimerFromCurrentIndex();
+      this.player.start();
     }
   }
 
   playBackward(): void {
     const replay = this.store.replay();
 
-    if (!replay.active) {
+    if (
+      !replay.active ||
+      replay.paused ||
+      replay.direction !== -1
+    ) {
       this.store.playReplayBackward();
-      this.startTimerFromCurrentIndex();
-      return;
-    }
-
-    if (replay.paused || replay.direction !== -1) {
-      this.store.playReplayBackward();
-      this.startTimerFromCurrentIndex();
+      this.player.start();
     }
   }
 
   pause(): void {
-    this.stopTimer();
+    this.player.stop();
     this.store.pauseReplay();
   }
 
   stop(): void {
-    this.stopTimer();
-    this.replayFlightTimeSec = null;
+    this.player.stop();
     this.store.stopReplay();
   }
 
-  private tickReplay(): void {
-    const track = this.store.track();
-    const replay = this.store.replay();
+  toggleCameraFollow(event: Event): void {
+    const checked = (
+      event.target as HTMLInputElement
+    ).checked;
 
-    if (!track || track.timeSec.length === 0 || !replay.active || replay.paused) {
-      this.stopTimer();
-      return;
-    }
-
-    if (this.isDraggingSlider) {
-      this.lastTickRealMs = performance.now();
-      return;
-    }
-
-    const lastTrackIndex = track.timeSec.length - 1;
-
-    const replayStartIndex = Math.max(
-      0,
-      Math.min(replay.range?.startIndex ?? 0, lastTrackIndex)
+    this.store.setReplayCameraFollowEnabled(
+      checked
     );
-
-    const replayEndIndex = Math.max(
-      replayStartIndex,
-      Math.min(replay.range?.endIndex ?? lastTrackIndex, lastTrackIndex)
-    );
-
-    const currentIndex = Math.max(
-      replayStartIndex,
-      Math.min(replay.index ?? replayStartIndex, replayEndIndex)
-    );
-
-    if (replay.direction === 1 && currentIndex >= replayEndIndex) {
-      this.replayFlightTimeSec = track.timeSec[replayEndIndex];
-      this.store.setReplayIndex(replayEndIndex);
-      this.stopTimer();
-      this.store.pauseReplay();
-      return;
-    }
-
-    if (replay.direction === -1 && currentIndex <= replayStartIndex) {
-      this.replayFlightTimeSec = track.timeSec[replayStartIndex];
-      this.store.setReplayIndex(replayStartIndex);
-      this.stopTimer();
-      this.store.pauseReplay();
-      return;
-    }
-
-    const now = performance.now();
-    const deltaRealSec = (now - this.lastTickRealMs) / 1000;
-    this.lastTickRealMs = now;
-
-    const deltaReplaySec = deltaRealSec * replay.speed * replay.direction;
-
-    if (this.replayFlightTimeSec === null) {
-      this.replayFlightTimeSec = track.timeSec[currentIndex];
-    }
-
-    const firstFlightSec = track.timeSec[replayStartIndex];
-    const lastFlightSec = track.timeSec[replayEndIndex];
-
-    // If the replay range changed while replay is active,
-    // the private floating replay time may still point to the old range.
-    // Reset it to the current store index in that case.
-    if (
-      this.replayFlightTimeSec === null ||
-      this.replayFlightTimeSec < firstFlightSec ||
-      this.replayFlightTimeSec > lastFlightSec
-    ) {
-      this.replayFlightTimeSec = track.timeSec[currentIndex];
-      this.lastTickRealMs = performance.now();
-      return;
-    }
-
-    const targetFlightSec = this.replayFlightTimeSec + deltaReplaySec;
-
-    if (targetFlightSec >= lastFlightSec) {
-      this.replayFlightTimeSec = lastFlightSec;
-      this.store.setReplayIndex(replayEndIndex);
-      this.stopTimer();
-      this.store.pauseReplay();
-      return;
-    }
-
-    if (targetFlightSec <= firstFlightSec) {
-      this.replayFlightTimeSec = firstFlightSec;
-      this.store.setReplayIndex(replayStartIndex);
-      this.stopTimer();
-      this.store.pauseReplay();
-      return;
-    }
-
-    this.replayFlightTimeSec = targetFlightSec;
-
-    const targetIndex =
-      replay.direction === 1
-        ? this.findIndexByTime(track.timeSec, targetFlightSec)
-        : this.findIndexByTimeReverse(track.timeSec, targetFlightSec);
-
-    const safeTargetIndex = Math.max(
-      replayStartIndex,
-      Math.min(targetIndex, replayEndIndex)
-    );
-
-    this.store.setReplayIndex(safeTargetIndex);
   }
-
-  private findIndexByTimeReverse(
-    timeSec: Int32Array,
-    targetFlightSec: number
-  ): number {
-    if (timeSec.length === 0) {
-      return 0;
-    }
-
-    if (targetFlightSec <= timeSec[0]) {
-      return 0;
-    }
-
-    if (targetFlightSec >= timeSec[timeSec.length - 1]) {
-      return timeSec.length - 1;
-    }
-
-    let low = 0;
-    let high = timeSec.length - 1;
-
-    while (low < high) {
-      const mid = Math.ceil((low + high) / 2);
-
-      if (timeSec[mid] > targetFlightSec) {
-        high = mid - 1;
-      } else {
-        low = mid;
-      }
-    }
-
-    return low;
-  }
-
-  private stopTimer(): void {
-    if (this.replayTimerId === null) {
-      return;
-    }
-
-    window.clearInterval(this.replayTimerId);
-    this.replayTimerId = null;
-  }
-
-  readonly replayTrailDurationValue = computed(() => {
-    const durationSec = this.store.replay().replayTrailDurationSec;
-
-    if (durationSec === null) {
-      return 'full';
-    }
-
-    if (durationSec === 60 || durationSec === 120 || durationSec === 300) {
-      return String(durationSec);
-    }
-
-    return 'custom';
-  });
-
-  readonly showCustomTrailDuration = computed(() => {
-    return this.replayTrailDurationValue() === 'custom';
-  });
-
-  readonly customTrailDurationSec = computed(() => {
-    return this.store.replay().replayTrailDurationSec ?? 60;
-  });
 
   onTrailDurationChange(event: Event): void {
-    const value = (event.target as HTMLSelectElement).value;
+    const value = (
+      event.target as HTMLSelectElement
+    ).value;
 
     if (value === 'full') {
       this.store.setReplayTrailDurationSec(null);
@@ -342,20 +153,32 @@ export class FlightReplayControls implements OnDestroy {
     }
 
     if (value === 'custom') {
-      const current = this.store.replay().replayTrailDurationSec;
+      const current =
+        this.store.replay().replayTrailDurationSec;
 
-      if (current === null || current === 60 || current === 120 || current === 300) {
+      if (
+        current === null ||
+        current === 60 ||
+        current === 120 ||
+        current === 300
+      ) {
         this.store.setReplayTrailDurationSec(180);
       }
 
       return;
     }
 
-    this.store.setReplayTrailDurationSec(Number(value));
+    this.store.setReplayTrailDurationSec(
+      Number(value)
+    );
   }
 
-  onCustomTrailDurationChange(event: Event): void {
-    const value = Number((event.target as HTMLInputElement).value);
+  onCustomTrailDurationChange(
+    event: Event
+  ): void {
+    const value = Number(
+      (event.target as HTMLInputElement).value
+    );
 
     if (!Number.isFinite(value) || value <= 0) {
       return;
@@ -363,43 +186,20 @@ export class FlightReplayControls implements OnDestroy {
 
     this.store.setReplayTrailDurationSec(value);
   }
+
   onSpeedChange(event: Event): void {
-    const select = event.target as HTMLSelectElement;
+    const select =
+      event.target as HTMLSelectElement;
 
-    this.store.setReplaySpeed(Number(select.value));
+    this.store.setReplaySpeed(
+      Number(select.value)
+    );
 
-    if (this.store.replay().active && !this.store.replay().paused) {
-      this.lastTickRealMs = performance.now();
-    }
-  }
-
-  private findIndexByTime(timeSec: Int32Array, targetFlightSec: number): number {
-    if (timeSec.length === 0) {
-      return 0;
-    }
-
-    if (targetFlightSec <= timeSec[0]) {
-      return 0;
-    }
-
-    let low = 0;
-    let high = timeSec.length - 1;
-
-    while (low < high) {
-      const mid = Math.floor((low + high) / 2);
-
-      if (timeSec[mid] < targetFlightSec) {
-        low = mid + 1;
-      } else {
-        high = mid;
-      }
-    }
-
-    return low;
+    this.player.resetTickTime();
   }
 
   ngOnDestroy(): void {
-    this.stopTimer();
+    this.player.destroy();
     this.store.stopReplay();
   }
 }
