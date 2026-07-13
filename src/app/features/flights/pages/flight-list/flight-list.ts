@@ -7,6 +7,7 @@ import { FlightSyncEventsService } from '../../services/flight-sync-events.servi
 import { FlightsStore } from '../../store/flights.store';
 import { FlightSortKey } from '../../models/flight-list-sort';
 import { BackendAvailabilityService } from '../../../../core/layout/app-shell/services/backend-availability.service';
+import { FlightSyncQueueService } from '../../services/flight-sync-queue.service';
 
 @Component({
   selector: 'app-flight-list',
@@ -21,31 +22,28 @@ export class FlightList implements OnInit, OnDestroy {
   private readonly backendAvailability = inject(BackendAvailabilityService);
 
   private readonly syncEvents = inject(FlightSyncEventsService);
+  readonly syncQueue = inject(
+    FlightSyncQueueService
+  );
+
+  private readonly queueCompletionEffect = effect(() => {
+    const revision =
+      this.syncQueue.completedRevision();
+
+    if (revision === 0) {
+      return;
+    }
+
+    void this.store.loadBackendFlights();
+  });
+
 
   private eventSource: EventSource | null = null;
 
-  private readonly authEffect = effect(() => {
-    const authenticated = this.authStore.authenticated();
-    const backendAvailable = this.backendAvailability.available();
-
-    if (!backendAvailable) {
-      this.closeSyncEvents();
-      this.store.clearBackendState();
-      return;
-    }
-
-    if (authenticated) {
-      void this.store.loadBackendFlights();
-      this.openSyncEvents();
-      return;
-    }
-
-    this.closeSyncEvents();
-    this.store.clearBackendState();
-  });
-
   ngOnInit(): void {
     void this.store.loadFlights();
+    this.syncQueue.startBackgroundProcessing();
+    void this.syncQueue.refreshQueueState();
   }
 
   ngOnDestroy(): void {

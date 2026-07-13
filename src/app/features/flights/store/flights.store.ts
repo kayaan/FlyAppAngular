@@ -26,6 +26,7 @@ import { FlightBackendSyncService } from '../services/flight-backend-sync.servic
 import { FlightListMergeService } from '../services/flight-list-merge.service';
 import { FlightListSortService } from '../services/flight-list-sort.service';
 import { FlightSaveService } from '../services/flight-save.service';
+import { FlightSyncQueueService } from '../services/flight-sync-queue.service';
 
 type FlightsState = {
   localFlightListItems: LocalFlightListItem[];
@@ -119,6 +120,7 @@ export const FlightsStore = signalStore(
       BackendAvailabilityService
     );
     const errorService = inject(AppErrorService);
+    const syncQueue = inject(FlightSyncQueueService);
 
     function clearSyncError(flightId: string): void {
       const currentErrors = store.syncErrorByFlightId();
@@ -155,7 +157,7 @@ export const FlightsStore = signalStore(
             key,
             direction:
               currentSort.key === key &&
-              currentSort.direction === 'asc'
+                currentSort.direction === 'asc'
                 ? 'desc'
                 : 'asc',
           },
@@ -331,9 +333,7 @@ export const FlightsStore = signalStore(
         }
       },
 
-      async syncUploadFlight(
-        flightId: string
-      ): Promise<void> {
+      async syncUploadFlight(flightId: string): Promise<void> {
         patchState(store, {
           uploadingFlightId: flightId,
         });
@@ -341,21 +341,20 @@ export const FlightsStore = signalStore(
         clearSyncError(flightId);
 
         try {
-          await backendSync.uploadFlight(flightId);
-          await this.loadBackendFlights();
+          await syncQueue.enqueueUpload(flightId);
 
-          patchState(store, {
-            uploadingFlightId: null,
-          });
+          if (backendAvailability.available()) {
+            await syncQueue.processQueue();
+          }
         } catch (error) {
           setSyncError(
             flightId,
             errorService.getMessage(
               error,
-              'Flight upload failed.'
+              'Flight could not be queued for synchronization.'
             )
           );
-
+        } finally {
           patchState(store, {
             uploadingFlightId: null,
           });
@@ -503,9 +502,9 @@ export const FlightsStore = signalStore(
             errorService.isNotFound(error)
               ? 'The remote flight no longer exists.'
               : errorService.getMessage(
-                  error,
-                  'Remote flight could not be deleted.'
-                )
+                error,
+                'Remote flight could not be deleted.'
+              )
           );
 
           patchState(store, {
@@ -548,9 +547,9 @@ export const FlightsStore = signalStore(
             errorService.isNotFound(error)
               ? 'The remote flight no longer exists.'
               : errorService.getMessage(
-                  error,
-                  'Visibility update failed.'
-                )
+                error,
+                'Visibility update failed.'
+              )
           );
 
           patchState(store, {

@@ -64,4 +64,23 @@ export class BackendAvailabilityService {
       window.clearTimeout(timeoutId);
     }
   }
+
+  async checkFresh(): Promise<boolean> {
+    if (this.checkPromise) {
+      return this.checkPromise;
+    }
+
+    this.checkPromise = this.checkBackend();
+
+    try {
+      const available = await this.checkPromise;
+
+      this.availableSignal.set(available);
+      this.checkedSignal.set(true);
+
+      return available;
+    } finally {
+      this.checkPromise = null;
+    }
+  }
 }

@@ -14,6 +14,7 @@ import {
   NewFlightImport,
   NewFlightStats,
 } from './flight-storage.interface';
+import { FlightSyncOperation, NewFlightSyncOperation } from '../models/flight-sync-operation.model';
 
 interface FlightDbSchema extends DBSchema {
   flights: {
@@ -38,6 +39,16 @@ interface FlightDbSchema extends DBSchema {
     key: string;
     value: IgcFile;
   };
+
+  syncOutbox: {
+    key: string;
+    value: FlightSyncOperation;
+    indexes: {
+      'by-status': string;
+      'by-flight-id': string;
+      'by-created-at': string;
+    };
+  };
 }
 
 @Injectable({
@@ -51,29 +62,203 @@ export class FlightIndexedDbService implements FlightStorage {
 
   private getDb(): Promise<IDBPDatabase<FlightDbSchema>> {
     if (!this.dbPromise) {
-      this.dbPromise = openDB<FlightDbSchema>(this.dbName, this.dbVersion, {
-        upgrade(db) {
-          db.createObjectStore('flights', {
-            keyPath: 'id',
-          });
+      this.dbPromise = openDB<FlightDbSchema>(
+        this.dbName,
+        this.dbVersion,
+        {
+          upgrade(db) {
+            if (!db.objectStoreNames.contains('flights')) {
+              db.createObjectStore('flights', {
+                keyPath: 'id',
+              });
+            }
 
-          db.createObjectStore('tracks', {
-            keyPath: 'id',
-          });
+            if (!db.objectStoreNames.contains('tracks')) {
+              db.createObjectStore('tracks', {
+                keyPath: 'id',
+              });
+            }
 
-          db.createObjectStore('stats', {
-            keyPath: 'id',
-          });
+            if (!db.objectStoreNames.contains('stats')) {
+              db.createObjectStore('stats', {
+                keyPath: 'id',
+              });
+            }
 
-          db.createObjectStore('igcFiles', {
-            keyPath: 'id',
-          });
-        },
-      });
+            if (!db.objectStoreNames.contains('igcFiles')) {
+              db.createObjectStore('igcFiles', {
+                keyPath: 'id',
+              });
+            }
+
+            if (!db.objectStoreNames.contains('syncOutbox')) {
+              const syncOutboxStore = db.createObjectStore(
+                'syncOutbox',
+                {
+                  keyPath: 'id',
+                }
+              );
+
+              syncOutboxStore.createIndex(
+                'by-status',
+                'status'
+              );
+
+              syncOutboxStore.createIndex(
+                'by-flight-id',
+                'flightId'
+              );
+
+              syncOutboxStore.createIndex(
+                'by-created-at',
+                'createdAtUtc'
+              );
+            }
+          },
+        }
+      );
     }
 
     return this.dbPromise;
   }
+
+  async getSyncOperationsByFlightId(
+    flightId: string
+  ): Promise<FlightSyncOperation[]> {
+    const db = await this.getDb();
+
+    return db.getAllFromIndex(
+      'syncOutbox',
+      'by-flight-id',
+      flightId
+    );
+  }
+
+  async getAllSyncOperations(): Promise<
+    FlightSyncOperation[]
+  > {
+    const db = await this.getDb();
+
+    return db.getAll('syncOutbox');
+  }
+
+  async resetRetryableSyncOperations(): Promise<void> {
+    const db = await this.getDb();
+    const operations = await db.getAll('syncOutbox');
+
+    const retryableOperations = operations.filter(
+      (operation) =>
+        operation.status === 'processing' ||
+        operation.status === 'failed'
+    );
+
+    if (retryableOperations.length === 0) {
+      return;
+    }
+
+    const transaction = db.transaction(
+      'syncOutbox',
+      'readwrite'
+    );
+
+    for (const operation of retryableOperations) {
+      await transaction.store.put({
+        ...operation,
+        status: 'pending',
+      });
+    }
+
+    await transaction.done;
+  }
+
+  async enqueueSyncOperation(
+    operation: NewFlightSyncOperation
+  ): Promise<FlightSyncOperation> {
+    const db = await this.getDb();
+    const createdAtUtc = new Date().toISOString();
+
+    const entry = {
+      ...operation,
+      id: crypto.randomUUID(),
+      createdAtUtc,
+      status: 'pending',
+      attempts: 0,
+      lastAttemptAtUtc: null,
+      lastError: null,
+    } satisfies FlightSyncOperation;
+
+    await db.put('syncOutbox', entry);
+
+    return entry;
+  }
+
+  async getPendingSyncOperations(): Promise<
+    FlightSyncOperation[]
+  > {
+    const db = await this.getDb();
+
+    const operations = await db.getAllFromIndex(
+      'syncOutbox',
+      'by-status',
+      'pending'
+    );
+
+    return operations.sort((a, b) =>
+      a.createdAtUtc.localeCompare(b.createdAtUtc)
+    );
+  }
+
+  async markSyncOperationProcessing(
+    operationId: string
+  ): Promise<void> {
+    const db = await this.getDb();
+    const operation = await db.get(
+      'syncOutbox',
+      operationId
+    );
+
+    if (!operation) {
+      return;
+    }
+
+    await db.put('syncOutbox', {
+      ...operation,
+      status: 'processing',
+      attempts: operation.attempts + 1,
+      lastAttemptAtUtc: new Date().toISOString(),
+      lastError: null,
+    });
+  }
+
+  async markSyncOperationFailed(
+    operationId: string,
+    errorMessage: string
+  ): Promise<void> {
+    const db = await this.getDb();
+    const operation = await db.get(
+      'syncOutbox',
+      operationId
+    );
+
+    if (!operation) {
+      return;
+    }
+
+    await db.put('syncOutbox', {
+      ...operation,
+      status: 'failed',
+      lastError: errorMessage,
+    });
+  }
+
+  async removeSyncOperation(
+    operationId: string
+  ): Promise<void> {
+    const db = await this.getDb();
+
+    await db.delete('syncOutbox', operationId);
+  }
+
 
   async getFlightListItems(): Promise<LocalFlightListItem[]> {
     const db = await this.getDb();

@@ -327,24 +327,25 @@
                 }
               </button>
               }
-
-              @if (authStore.authenticated() && item.syncStatus === 'localOnly') {
+              @if (syncQueue.isUploadQueued(item.id)) {
               <button
                 type="button"
-                class="secondary-button"
-                title="Upload to backend"
-                aria-label="Upload to backend"
-                [disabled]="
-                  store.uploadingAll() ||
-                  store.uploadingFlightId() === item.id
-                "
+                class="icon-button"
+                disabled
+                title="Upload queued"
+                aria-label="Upload queued"
+              >
+                ⏳
+              </button>
+              } @else if (item.syncStatus === 'localOnly') {
+              <button
+                type="button"
+                class="icon-button"
+                title="Queue upload"
+                aria-label="Queue upload"
                 (click)="store.syncUploadFlight(item.id)"
               >
-                @if (store.uploadingFlightId() === item.id) {
-                Uploading...
-                } @else {
-                Upload
-                }
+                ↑
               </button>
               }
 
