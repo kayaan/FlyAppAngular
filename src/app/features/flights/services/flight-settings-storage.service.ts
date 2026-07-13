@@ -4,6 +4,7 @@ import { Injectable } from '@angular/core';
 import {
   DEFAULT_FLIGHT_SETTINGS,
   FlightSettings,
+  normalizeFlightSettings,
 } from '../models/flight-settings.model';
 
 const STORAGE_KEY = 'flight-app.settings.v1';
@@ -22,10 +23,7 @@ export class FlightSettingsStorageService {
     try {
       const parsed = JSON.parse(raw) as Partial<FlightSettings>;
 
-      return {
-        ...DEFAULT_FLIGHT_SETTINGS,
-        ...parsed,
-      };
+      return normalizeFlightSettings(parsed);
     } catch {
       return DEFAULT_FLIGHT_SETTINGS;
     }

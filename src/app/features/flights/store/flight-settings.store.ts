@@ -10,11 +10,14 @@ import {
 } from '@ngrx/signals';
 
 import {
-  DEFAULT_FLIGHT_SETTINGS,
   ChartHeightMode,
+  DEFAULT_FLIGHT_SETTINGS,
+  FlightSettings,
   MapTileMode,
+  normalizeFlightSettings,
   TrackColorMode,
 } from '../models/flight-settings.model';
+
 import { FlightSettingsStorageService } from '../services/flight-settings-storage.service';
 
 export const FlightSettingsStore = signalStore(
@@ -23,50 +26,78 @@ export const FlightSettingsStore = signalStore(
   withState(DEFAULT_FLIGHT_SETTINGS),
 
   withMethods((store) => {
-    const storage = inject(FlightSettingsStorageService);
+    const storage = inject(
+      FlightSettingsStorageService
+    );
 
-    function normalizeResolution(value: number): number {
-      if (!Number.isFinite(value)) {
-        return 1;
-      }
-
-      return Math.max(1, Math.min(60, Math.round(value)));
-    }
-
-    function persist(): void {
-      storage.save({
+    function getCurrentSettings(): FlightSettings {
+      return {
         mapTileMode: store.mapTileMode(),
 
-        showAltitudeChart: store.showAltitudeChart(),
-        showVarioChart: store.showVarioChart(),
-        showSpeedChart: store.showSpeedChart(),
+        showAltitudeChart:
+          store.showAltitudeChart(),
+        showVarioChart:
+          store.showVarioChart(),
+        showSpeedChart:
+          store.showSpeedChart(),
 
-        chartHeightMode: store.chartHeightMode(),
+        chartHeightMode:
+          store.chartHeightMode(),
 
-        altitudeChartResolutionInSec: store.altitudeChartResolutionInSec(),
-        varioChartResolutionInSec: store.varioChartResolutionInSec(),
-        speedChartResolutionInSec: store.speedChartResolutionInSec(),
+        altitudeChartResolutionInSec:
+          store.altitudeChartResolutionInSec(),
+        varioChartResolutionInSec:
+          store.varioChartResolutionInSec(),
+        speedChartResolutionInSec:
+          store.speedChartResolutionInSec(),
 
-        trackColorMode: store.trackColorMode(),
+        trackColorMode:
+          store.trackColorMode(),
 
-        showStatsPanel: store.showStatsPanel(),
-        showClimbsOnCharts: store.showClimbsOnCharts(),
+        showStatsPanel:
+          store.showStatsPanel(),
+        showClimbsOnCharts:
+          store.showClimbsOnCharts(),
 
-        climbDetectionMinGainM: store.climbDetectionMinGainM(),
-        climbDetectionMinSeparationDropM: store.climbDetectionMinSeparationDropM(),
+        climbDetectionMinGainM:
+          store.climbDetectionMinGainM(),
+        climbDetectionMinSeparationDropM:
+          store.climbDetectionMinSeparationDropM(),
 
-        threeDVerticalExaggeration: store.threeDVerticalExaggeration(),
+        threeDVerticalExaggeration:
+          store.threeDVerticalExaggeration(),
+
         threeDVerticalExaggerationRelativeHeight:
-          store.threeDVerticalExaggerationRelativeHeight(),
-        threeDTrackAltitudeOffsetM: store.threeDTrackAltitudeOffsetM(),
-        threeDRenderStep: store.threeDRenderStep(),
-        threeDVarioClassCount: store.threeDVarioClassCount(),
-        threeDMaxVarioForColorMs: store.threeDMaxVarioForColorMs(),
+          store
+            .threeDVerticalExaggerationRelativeHeight(),
+
+        threeDTrackAltitudeOffsetM:
+          store.threeDTrackAltitudeOffsetM(),
+
+        threeDRenderStep:
+          store.threeDRenderStep(),
+
+        threeDVarioClassCount:
+          store.threeDVarioClassCount(),
+
+        threeDMaxVarioForColorMs:
+          store.threeDMaxVarioForColorMs(),
+      };
+    }
+
+    function updateSettings(
+      changes: Partial<FlightSettings>
+    ): void {
+      const settings = normalizeFlightSettings({
+        ...getCurrentSettings(),
+        ...changes,
       });
+
+      patchState(store, settings);
+      storage.save(settings);
     }
 
     return {
-
       setThreeDVisualizationSettings(settings: {
         verticalExaggeration: number;
         verticalExaggerationRelativeHeight: number;
@@ -75,155 +106,140 @@ export const FlightSettingsStore = signalStore(
         varioClassCount: number;
         maxVarioForColorMs: number;
       }): void {
-        patchState(store, {
-          threeDVerticalExaggeration: Math.max(
-            0.1,
-            Math.min(10, settings.verticalExaggeration)
-          ),
-          threeDVerticalExaggerationRelativeHeight: Math.max(
-            0,
-            settings.verticalExaggerationRelativeHeight
-          ),
-          threeDTrackAltitudeOffsetM: Math.max(
-            0,
-            Math.round(settings.trackAltitudeOffsetM)
-          ),
-          threeDRenderStep: Math.max(
-            1,
-            Math.round(settings.renderStep)
-          ),
-          threeDVarioClassCount: Math.max(
-            2,
-            Math.round(settings.varioClassCount)
-          ),
-          threeDMaxVarioForColorMs: Math.max(
-            0.5,
-            settings.maxVarioForColorMs
-          ),
-        });
+        updateSettings({
+          threeDVerticalExaggeration:
+            settings.verticalExaggeration,
 
-        persist();
+          threeDVerticalExaggerationRelativeHeight:
+            settings.verticalExaggerationRelativeHeight,
+
+          threeDTrackAltitudeOffsetM:
+            settings.trackAltitudeOffsetM,
+
+          threeDRenderStep:
+            settings.renderStep,
+
+          threeDVarioClassCount:
+            settings.varioClassCount,
+
+          threeDMaxVarioForColorMs:
+            settings.maxVarioForColorMs,
+        });
       },
 
       setClimbDetectionSettings(
         minGainM: number,
         minSeparationDropM: number
       ): void {
-        patchState(store, {
-          climbDetectionMinGainM: Math.max(1, Math.round(minGainM)),
-          climbDetectionMinSeparationDropM: Math.max(
-            1,
-            Math.round(minSeparationDropM)
-          ),
+        updateSettings({
+          climbDetectionMinGainM: minGainM,
+          climbDetectionMinSeparationDropM:
+            minSeparationDropM,
         });
-
-        persist();
       },
 
       setShowStatsPanel(show: boolean): void {
-        patchState(store, {
+        updateSettings({
           showStatsPanel: show,
         });
-
-        persist();
       },
 
       setShowClimbsOnCharts(show: boolean): void {
-        patchState(store, {
+        updateSettings({
           showClimbsOnCharts: show,
         });
-
-        persist();
       },
 
-      setMapTileMode(mapTileMode: MapTileMode): void {
-        patchState(store, {
+      setMapTileMode(
+        mapTileMode: MapTileMode
+      ): void {
+        updateSettings({
           mapTileMode,
         });
-
-        persist();
       },
 
-      setTrackColorMode(trackColorMode: TrackColorMode): void {
-        patchState(store, {
+      setTrackColorMode(
+        trackColorMode: TrackColorMode
+      ): void {
+        updateSettings({
           trackColorMode,
         });
-
-        persist();
       },
 
-      setChartHeightMode(chartHeightMode: ChartHeightMode): void {
-        patchState(store, {
+      setChartHeightMode(
+        chartHeightMode: ChartHeightMode
+      ): void {
+        updateSettings({
           chartHeightMode,
         });
-
-        persist();
       },
 
-      setShowAltitudeChart(show: boolean): void {
-        patchState(store, {
+      setShowAltitudeChart(
+        show: boolean
+      ): void {
+        updateSettings({
           showAltitudeChart: show,
         });
-
-        persist();
       },
 
-      setShowVarioChart(show: boolean): void {
-        patchState(store, {
+      setShowVarioChart(
+        show: boolean
+      ): void {
+        updateSettings({
           showVarioChart: show,
         });
-
-        persist();
       },
 
-      setShowSpeedChart(show: boolean): void {
-        patchState(store, {
+      setShowSpeedChart(
+        show: boolean
+      ): void {
+        updateSettings({
           showSpeedChart: show,
         });
-
-        persist();
       },
 
-      setAltitudeChartResolutionInSec(value: number): void {
-        patchState(store, {
-          altitudeChartResolutionInSec: normalizeResolution(value),
+      setAltitudeChartResolutionInSec(
+        value: number
+      ): void {
+        updateSettings({
+          altitudeChartResolutionInSec: value,
         });
-
-        persist();
       },
 
-      setVarioChartResolutionInSec(value: number): void {
-        patchState(store, {
-          varioChartResolutionInSec: normalizeResolution(value),
+      setVarioChartResolutionInSec(
+        value: number
+      ): void {
+        updateSettings({
+          varioChartResolutionInSec: value,
         });
-
-        persist();
       },
 
-      setSpeedChartResolutionInSec(value: number): void {
-        patchState(store, {
-          speedChartResolutionInSec: normalizeResolution(value),
+      setSpeedChartResolutionInSec(
+        value: number
+      ): void {
+        updateSettings({
+          speedChartResolutionInSec: value,
         });
-
-        persist();
       },
 
       resetSettings(): void {
         storage.reset();
-
-        patchState(store, DEFAULT_FLIGHT_SETTINGS);
+        patchState(
+          store,
+          DEFAULT_FLIGHT_SETTINGS
+        );
       },
     };
   }),
 
   withHooks({
     onInit(store): void {
-      const storage = inject(FlightSettingsStorageService);
+      const storage = inject(
+        FlightSettingsStorageService
+      );
 
-      patchState(store, {
-        ...DEFAULT_FLIGHT_SETTINGS,
-        ...storage.load(),
-      });
+      patchState(store, storage.load());
     },
   })
 );
+
