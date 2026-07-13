@@ -25,12 +25,15 @@ import { TrackColorMode } from '../../models/flight-settings.model';
 import { FlightTrackTooltip } from '../../components/flight-track-tooltip/flight-track-tooltip';
 import { FlightDetailsSettingsDrawer } from '../../components/flight-details-settings-drawer/flight-details-settings-drawer';
 
+import { FlightDatePipe } from '../../pipes/flight-date.pipe';
+
 @Component({
   selector: 'app-flight-details',
   standalone: true,
   imports: [
     CommonModule,
     RouterLink,
+    FlightDatePipe,
     FlightLineChart,
     FlightMap,
     FlightSummaryTags,
@@ -73,38 +76,25 @@ export class FlightDetails implements OnInit, OnDestroy {
     () => this.store.track()?.timeSec.length ?? 0
   );
 
-  readonly altitudeData = computed<FlightChartPoint[]>(() => {
+  readonly chartData = computed(() => {
     const track = this.store.track();
     const metrics = this.store.trackMetrics();
 
     if (!track || !metrics) {
-      return [];
+      return {
+        altitude: [] as FlightChartPoint[],
+        vario: [] as FlightChartPoint[],
+        speed: [] as FlightChartPoint[],
+      };
     }
 
-    return this.toChartPoints(track.timeSec, metrics.altitudeM);
+    return {
+      altitude: this.toChartPoints(track.timeSec, metrics.altitudeM),
+      vario: this.toChartPoints(track.timeSec, metrics.varioMs),
+      speed: this.toChartPoints(track.timeSec, metrics.speedKmh),
+    };
   });
 
-  readonly varioData = computed<FlightChartPoint[]>(() => {
-    const track = this.store.track();
-    const metrics = this.store.trackMetrics();
-
-    if (!track || !metrics) {
-      return [];
-    }
-
-    return this.toChartPoints(track.timeSec, metrics.varioMs);
-  });
-
-  readonly speedData = computed<FlightChartPoint[]>(() => {
-    const track = this.store.track();
-    const metrics = this.store.trackMetrics();
-
-    if (!track || !metrics) {
-      return [];
-    }
-
-    return this.toChartPoints(track.timeSec, metrics.speedKmh);
-  });
 
   ngOnInit(): void {
     const flightId = this.route.snapshot.paramMap.get('id');
@@ -165,71 +155,6 @@ export class FlightDetails implements OnInit, OnDestroy {
     }
 
     return result;
-  }
-
-  formatDate(value: string | undefined | null): string {
-    if (!value) {
-      return '—';
-    }
-
-    const date = new Date(value);
-
-    if (Number.isNaN(date.getTime())) {
-      return value;
-    }
-
-    return new Intl.DateTimeFormat('de-DE', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    }).format(date);
-  }
-
-  formatDuration(
-    durationSec: number | undefined | null
-  ): string {
-    if (durationSec == null) {
-      return '—';
-    }
-
-    const hours = Math.floor(durationSec / 3600);
-    const minutes = Math.floor((durationSec % 3600) / 60);
-
-    if (hours > 0) {
-      return `${hours}h ${minutes}m`;
-    }
-
-    return `${minutes}m`;
-  }
-
-  formatDistance(
-    distanceM: number | undefined | null
-  ): string {
-    if (distanceM == null) {
-      return '—';
-    }
-
-    return `${(distanceM / 1000).toFixed(1)} km`;
-  }
-
-  formatHeight(
-    heightM: number | undefined | null
-  ): string {
-    if (heightM == null) {
-      return '—';
-    }
-
-    return `${Math.round(heightM)} m`;
-  }
-
-  formatSpeed(
-    speedKmh: number | undefined | null
-  ): string {
-    if (speedKmh == null) {
-      return '—';
-    }
-
-    return `${Math.round(speedKmh)} km/h`;
   }
 
   ngOnDestroy(): void {

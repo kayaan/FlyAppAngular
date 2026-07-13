@@ -8,160 +8,158 @@
     </a>
 
     @if (store.flight(); as flight) {
-      <div class="title-line">
-        <strong>{{ formatDate(flight.flightDate) }}</strong>
-        <span>·</span>
-        <span>{{ flight.pilot || 'Unknown pilot' }}</span>
-        <span>·</span>
-        <span>{{ flight.glider || 'Unknown glider' }}</span>
-      </div>
+    <div class="title-line">
+      <strong>{{ flight.flightDate | flightDate }}</strong>
+      <span>·</span>
+      <span>{{ flight.pilot || 'Unknown pilot' }}</span>
+      <span>·</span>
+      <span>{{ flight.glider || 'Unknown glider' }}</span>
+    </div>
     }
 
     <app-flight-details-settings-drawer />
   </header>
 
   @if (store.loading()) {
-    <div class="loading-box">Loading flight...</div>
+  <div class="loading-box">Loading flight...</div>
   }
 
   @if (store.error()) {
-    <div class="error-box">
-      {{ store.error() }}
-    </div>
+  <div class="error-box">
+    {{ store.error() }}
+  </div>
   }
 
   @if (!store.loading() && store.flight(); as flight) {
-    <div class="details-layout">
-      <section class="left-panel">
-        <app-flight-summary-tags />
+  <div class="details-layout">
+    <section class="left-panel">
+      <app-flight-summary-tags />
 
-        <app-flight-climbs-panel />
+      <app-flight-climbs-panel />
 
-        @if (settingsStore.showAltitudeChart()) {
-          <section class="chart-card">
-            <header>
-              <h2>Altitude</h2>
-            </header>
+      @if (settingsStore.showAltitudeChart()) {
+      <section class="chart-card">
+        <header>
+          <h2>Altitude</h2>
+        </header>
 
-            <div class="chart-body">
-              <app-flight-line-chart
-                title="Altitude"
-                unit="m"
-                chartType="altitude"
-                [data]="altitudeData()"
-              />
-            </div>
-          </section>
-        }
-
-        @if (settingsStore.showVarioChart()) {
-          <section class="chart-card">
-            <header>
-              <h2>Climb</h2>
-            </header>
-
-            <div class="chart-body">
-              <app-flight-line-chart
-                title="Climb"
-                unit="m/s"
-                chartType="vario"
-                [data]="varioData()"
-              />
-            </div>
-          </section>
-        }
-
-        @if (settingsStore.showSpeedChart()) {
-          <section class="chart-card">
-            <header>
-              <h2>Speed</h2>
-            </header>
-
-            <div class="chart-body">
-              <app-flight-line-chart
-                title="Speed"
-                unit="km/h"
-                chartType="speed"
-                [data]="speedData()"
-              />
-            </div>
-          </section>
-        }
-      </section>
-
-      <section class="right-panel">
-        <div class="map-card">
-          <header>
-            <div class="track-title-row">
-              <h2>Track</h2>
-
-              <select
-                class="track-color-mode-select"
-                [value]="settingsStore.trackColorMode()"
-                (change)="setTrackColorMode($event)"
-                title="Track color mode"
-              >
-                <option value="vario">Vario</option>
-                <option value="speed">Speed</option>
-              </select>
-            </div>
-
-            <div
-              class="view-mode-toggle"
-              role="radiogroup"
-              aria-label="View mode"
-            >
-              <label class="view-mode-option">
-                <input
-                  type="radio"
-                  name="viewMode"
-                  value="map"
-                  [checked]="viewMode === 'map'"
-                  (change)="setViewMode('map')"
-                />
-
-                <span>Map</span>
-              </label>
-
-              <label class="view-mode-option">
-                <input
-                  type="radio"
-                  name="viewMode"
-                  value="3d"
-                  [checked]="viewMode === '3d'"
-                  (change)="setViewMode('3d')"
-                />
-
-                <span>3D</span>
-              </label>
-            </div>
-          </header>
-
-          @if (viewMode === '3d') {
-            <app-flight-replay-controls />
-          }
-
-          <div class="map-placeholder">
-            <div class="view-mode-content">
-              @if (viewMode === 'map') {
-                <app-flight-map />
-              } @else {
-                @if (flight3dComponent(); as component) {
-                  <ng-container
-                    *ngComponentOutlet="component"
-                  ></ng-container>
-                } @else {
-                  <div class="lazy-3d-placeholder">
-                    Loading 3D view...
-                  </div>
-                }
-              }
-            </div>
-
-            <app-flight-track-tooltip />
-          </div>
+        <div class="chart-body">
+          <app-flight-line-chart
+            title="Altitude"
+            unit="m"
+            chartType="altitude"
+            [data]="chartData().altitude"
+          />
         </div>
       </section>
-    </div>
+      }
+
+      @if (settingsStore.showVarioChart()) {
+      <section class="chart-card">
+        <header>
+          <h2>Climb</h2>
+        </header>
+
+        <div class="chart-body">
+          <app-flight-line-chart
+            title="Climb"
+            unit="m/s"
+            chartType="vario"
+            [data]="chartData().vario"
+          />
+        </div>
+      </section>
+      }
+
+      @if (settingsStore.showSpeedChart()) {
+      <section class="chart-card">
+        <header>
+          <h2>Speed</h2>
+        </header>
+
+        <div class="chart-body">
+          <app-flight-line-chart
+            title="Speed"
+            unit="km/h"
+            chartType="speed"
+            [data]="chartData().speed"
+          />
+        </div>
+      </section>
+      }
+    </section>
+
+    <section class="right-panel">
+      <div class="map-card">
+        <header>
+          <div class="track-title-row">
+            <h2>Track</h2>
+
+            <select
+              class="track-color-mode-select"
+              [value]="settingsStore.trackColorMode()"
+              (change)="setTrackColorMode($event)"
+              title="Track color mode"
+            >
+              <option value="vario">Vario</option>
+              <option value="speed">Speed</option>
+            </select>
+          </div>
+
+          <div
+            class="view-mode-toggle"
+            role="radiogroup"
+            aria-label="View mode"
+          >
+            <label class="view-mode-option">
+              <input
+                type="radio"
+                name="viewMode"
+                value="map"
+                [checked]="viewMode === 'map'"
+                (change)="setViewMode('map')"
+              />
+
+              <span>Map</span>
+            </label>
+
+            <label class="view-mode-option">
+              <input
+                type="radio"
+                name="viewMode"
+                value="3d"
+                [checked]="viewMode === '3d'"
+                (change)="setViewMode('3d')"
+              />
+
+              <span>3D</span>
+            </label>
+          </div>
+        </header>
+
+        @if (viewMode === '3d') {
+        <app-flight-replay-controls />
+        }
+
+        <div class="map-placeholder">
+          <div class="view-mode-content">
+            @if (viewMode === 'map') {
+            <app-flight-map />
+            } @else {
+            @if (flight3dComponent(); as component) {
+            <ng-container *ngComponentOutlet="component"></ng-container>
+            } @else {
+            <div class="lazy-3d-placeholder">
+              Loading 3D view...
+            </div>
+            }
+            }
+          </div>
+
+          <app-flight-track-tooltip />
+        </div>
+      </div>
+    </section>
+  </div>
   }
 </section>
